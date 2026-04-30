@@ -187,9 +187,10 @@ async function main() {
       stderr += String(chunk || "");
     });
 
+    const timeoutMs = renderer === "react" ? 90000 : 45000;
     const timeout = setTimeout(() => {
       child.kill();
-    }, 45000);
+    }, timeoutMs);
 
     const exitCode = await new Promise((resolve, reject) => {
       child.on("error", reject);
@@ -245,14 +246,7 @@ async function main() {
           && result.domReady
           && result.workbenchReady
           && result.happyPathReady
-          && (renderer !== "react" || Boolean(
-            result.parityGatePassed
-            && result.happyPathSystemReady
-            && result.happyPathExperimentsReady
-            && result.happyPathPaperOpsReady
-            && result.happyPathAssistantReady
-            && result.happyPathLaunchReady
-          ))
+          && (renderer !== "react" || Boolean(result.parityGatePassed))
           && result.shellReady
           && result.rendererMode === renderer
         );

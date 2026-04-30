@@ -54,8 +54,16 @@ export function useQuantLabContextValue() {
       try {
         const store = await bridge.getShellWorkspaceStore();
         if (store) {
-          setTabs(store.tabs || []);
-          setActiveTabId(store.active_tab_id || (store.tabs?.[0]?.id) || null);
+          const loadedTabs = Array.isArray(store.tabs) && store.tabs.length > 0
+            ? store.tabs
+            : [{
+                id: 'paper-ops',
+                kind: 'paper',
+                navKind: 'paper-ops',
+                title: 'Paper Ops',
+              }];
+          setTabs(loadedTabs);
+          setActiveTabId(store.active_tab_id || loadedTabs[0]?.id || null);
           setSelectedRunIds(store.selected_run_ids || []);
         }
       } catch (err) {
@@ -84,26 +92,59 @@ export function useQuantLabContextValue() {
   }, [tabs, activeTabId, selectedRunIds, isInitialized]);
 
   // 4. Native actions (Simplified by centralized persistence)
-  const openTab = useCallback((kind, title, requestIdOrRunId) => {
+  const openTab = useCallback((kindOrTab, title, requestIdOrRunId) => {
+    const normalized = kindOrTab && typeof kindOrTab === 'object'
+      ? kindOrTab
+      : { kind: kindOrTab, title, requestIdOrRunId };
+
+    const kind = normalized?.kind;
+    const tabTitle = normalized?.title || title || `${kind} review`;
+    const tabId = typeof normalized?.id === 'string' && normalized.id
+      ? normalized.id
+      : null;
+    const requestId = typeof normalized?.requestId === 'string'
+      ? normalized.requestId
+      : (typeof requestIdOrRunId === 'string' ? requestIdOrRunId : null);
+    const runId = typeof normalized?.runId === 'string'
+      ? normalized.runId
+      : (typeof requestIdOrRunId === 'string' ? requestIdOrRunId : null);
+    const runIds = Array.isArray(normalized?.runIds)
+      ? normalized.runIds.map((value) => String(value)).filter(Boolean)
+      : [];
+    const subview = typeof normalized?.subview === 'string' && normalized.subview
+      ? normalized.subview
+      : null;
+
     setTabs(currentTabs => {
-      const existing = currentTabs.find(t =>
-        (t.kind === kind && t.requestId === requestIdOrRunId) ||
-        (t.kind === kind && t.runId === requestIdOrRunId)
-      );
+      const existing = tabId
+        ? currentTabs.find((tab) => tab.id === tabId)
+        : currentTabs.find((tab) => {
+            if (kind === 'job') return tab.kind === kind && tab.requestId === requestId;
+            if (kind === 'run' || kind === 'artifacts') return tab.kind === kind && tab.runId === runId;
+            if (kind === 'compare') {
+              const currentRunIds = Array.isArray(tab.runIds) ? tab.runIds.map((value) => String(value)) : [];
+              return tab.kind === kind && currentRunIds.join('|') === runIds.join('|');
+            }
+            return tab.kind === kind;
+          });
 
       if (existing) {
         setActiveTabId(existing.id);
         return currentTabs;
       }
 
-      let nextId = `tab-${Date.now()}`;
-      if (kind === 'run') nextId = `run:${requestIdOrRunId}`;
-      if (kind === 'artifacts') nextId = `artifacts:${requestIdOrRunId}`;
-      if (kind === 'job') nextId = `job:${requestIdOrRunId}`;
+      let nextId = tabId || `tab-${Date.now()}`;
+      if (kind === 'run') nextId = `run:${runId}`;
+      if (kind === 'artifacts') nextId = `artifacts:${runId}`;
+      if (kind === 'job') nextId = `job:${requestId}`;
+      if (kind === 'compare' && runIds.length) nextId = `compare:${runIds.join('|')}`;
+      if (kind === 'compare' && !runIds.length) nextId = tabId || 'compare:selection';
 
-      const newTab = { id: nextId, kind, title: title || `${kind} review` };
-      if (kind === 'job') newTab.requestId = requestIdOrRunId;
-      if (kind === 'run' || kind === 'artifacts') newTab.runId = requestIdOrRunId;
+      const newTab = { id: nextId, kind, title: tabTitle };
+      if (kind === 'job' && requestId) newTab.requestId = requestId;
+      if ((kind === 'run' || kind === 'artifacts') && runId) newTab.runId = runId;
+      if (kind === 'compare' && runIds.length) newTab.runIds = runIds;
+      if (subview) newTab.subview = subview;
 
       setActiveTabId(nextId);
       return [...currentTabs, newTab];
@@ -131,7 +172,7 @@ export function useQuantLabContextValue() {
       const surfaceIdMap = {
         'runs': 'runs-native', // Match smoke test expectation
         'candidates': 'candidates',
-        'compare': 'compare-selection',
+        'compare': 'compare:selection',
         'paper-ops': 'paper-ops',
         'system': 'system',
         'experiments': 'experiments',
@@ -157,7 +198,12 @@ export function useQuantLabContextValue() {
         'launch': 'Launch'
       };
 
-      const newTab = { id, kind, title: titleMap[kind] || kind };
+      const newTab = {
+        id,
+        kind: kind === 'paper-ops' ? 'paper' : kind,
+        navKind: kind,
+        title: titleMap[kind] || kind,
+      };
       setActiveTabId(id);
       return [...currentTabs, newTab];
     });

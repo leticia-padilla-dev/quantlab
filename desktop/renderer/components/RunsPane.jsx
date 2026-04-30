@@ -231,7 +231,7 @@ function RunRow({ run, isSelected, isCandidate }) {
         </button>
         <button
           className="ghost-btn mini"
-          onClick={() => openTab({ kind: 'run', runId: run.run_id })}
+          onClick={() => openTab({ kind: 'artifacts', runId: run.run_id, title: `${run.run_id} artifacts`, subview: 'artifacts' })}
           data-open-artifacts={run.run_id}
         >
           Explore

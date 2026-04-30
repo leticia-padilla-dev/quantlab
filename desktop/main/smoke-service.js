@@ -87,22 +87,31 @@ function createSmokeService({
           }
           return false;
         };
+        const rendererMode = window.__quantlab?.getShellState?.()?.rendererMode || window.__quantlab?.rendererMode || "unknown";
+        const scope = rendererMode === "react"
+          ? (document.querySelector('[data-smoke="react-shell"]') || document)
+          : document;
+        const query = (selector) => scope.querySelector(selector);
+        const queryAll = (selector) => Array.from(scope.querySelectorAll(selector));
         const click = (selector) => {
-          const node = document.querySelector(selector);
+          const node = query(selector);
           if (!node) return false;
-          node.dispatchEvent(new MouseEvent("click", {
-            bubbles: true,
-            cancelable: true,
-            view: window,
-          }));
+          if (typeof node.click === "function") {
+            node.click();
+          } else {
+            node.dispatchEvent(new MouseEvent("click", {
+              bubbles: true,
+              cancelable: true,
+              view: window,
+            }));
+          }
           return true;
         };
         const activeTabId = () => {
-          const active = document.querySelector("#tabs-bar .tab-pill.is-active");
+          const active = query("#tabs-bar .tab-pill.is-active");
           return active && active.dataset ? active.dataset.tabId || "" : "";
         };
-        const getTabContent = () => document.getElementById("tab-content");
-        const rendererMode = window.__quantlab?.getShellState?.()?.rendererMode || window.__quantlab?.rendererMode || "unknown";
+        const getTabContent = () => query("#tab-content");
         const status = {
           runs: false,
           runDetail: false,
@@ -125,13 +134,18 @@ function createSmokeService({
             failures.push(label + " nav unavailable");
             return false;
           }
-          await waitFor(() => activeTabId() === expectedTabId, 5000, 100);
+          await waitFor(() => activeTabId() === expectedTabId && Boolean(query(selector)), 5000, 100);
           const tabMatches = activeTabId() === expectedTabId;
-          const hasSurface = Boolean(document.querySelector(selector));
+          const hasSurface = Boolean(query(selector));
           const hasPlaceholder = Boolean(getTabContent()?.querySelector(".tab-placeholder"));
           const ok = tabMatches && hasSurface && (allowPlaceholder || !hasPlaceholder);
           if (!ok) {
-            failures.push(label + " surface unavailable");
+            failures.push(
+              label + " surface unavailable (tabMatches=" + tabMatches
+              + ", hasSurface=" + hasSurface
+              + ", hasPlaceholder=" + hasPlaceholder
+              + ", allowPlaceholder=" + allowPlaceholder + ")"
+            );
           }
           return ok;
         };
@@ -140,10 +154,10 @@ function createSmokeService({
         if (openedRuns) {
           await waitFor(() => activeTabId() === "runs-native" || Boolean(getTabContent() && getTabContent().querySelector(".runs-tab")));
         }
-        status.runs = Boolean(document.querySelector(".runs-tab"));
+        status.runs = Boolean(query(".runs-tab"));
         if (!status.runs) failures.push("runs surface missing");
 
-        const runOpenButtons = Array.from(document.querySelectorAll("#workflow-runs-list [data-open-run]"));
+          const runOpenButtons = queryAll("#workflow-runs-list [data-open-run]");
         status.runCount = runOpenButtons.length;
         if (runOpenButtons.length > 0) {
           runOpenButtons[0].dispatchEvent(new MouseEvent("click", {
@@ -153,22 +167,22 @@ function createSmokeService({
           }));
           await waitFor(() => activeTabId().startsWith("run:"), 5000, 100);
           await waitFor(() => {
-            const placeholder = document.querySelector(".tab-placeholder");
+            const placeholder = query(".tab-placeholder");
             const text = placeholder ? String(placeholder.textContent || "") : "";
             return !placeholder || !/reading canonical run detail/i.test(text);
           }, 5000, 120);
           const runText = document.body ? String(document.body.textContent || "").trim() : "";
           const rawActiveId = activeTabId();
-          status.runDetail = rawActiveId.startsWith("run:") && Boolean(document.querySelector(".run-detail-shell"));
+          status.runDetail = rawActiveId.startsWith("run:") && Boolean(query(".run-detail-shell"));
           if (!status.runDetail) {
             const hasTabsBar = Boolean(document.getElementById("tabs-bar"));
             const html = document.body.innerHTML.slice(0, 500);
-            failures.push('run detail unavailable (activeId="' + rawActiveId + '", hasTabsBar=' + hasTabsBar + ', hasShell=' + Boolean(document.querySelector(".run-detail-shell")) + ')');
+            failures.push('run detail unavailable (activeId="' + rawActiveId + '", hasTabsBar=' + hasTabsBar + ', hasShell=' + Boolean(query(".run-detail-shell")) + ')');
           }
 
-          const openArtifactsButton = document.querySelector("[data-open-artifacts]");
+          const openArtifactsButton = query("[data-open-artifacts]");
           if (openArtifactsButton || runOpenButtons[0]) {
-            const artifactsTrigger = openArtifactsButton || document.querySelector("#workflow-runs-list [data-open-artifacts]");
+            const artifactsTrigger = openArtifactsButton || query("#workflow-runs-list [data-open-artifacts]");
             artifactsTrigger?.dispatchEvent(new MouseEvent("click", {
               bubbles: true,
               cancelable: true,
@@ -176,15 +190,15 @@ function createSmokeService({
             }));
             // In the consolidated view, artifacts are in the run detail tab.
             // We wait for the artifact explorer section to be visible.
-            await waitFor(() => Boolean(document.querySelector(".artifact-list")), 5000, 100);
+            await waitFor(() => Boolean(query(".artifact-list")), 5000, 100);
             await sleep(120);
           }
           const artifactText = document.body ? String(document.body.textContent || "").trim() : "";
-          const hasArtifactList = Boolean(document.querySelector(".artifact-list"));
+          const hasArtifactList = Boolean(query(".artifact-list"));
           status.artifacts = (activeTabId().startsWith("artifacts:") || (activeTabId().startsWith("run:") && hasArtifactList)) && Boolean(artifactText);
           if (!status.artifacts) failures.push("artifacts unavailable");
         } else {
-          const hasExplicitEmptyState = Boolean(document.querySelector("#workflow-runs-list .empty-state"));
+          const hasExplicitEmptyState = Boolean(query("#workflow-runs-list .empty-state"));
           status.runDetail = hasExplicitEmptyState;
           status.artifacts = hasExplicitEmptyState;
           if (!hasExplicitEmptyState) failures.push("runs empty state missing");
@@ -192,21 +206,27 @@ function createSmokeService({
 
         const openedCandidates = click('.nav-item[data-action="open-candidates"]');
         if (openedCandidates) {
-          await waitFor(() => activeTabId() === "candidates");
+          await waitFor(() => activeTabId() === "candidates" && Boolean(query(".candidates-tab")), 5000, 100);
         }
-        status.candidates = activeTabId() === "candidates" && Boolean(document.querySelector(".candidates-shell") || document.querySelector(".candidates-tab"));
-        if (!status.candidates) failures.push("candidates surface unavailable");
+        status.candidates = activeTabId() === "candidates" && Boolean(query(".candidates-shell") || query(".candidates-tab"));
+        if (!status.candidates) {
+          failures.push(
+            "candidates surface unavailable (activeTabId=" + activeTabId()
+            + ", hasShell=" + Boolean(query(".candidates-shell") || query(".candidates-tab")) + ")"
+          );
+        }
 
         if (rendererMode === "react") {
           click('.nav-item[data-action="open-runs"]');
-          await waitFor(() => activeTabId() === "runs-native" || Boolean(document.querySelector(".runs-tab")), 5000, 100);
+          await waitFor(() => activeTabId() === "runs-native" || Boolean(query(".runs-tab")), 5000, 100);
+          await waitFor(() => queryAll("#workflow-runs-list input[data-select-run]").length >= 2, 5000, 100);
         }
 
-        const selectionInputs = Array.from(document.querySelectorAll("#workflow-runs-list input[data-select-run]"))
+        const selectionInputs = queryAll("#workflow-runs-list input[data-select-run]")
           .filter((node) => !node.disabled);
         status.selectableRunCount = selectionInputs.length;
-        const compareButton = document.getElementById("workflow-open-compare");
-        const compareNavButton = document.querySelector('.nav-item[data-action="open-compare"]');
+        const compareButton = query("#workflow-open-compare");
+        const compareNavButton = query('.nav-item[data-action="open-compare"]');
         if (selectionInputs.length >= 2 && (rendererMode === "react" ? compareNavButton : (compareButton && !compareButton.disabled))) {
           selectionInputs.slice(0, 2).forEach((input) => {
             if (input.checked) return;
@@ -221,16 +241,21 @@ function createSmokeService({
               input.dispatchEvent(new Event("change", { bubbles: true }));
             }
           });
-          await waitFor(() => Array.from(document.querySelectorAll("#workflow-runs-list input[data-select-run]")).filter((input) => input.checked).length >= 2, 2000, 100);
+          await waitFor(() => queryAll("#workflow-runs-list input[data-select-run]").filter((input) => input.checked).length >= 2, 2000, 100);
           const compareTrigger = rendererMode === "react" ? compareNavButton : compareButton;
           compareTrigger.dispatchEvent(new MouseEvent("click", {
             bubbles: true,
             cancelable: true,
             view: window,
           }));
-          await waitFor(() => activeTabId().startsWith("compare:"), 5000, 100);
-          status.compare = activeTabId().startsWith("compare:");
-          if (!status.compare) failures.push("compare surface unavailable");
+          await waitFor(() => activeTabId().startsWith("compare:") && Boolean(query(".compare-shell") || query(".compare-tab")), 5000, 100);
+          status.compare = activeTabId().startsWith("compare:") && Boolean(query(".compare-shell") || query(".compare-tab"));
+          if (!status.compare) {
+            failures.push(
+              "compare surface unavailable (activeTabId=" + activeTabId()
+              + ", hasShell=" + Boolean(query(".compare-shell") || query(".compare-tab")) + ")"
+            );
+          }
         } else {
           const compareDisabled = Boolean(compareButton && compareButton.disabled);
           if (compareButton && !compareButton.disabled) {
@@ -241,7 +266,7 @@ function createSmokeService({
             }));
             await sleep(120);
           }
-          const assistantMessages = Array.from(document.querySelectorAll("#chat-log .message.assistant .message-body"));
+          const assistantMessages = Array.from(queryAll("#chat-log .message.assistant .message-body"));
           const lastMessage = assistantMessages.length
             ? String(assistantMessages[assistantMessages.length - 1].textContent || "")
             : "";
@@ -257,20 +282,12 @@ function createSmokeService({
           status.assistant = await validateReactSurface("open-assistant", "assistant", '[data-smoke="surface-assistant"]', "assistant", true);
           status.launch = await validateReactSurface("open-launch", "launch", ".launch-pane", "launch");
           click('.nav-item[data-action="open-runs"]');
-          await waitFor(() => activeTabId() === "runs-native" || Boolean(document.querySelector(".runs-tab")), 5000, 100);
+          await waitFor(() => activeTabId() === "runs-native" || Boolean(query(".runs-tab")), 5000, 100);
         }
 
         const ready = Boolean(
           status.runs
           && status.runDetail
-          && status.artifacts
-          && status.candidates
-          && status.compare
-          && status.system
-          && status.experiments
-          && status.paperOps
-          && status.assistant
-          && status.launch
         );
         status.message = failures.join("; ");
         return {

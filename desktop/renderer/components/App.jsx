@@ -34,7 +34,7 @@ function AppShell() {
 
   const activeTab = contextValue.state?.tabs?.find(
     (t) => t.id === contextValue.state.activeTabId
-  ) || null;
+  ) || contextValue.state?.tabs?.[0] || null;
   const allTabs = contextValue.state?.tabs || [];
   const currentSurface = activeTab?.navKind || activeTab?.kind || 'system';
 
@@ -66,7 +66,7 @@ function AppShell() {
 
   return (
     <QuantLabContextProvider value={contextValue}>
-      <div className="app-container">
+      <div className="app-container" data-smoke="react-shell">
         <Topbar
           currentSurface={currentSurface}
           onToggleSidebar={handleToggleSidebar}

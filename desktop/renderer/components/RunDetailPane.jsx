@@ -224,7 +224,7 @@ export function RunDetailPane({ tab }) {
           </section>
 
           {/* Canonical Artifacts Section */}
-          {(artifacts.length > 0 || !run.path) && (
+          {(tab.subview === "artifacts" || artifacts.length > 0 || !run.path) && (
             <section className="artifact-panel">
               <div className="section-label">Artifact Explorer (Canonical)</div>
               <h3>Machine-readable outputs</h3>
@@ -253,6 +253,12 @@ export function RunDetailPane({ tab }) {
                       </button>
                     );
                   })}
+                </div>
+              ) : tab.subview === "artifacts" ? (
+                <div className="artifact-list">
+                  <div className="empty-state">
+                    No canonical artifact manifest indexed yet for this run.
+                  </div>
                 </div>
               ) : (
                 <div className="empty-state">
