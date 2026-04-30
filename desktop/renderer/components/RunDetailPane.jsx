@@ -261,8 +261,10 @@ export function RunDetailPane({ tab }) {
                   </div>
                 </div>
               ) : (
-                <div className="empty-state">
-                  No canonical artifact manifest available for this run.
+                <div className="artifact-list">
+                  <div className="empty-state">
+                    No canonical artifact manifest is indexed for this run yet.
+                  </div>
                 </div>
               )}
             </section>
