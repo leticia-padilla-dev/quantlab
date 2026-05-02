@@ -24,11 +24,24 @@ export default function MainContent({
   activeTab,
   allTabs,
   onTabChange,
+  shellStateMismatch,
 }: {
   activeTab: Tab | null;
   allTabs?: Tab[];
   onTabChange?: (tabId: string) => void;
+  shellStateMismatch?: { activeTabId: string } | null;
 }) {
+  if (shellStateMismatch) {
+    return (
+      <main id="tab-content" className="main-content">
+        <div className="tab-placeholder" data-smoke="shell-state-mismatch">
+          <h2>Shell state mismatch</h2>
+          <p>The active tab no longer matches an open workspace tab.</p>
+        </div>
+      </main>
+    );
+  }
+
   if (!activeTab) {
     return (
       <main id="tab-content" className="main-content">

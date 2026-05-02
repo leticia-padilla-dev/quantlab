@@ -26,6 +26,10 @@ export function CandidatesPane({ tab }) {
   } = useQuantLab();
 
   const filter = tab.filter || 'all';
+  const candidatesStore = state.candidatesStore ?? {
+    baseline_run_id: null,
+    candidates: [],
+  };
 
   // Get all candidates sorted by baseline, shortlist, recency
   const allEntries = decision.getCandidateEntriesResolved();
@@ -53,12 +57,12 @@ export function CandidatesPane({ tab }) {
     visibleEntries = shortlistEntries;
   } else if (filter === 'baseline') {
     visibleEntries = sortedEntries.filter(
-      (e) => e.run_id === state.candidatesStore.baseline_run_id
+      (e) => e.run_id === candidatesStore.baseline_run_id
     );
   }
 
   const compareReady =
-    shortlistEntries.length + (state.candidatesStore.baseline_run_id ? 1 : 0) >= 2;
+    shortlistEntries.length + (candidatesStore.baseline_run_id ? 1 : 0) >= 2;
 
   return (
     <div className="tab-shell candidates-tab">
@@ -74,7 +78,7 @@ export function CandidatesPane({ tab }) {
         </div>
         <div className="artifact-actions">
           <button className="ghost-btn">Open shortlist compare</button>
-          {state.candidatesStore.baseline_run_id && (
+          {candidatesStore.baseline_run_id && (
             <button className="ghost-btn">Open baseline</button>
           )}
         </div>
@@ -86,7 +90,7 @@ export function CandidatesPane({ tab }) {
         <SummaryCard label="Shortlisted" value={String(shortlistEntries.length)} />
         <SummaryCard
           label="Baseline"
-          value={state.candidatesStore.baseline_run_id || 'None'}
+          value={candidatesStore.baseline_run_id || 'None'}
         />
         <SummaryCard
           label="Indexed runs"
@@ -111,7 +115,7 @@ export function CandidatesPane({ tab }) {
                     key={entry.run_id}
                     entry={entry}
                     isBaseline={
-                      entry.run_id === state.candidatesStore.baseline_run_id
+                      entry.run_id === candidatesStore.baseline_run_id
                     }
                   />
                 ))}

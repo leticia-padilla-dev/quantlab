@@ -72,6 +72,7 @@ export function RunDetailPane({ tab }) {
   const fileEntries = Array.isArray(detail.directoryEntries) ? detail.directoryEntries : [];
   const artifacts = Array.isArray(report?.artifacts) ? report.artifacts : [];
   const topResults = selectTopResults(report?.results, 4);
+  const isArtifactsView = tab.kind === "artifacts" || tab.subview === "artifacts";
 
   const candidateEntry = decision.getCandidateEntry(state.candidatesStore, run.run_id);
   const relatedJobs = getRunRelatedJobs(run.run_id);
@@ -140,7 +141,7 @@ export function RunDetailPane({ tab }) {
 
       {/* Summary Section (Performance vs Evidence) */}
       <div className="tab-summary-grid">
-        {tab.subview === "artifacts" ? (
+        {isArtifactsView ? (
           <>
             <SummaryCard 
               label="Workspace path" 
@@ -224,7 +225,7 @@ export function RunDetailPane({ tab }) {
           </section>
 
           {/* Canonical Artifacts Section */}
-          {(artifacts.length > 0 || !run.path) && (
+          {(isArtifactsView || artifacts.length > 0 || !run.path) && (
             <section className="artifact-panel">
               <div className="section-label">Artifact Explorer (Canonical)</div>
               <h3>Machine-readable outputs</h3>
@@ -254,9 +255,17 @@ export function RunDetailPane({ tab }) {
                     );
                   })}
                 </div>
+              ) : isArtifactsView ? (
+                <div className="artifact-list">
+                  <div className="empty-state">
+                    No canonical artifact manifest indexed yet for this run.
+                  </div>
+                </div>
               ) : (
-                <div className="empty-state">
-                  No canonical artifact manifest available for this run.
+                <div className="artifact-list">
+                  <div className="empty-state">
+                    No canonical artifact manifest is indexed for this run yet.
+                  </div>
                 </div>
               )}
             </section>
