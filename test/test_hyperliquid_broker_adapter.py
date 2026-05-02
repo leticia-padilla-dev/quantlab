@@ -5,6 +5,8 @@ import json
 from quantlab.brokers import ExecutionContext, ExecutionIntent, ExecutionPolicy
 from quantlab.brokers.hyperliquid import (
     HyperliquidBrokerAdapter,
+    HyperliquidPreflightReport,
+    HyperliquidResolvedExecutionContext,
     _build_hyperliquid_value_readiness,
     _quantize_hyperliquid_price,
     recover_hyperliquid_l1_action_signer,
@@ -1731,3 +1733,58 @@ def test_hyperliquid_submit_gate_rejects_artifact_with_insufficient_order_value(
     assert report["submitted"] is False
     assert report["remote_submit_called"] is False
     assert report["submit_state"] == "effective_order_value_below_minimum"
+
+
+# reduce_only — orders[0]["r"] reflects intent.reduce_only
+
+
+def _minimal_preflight() -> HyperliquidPreflightReport:
+    resolved_context = HyperliquidResolvedExecutionContext(
+        execution_account_id="0x1111111111111111111111111111111111111111",
+        query_user="0x1111111111111111111111111111111111111111",
+        signer_id="0x1111111111111111111111111111111111111111",
+        signer_type="direct",
+        routing_target="account",
+        transport_preference="websocket",
+        resolved_transport="websocket",
+        expires_after=None,
+        nonce_scope="0x1111111111111111111111111111111111111111",
+        query_address_matches_signer=True,
+        execution_account_role="account",
+        signer_role="account",
+        context_ready=True,
+    )
+    return HyperliquidPreflightReport(
+        adapter_name="hyperliquid",
+        generated_at="2026-01-01T00:00:00Z",
+        symbol_input="ETH",
+        normalized_symbol="ETH",
+        market_type="perp",
+        metadata_type="meta",
+        public_api_reachable=True,
+        market_supported=True,
+        matched_name="ETH",
+        resolved_coin="ETH",
+        resolved_asset=1,
+        mid_price="2323.5",
+        best_bid="2323.0",
+        best_ask="2324.0",
+        book_time=1700000000000,
+        rest_info_url="https://api.hyperliquid.xyz/info",
+        websocket_url="wss://api.hyperliquid.xyz/ws",
+        execution_context=resolved_context,
+    )
+
+
+def test_build_order_action_payload_reduce_only_true():
+    adapter = HyperliquidBrokerAdapter()
+    intent = _make_intent(side="sell", quantity=0.005, reduce_only=True)
+    payload = adapter.build_order_action_payload(intent, public_preflight=_minimal_preflight())
+    assert payload["orders"][0]["r"] is True
+
+
+def test_build_order_action_payload_reduce_only_false_by_default():
+    adapter = HyperliquidBrokerAdapter()
+    intent = _make_intent(side="buy", quantity=0.005)
+    payload = adapter.build_order_action_payload(intent, public_preflight=_minimal_preflight())
+    assert payload["orders"][0]["r"] is False

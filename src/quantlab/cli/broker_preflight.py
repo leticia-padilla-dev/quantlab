@@ -619,6 +619,7 @@ def _build_hyperliquid_execution_intent_from_args(args):
         strategy_id=intent.strategy_id,
         request_id=intent.request_id,
         dry_run=True,
+        reduce_only=bool(getattr(args, "broker_reduce_only", False)),
     )
 
 

@@ -531,6 +531,7 @@ def build_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument("--broker-allowed-symbols", default=None)
     parser.add_argument("--broker-kill-switch", action="store_true")
     parser.add_argument("--broker-allow-missing-account-id", action="store_true")
+    parser.add_argument("--broker-reduce-only", action="store_true")
     parser.add_argument(
         "--metric",
         default="sharpe_simple",
