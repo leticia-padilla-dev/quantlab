@@ -32,10 +32,14 @@ function AppShell() {
     });
   }, []);
 
-  const activeTab = contextValue.state?.tabs?.find(
-    (t) => t.id === contextValue.state.activeTabId
-  ) || contextValue.state?.tabs?.[0] || null;
   const allTabs = contextValue.state?.tabs || [];
+  const activeTabId = contextValue.state?.activeTabId || null;
+  const activeTab = allTabs.find((t) => t.id === activeTabId) || null;
+  const hasActiveTabMismatch = Boolean(
+    contextValue.state?.isInitialized
+    && activeTabId
+    && !activeTab
+  );
   const currentSurface = activeTab?.navKind || activeTab?.kind || 'system';
 
   // Expose metadata for smoke tests; kept in an effect to avoid conditional hook calls
@@ -83,6 +87,9 @@ function AppShell() {
             activeTab={activeTab}
             allTabs={allTabs}
             onTabChange={handleTabChange}
+            shellStateMismatch={hasActiveTabMismatch ? {
+              activeTabId,
+            } : null}
           />
         </div>
       </div>

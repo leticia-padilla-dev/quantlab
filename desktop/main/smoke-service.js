@@ -157,39 +157,20 @@ function createSmokeService({
         status.runs = Boolean(query(".runs-tab"));
         if (!status.runs) failures.push("runs surface missing");
 
-          const runOpenButtons = queryAll("#workflow-runs-list [data-open-run]");
+        const runOpenButtons = queryAll("#workflow-runs-list [data-open-run]");
         status.runCount = runOpenButtons.length;
         if (runOpenButtons.length > 0) {
-          runOpenButtons[0].dispatchEvent(new MouseEvent("click", {
-            bubbles: true,
-            cancelable: true,
-            view: window,
-          }));
-          await waitFor(() => activeTabId().startsWith("run:"), 5000, 100);
-          await waitFor(() => {
-            const placeholder = query(".tab-placeholder");
-            const text = placeholder ? String(placeholder.textContent || "") : "";
-            return !placeholder || !/reading canonical run detail/i.test(text);
-          }, 5000, 120);
-          const runText = document.body ? String(document.body.textContent || "").trim() : "";
-          const rawActiveId = activeTabId();
-          status.runDetail = rawActiveId.startsWith("run:") && Boolean(query(".run-detail-shell"));
-          if (!status.runDetail) {
-            const hasTabsBar = Boolean(document.getElementById("tabs-bar"));
-            const html = document.body.innerHTML.slice(0, 500);
-            failures.push('run detail unavailable (activeId="' + rawActiveId + '", hasTabsBar=' + hasTabsBar + ', hasShell=' + Boolean(query(".run-detail-shell")) + ')');
-          }
-
-          const openArtifactsButton = query("[data-open-artifacts]");
-          if (openArtifactsButton || runOpenButtons[0]) {
-            const artifactsTrigger = openArtifactsButton || query("#workflow-runs-list [data-open-artifacts]");
-            artifactsTrigger?.dispatchEvent(new MouseEvent("click", {
+          const firstRunButton = runOpenButtons[0];
+          const firstRunRow = firstRunButton.closest("tr") || firstRunButton.closest("[data-run-id]") || firstRunButton.parentElement;
+          const artifactsTrigger = firstRunRow?.querySelector("[data-open-artifacts]") || query("#workflow-runs-list [data-open-artifacts]");
+          if (artifactsTrigger) {
+            artifactsTrigger.dispatchEvent(new MouseEvent("click", {
               bubbles: true,
               cancelable: true,
               view: window,
             }));
-            // In the consolidated view, artifacts are in the run detail tab.
-            // We wait for the artifact explorer section to be visible.
+            // Click artifacts from the live runs-list row before the row unmounts.
+            await waitFor(() => activeTabId().startsWith("artifacts:"), 5000, 100);
             await waitFor(() => Boolean(query(".artifact-list")), 5000, 100);
             await sleep(120);
           }
@@ -197,6 +178,33 @@ function createSmokeService({
           const hasArtifactList = Boolean(query(".artifact-list"));
           status.artifacts = (activeTabId().startsWith("artifacts:") || (activeTabId().startsWith("run:") && hasArtifactList)) && Boolean(artifactText);
           if (!status.artifacts) failures.push("artifacts unavailable");
+
+          const openedRunsAgain = click('.nav-item[data-action="open-runs"]');
+          if (openedRunsAgain) {
+            await waitFor(() => activeTabId() === "runs-native" || Boolean(getTabContent() && getTabContent().querySelector(".runs-tab")), 5000, 100);
+          }
+          const refreshedRunButtons = queryAll("#workflow-runs-list [data-open-run]");
+          if (refreshedRunButtons.length > 0) {
+            refreshedRunButtons[0].dispatchEvent(new MouseEvent("click", {
+              bubbles: true,
+              cancelable: true,
+              view: window,
+            }));
+            await waitFor(() => activeTabId().startsWith("run:"), 5000, 100);
+            await waitFor(() => {
+              const placeholder = query(".tab-placeholder");
+              const text = placeholder ? String(placeholder.textContent || "") : "";
+              return !placeholder || !/reading canonical run detail/i.test(text);
+            }, 5000, 120);
+            const rawActiveId = activeTabId();
+            status.runDetail = rawActiveId.startsWith("run:") && Boolean(query(".run-detail-shell"));
+            if (!status.runDetail) {
+              const hasTabsBar = Boolean(document.getElementById("tabs-bar"));
+              failures.push('run detail unavailable (activeId="' + rawActiveId + '", hasTabsBar=' + hasTabsBar + ', hasShell=' + Boolean(query(".run-detail-shell")) + ')');
+            }
+          } else {
+            failures.push("run detail unavailable (no refreshed run buttons)");
+          }
         } else {
           const hasExplicitEmptyState = Boolean(query("#workflow-runs-list .empty-state"));
           status.runDetail = hasExplicitEmptyState;
@@ -204,15 +212,24 @@ function createSmokeService({
           if (!hasExplicitEmptyState) failures.push("runs empty state missing");
         }
 
+        const candidatesActiveBefore = activeTabId();
+        const candidatesSurfaceBefore = window.__quantlab?.getShellState?.()?.currentSurface || window.__quantlab?.currentSurface || "";
         const openedCandidates = click('.nav-item[data-action="open-candidates"]');
         if (openedCandidates) {
           await waitFor(() => activeTabId() === "candidates" && Boolean(query(".candidates-tab")), 5000, 100);
         }
+        const candidatesActiveAfter = activeTabId();
+        const candidatesSurfaceAfter = window.__quantlab?.getShellState?.()?.currentSurface || window.__quantlab?.currentSurface || "";
         status.candidates = activeTabId() === "candidates" && Boolean(query(".candidates-shell") || query(".candidates-tab"));
         if (!status.candidates) {
           failures.push(
-            "candidates surface unavailable (activeTabId=" + activeTabId()
-            + ", hasShell=" + Boolean(query(".candidates-shell") || query(".candidates-tab")) + ")"
+            "candidates surface unavailable (clicked=" + openedCandidates
+            + ", activeTabBefore=" + candidatesActiveBefore
+            + ", activeTabAfter=" + candidatesActiveAfter
+            + ", currentSurfaceBefore=" + candidatesSurfaceBefore
+            + ", currentSurfaceAfter=" + candidatesSurfaceAfter
+            + ", hasShell=" + Boolean(query(".candidates-shell") || query(".candidates-tab"))
+            + ", hasMismatch=" + Boolean(query('[data-smoke="shell-state-mismatch"]')) + ")"
           );
         }
 
@@ -459,6 +476,9 @@ function createSmokeService({
       if (!result.happyPathReady) {
         const happyPathError = `desktop happy-path check failed (runs=${result.happyPathRunsReady}, runDetail=${result.happyPathRunDetailReady}, artifacts=${result.happyPathArtifactsReady}, candidates=${result.happyPathCandidatesReady}, compare=${result.happyPathCompareReady}, system=${result.happyPathSystemReady}, experiments=${result.happyPathExperimentsReady}, paperOps=${result.happyPathPaperOpsReady}, assistant=${result.happyPathAssistantReady}, launch=${result.happyPathLaunchReady}, runCount=${result.happyPathRunCount}, selectableRuns=${result.happyPathSelectableRunCount})${happyPath.happyPathMessage ? `: ${happyPath.happyPathMessage}` : ""}`;
         result.error = result.error ? `${result.error} | ${happyPathError}` : happyPathError;
+      }
+      if (result.rendererMode === "react" && happyPath.happyPathMessage && !result.error) {
+        result.error = happyPath.happyPathMessage;
       }
     } catch (error) {
       result.error = error.message;
