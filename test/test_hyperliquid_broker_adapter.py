@@ -5,6 +5,7 @@ import json
 from quantlab.brokers import ExecutionContext, ExecutionIntent, ExecutionPolicy
 from quantlab.brokers.hyperliquid import (
     HyperliquidBrokerAdapter,
+    _quantize_hyperliquid_price,
     recover_hyperliquid_l1_action_signer,
 )
 
@@ -1162,3 +1163,46 @@ def test_hyperliquid_order_status_report_requires_query_identifier():
     assert report["status_known"] is False
     assert report["normalized_state"] is None
     assert "missing_order_identifier" in report["errors"]
+
+
+# _quantize_hyperliquid_price
+
+
+def test_quantize_price_buy_rounds_up():
+    # ETH @ 2259.45 — 5 sig figs → 1 decimal place → round up for buy
+    assert _quantize_hyperliquid_price("2259.45", round_up=True) == "2259.5"
+
+
+def test_quantize_price_sell_rounds_down():
+    # ETH @ 2259.45 — 5 sig figs → 1 decimal place → round down for sell
+    assert _quantize_hyperliquid_price("2259.45", round_up=False) == "2259.4"
+
+
+def test_quantize_price_already_valid_buy():
+    assert _quantize_hyperliquid_price("2259.5", round_up=True) == "2259.5"
+
+
+def test_quantize_price_btc_buy():
+    # BTC @ 69157.5 → floor(log10) = 4 → decimal_places = 0 → integer
+    assert _quantize_hyperliquid_price("69157.5", round_up=True) == "69158"
+
+
+def test_quantize_price_btc_sell():
+    assert _quantize_hyperliquid_price("69157.5", round_up=False) == "69157"
+
+
+def test_quantize_price_low_value_buy():
+    # price < 1 → 5 decimal places; extra digit triggers round up
+    assert _quantize_hyperliquid_price("0.154321", round_up=True) == "0.15433"
+
+
+def test_quantize_price_low_value_sell():
+    assert _quantize_hyperliquid_price("0.154321", round_up=False) == "0.15432"
+
+
+def test_quantize_price_zero_returns_unchanged():
+    assert _quantize_hyperliquid_price("0", round_up=True) == "0"
+
+
+def test_quantize_price_invalid_returns_unchanged():
+    assert _quantize_hyperliquid_price("not_a_price", round_up=True) == "not_a_price"

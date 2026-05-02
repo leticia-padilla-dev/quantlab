@@ -10,8 +10,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import datetime as dt
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, ROUND_DOWN, ROUND_UP, InvalidOperation
 import hashlib
+import math
 import json
 import os
 import time
@@ -757,7 +758,10 @@ class HyperliquidBrokerAdapter(BrokerAdapter):
         order = {
             "a": public_preflight.resolved_asset,
             "b": intent.side.lower() == "buy",
-            "p": str(public_preflight.mid_price or "0"),
+            "p": _quantize_hyperliquid_price(
+                str(public_preflight.mid_price or "0"),
+                round_up=intent.side.lower() == "buy",
+            ),
             "s": _format_hyperliquid_size(intent.quantity),
             "r": False,
             "t": {"limit": {"tif": "Ioc"}},
@@ -1994,6 +1998,19 @@ def _resolve_expires_after(
 
 def _format_hyperliquid_size(quantity: float) -> str:
     return f"{quantity:.8f}".rstrip("0").rstrip(".")
+
+
+def _quantize_hyperliquid_price(price_str: str, *, round_up: bool, sig_figs: int = 5) -> str:
+    try:
+        price = Decimal(price_str)
+    except InvalidOperation:
+        return price_str
+    if price <= 0:
+        return price_str
+    decimal_places = max(0, sig_figs - 1 - int(math.floor(math.log10(float(price)))))
+    quant = Decimal(10) ** -decimal_places
+    rounding = ROUND_UP if round_up else ROUND_DOWN
+    return str(price.quantize(quant, rounding=rounding))
 
 
 def _build_hyperliquid_cloid(request_id: str) -> str:
