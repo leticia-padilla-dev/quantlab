@@ -26,6 +26,7 @@ class ExecutionIntent:
     strategy_id: str | None = None
     request_id: str | None = None
     dry_run: bool = True
+    reduce_only: bool = False
 
 
 @dataclass(frozen=True)

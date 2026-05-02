@@ -847,7 +847,7 @@ class HyperliquidBrokerAdapter(BrokerAdapter):
                 round_up=intent.side.lower() == "buy",
             ),
             "s": _format_hyperliquid_size(intent.quantity),
-            "r": False,
+            "r": intent.reduce_only,
             "t": {"limit": {"tif": "Ioc"}},
         }
         if intent.request_id:
