@@ -43,6 +43,7 @@ HYPERLIQUID_INFO_API_URL = "https://api.hyperliquid.xyz/info"
 HYPERLIQUID_EXCHANGE_API_URL = "https://api.hyperliquid.xyz/exchange"
 HYPERLIQUID_MAINNET_WS_URL = "wss://api.hyperliquid.xyz/ws"
 HYPERLIQUID_IOC_PRICE_BUFFER_BPS = Decimal("5")
+_HYPERLIQUID_MIN_ORDER_VALUE_USD = Decimal("10")
 _SPOT_SYMBOL_ALIASES = {
     "BTC/USDC": "UBTC/USDC",
 }
@@ -182,6 +183,7 @@ class HyperliquidSignedActionReport:
     signature_envelope: dict[str, object]
     identity_readiness: dict[str, object]
     signing_readiness: dict[str, object]
+    value_readiness: dict[str, object]
     action_payload: dict[str, object] | None
     readiness_allowed: bool
     readiness_reasons: tuple[str, ...]
@@ -223,6 +225,7 @@ class HyperliquidSignedActionReport:
             "signature_envelope": self.signature_envelope,
             "identity_readiness": self.identity_readiness,
             "signing_readiness": self.signing_readiness,
+            "value_readiness": self.value_readiness,
             "action_payload": self.action_payload,
             "readiness_allowed": self.readiness_allowed,
             "readiness_reasons": list(self.readiness_reasons),
@@ -735,11 +738,13 @@ class HyperliquidBrokerAdapter(BrokerAdapter):
             and not reason.startswith("l2_book_probe_failed:")
         ]
         action_payload = None
+        unblocked_action_payload = None
         if not action_payload_blocking_reasons:
-            action_payload = self.build_order_action_payload(
+            unblocked_action_payload = self.build_order_action_payload(
                 intent,
                 public_preflight=public_preflight,
             )
+            action_payload = unblocked_action_payload
             effective_notional = _calculate_hyperliquid_effective_notional(
                 action_payload,
                 intent.quantity,
@@ -751,6 +756,17 @@ class HyperliquidBrokerAdapter(BrokerAdapter):
             ):
                 readiness_reasons.append("effective_max_notional_exceeded")
                 action_payload = None
+            elif (
+                effective_notional is not None
+                and effective_notional < _HYPERLIQUID_MIN_ORDER_VALUE_USD
+            ):
+                readiness_reasons.append("effective_order_value_below_minimum")
+                action_payload = None
+
+        value_readiness = _build_hyperliquid_value_readiness(
+            action_payload=unblocked_action_payload,
+            quantity=intent.quantity,
+        )
 
         signer_backend = None
         signature_envelope = self.build_signature_envelope(
@@ -800,6 +816,7 @@ class HyperliquidBrokerAdapter(BrokerAdapter):
             signature_envelope=signature_envelope,
             identity_readiness=identity_readiness,
             signing_readiness=signing_readiness,
+            value_readiness=value_readiness,
             action_payload=action_payload,
             readiness_allowed=not readiness_reasons,
             readiness_reasons=tuple(_unique_reasons(readiness_reasons)),
@@ -1112,6 +1129,7 @@ class HyperliquidBrokerAdapter(BrokerAdapter):
         source_envelope = signed_action_artifact.get("signature_envelope", {})
         identity_readiness = signed_action_artifact.get("identity_readiness")
         signing_readiness = signed_action_artifact.get("signing_readiness")
+        value_readiness = signed_action_artifact.get("value_readiness")
 
         if signed_action_artifact.get("artifact_type") != "quantlab.hyperliquid.signed_action":
             errors.append("unexpected_signed_action_artifact_type")
@@ -1132,6 +1150,10 @@ class HyperliquidBrokerAdapter(BrokerAdapter):
             errors.append("missing_signing_readiness")
         elif not bool(signing_readiness.get("signing_ready")):
             errors.append("signing_not_ready")
+        if not isinstance(value_readiness, dict):
+            errors.append("missing_value_readiness")
+        elif not bool(value_readiness.get("value_sufficient")):
+            errors.append("effective_order_value_below_minimum")
         if not isinstance(submit_payload, dict):
             errors.append("submit_payload_unavailable")
 
@@ -2284,6 +2306,35 @@ def _build_hyperliquid_signing_readiness(
         "payload_shape_version_or_method": "quantlab_hyperliquid_l1_action_v1_msgpack",
         "signing_ready": not reasons,
         "signing_reasons": list(_unique_reasons(reasons)),
+    }
+
+
+def _build_hyperliquid_value_readiness(
+    *,
+    action_payload: dict[str, object] | None,
+    quantity: float,
+) -> dict[str, object]:
+    effective_notional = _calculate_hyperliquid_effective_notional(action_payload, quantity)
+    required_min = float(_HYPERLIQUID_MIN_ORDER_VALUE_USD)
+    effective_value = float(effective_notional) if effective_notional is not None else None
+    value_sufficient = (
+        effective_notional is not None and effective_notional >= _HYPERLIQUID_MIN_ORDER_VALUE_USD
+    )
+    minimum_quantity_needed: float | None = None
+    if effective_notional is not None and not value_sufficient and action_payload is not None:
+        orders = action_payload.get("orders")
+        if isinstance(orders, list) and orders:
+            price = _parse_decimal(orders[0].get("p"))
+            if price and price > 0:
+                min_qty = (_HYPERLIQUID_MIN_ORDER_VALUE_USD / price).quantize(
+                    Decimal("0.00000001"), rounding=ROUND_UP
+                )
+                minimum_quantity_needed = float(min_qty)
+    return {
+        "effective_order_value": effective_value,
+        "required_min_value": required_min,
+        "value_sufficient": value_sufficient,
+        "minimum_quantity_needed": minimum_quantity_needed,
     }
 
 
