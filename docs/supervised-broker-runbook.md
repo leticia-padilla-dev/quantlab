@@ -228,6 +228,44 @@ python main.py --hyperliquid-submit-sessions-alerts outputs/hyperliquid_submits
 python main.py --hyperliquid-submit-sessions-cancel outputs/hyperliquid_submits/<session_id> --hyperliquid-cancel-reviewer marce --hyperliquid-cancel-confirm
 ```
 
+### Step 6.5: generate a reduce-only close signed-action if a perp position remains open
+
+After a filled perp entry, if Hyperliquid UI confirms a remaining open position, generate a supervised close signed-action before submitting. Do not close manually from the UI unless it is an emergency.
+
+The close side is opposite to the entry side. The `--broker-reduce-only` flag sets `action_payload.orders[0].r = true`. Verify this in the artifact before approving submit.
+
+```bash
+python main.py \
+  --hyperliquid-signed-action-outdir outputs/d3_446/close_q0005 \
+  --broker-symbol ETH \
+  --broker-side sell \
+  --broker-notional 12 \
+  --broker-quantity 0.005 \
+  --broker-reduce-only \
+  --broker-account-id $HYPERLIQUID_ACCOUNT \
+  --broker-max-notional 20 \
+  --broker-allowed-symbols ETH \
+  --execution-account-id $HYPERLIQUID_ACCOUNT \
+  --execution-signer-id $HYPERLIQUID_SIGNER_ID \
+  --execution-signer-type direct \
+  --execution-transport-preference websocket \
+  --hyperliquid-private-key-env HYPERLIQUID_PRIVATE_KEY
+```
+
+Inspect the artifact before submitting:
+
+```yaml
+expected:
+  action_payload.orders[0].b: false      # sell
+  action_payload.orders[0].r: true       # reduce_only
+  readiness_allowed: true
+  value_readiness.value_sufficient: true
+  identity_readiness.identity_ready: true
+  signing_readiness.signing_ready: true
+```
+
+Submit the close through the canonical supervised session path (Step 3–5) only after explicit operator approval.
+
 ## 6. Failure Path: Hyperliquid
 
 ### Readiness or signer mismatch
@@ -303,3 +341,86 @@ When operating one supervised corridor:
 - [paper-session-runbook.md](./paper-session-runbook.md)
 - [broker-safety-boundary.md](./broker-safety-boundary.md)
 - [roadmap.md](./roadmap.md)
+
+## 11. D.3 Micro-Live Gate — Hyperliquid Completion Record (#446)
+
+### Outcome
+
+Issue #446 completed a full QuantLab-mediated Hyperliquid micro-live cycle: supervised entry, supervised reduce-only close, no open position remaining.
+
+#### Entry session
+
+Path: `outputs/hyperliquid_submits/20260502_230137_hyperliquid_submit_7209d49`
+
+- side: buy
+- symbol: ETH perp
+- filled_size: 0.005 ETH
+- order_state: filled
+- reconciliation_state: filled
+- close_state: closed
+- fill_count: 1
+- alert_status: ok
+- no retry performed
+
+#### Reduce-only close session
+
+Path: `outputs/hyperliquid_submits/20260502_232513_hyperliquid_submit_5d599f8`
+
+- side: sell
+- reduce_only: true
+- symbol: ETH perp
+- filled_size: 0.005 ETH
+- order_state: filled
+- reconciliation_state: filled
+- close_state: closed
+- fill_count: 1
+- alert_status: ok
+- no retry performed
+
+#### Final verification
+
+Hyperliquid UI confirmed no open ETH perp position after the reduce-only close. No manual close was performed. No extra submit was performed outside the approved flow.
+
+### Blockers discovered and resolved
+
+Each rejection produced a targeted fix before the next attempt. No retry was performed within the same session.
+
+| PR | Fix |
+|----|-----|
+| #494 | Tick-size quantization: price must be divisible by venue tick (5 sig-fig rule, ETH perp → 1 decimal place) |
+| #495 | IOC price buffer: buy = mid + 5 bps, sell = mid − 5 bps, to ensure order is executable |
+| #496 | Top-of-book IOC pricing: use best_ask/best_bid from L2 book instead of mid_price |
+| #497 | Identity and signing readiness gate: derived_signer must match declared_signer before action is signed |
+| #498 | Minimum order value gate: effective notional (price × quantity) must be ≥ $10 USD |
+| #499 | Reduce-only close support: `--broker-reduce-only` flag sets `action_payload.orders[0].r = true` |
+
+### Health note
+
+Global submit health may show `critical` even after a successful cycle because QuantLab preserves historical rejected sessions as evidence. This is correct behavior. Assess the latest session state, not the root aggregate, when evaluating whether a cycle succeeded.
+
+## 12. Gate Rules for Future Hyperliquid Submits
+
+Before submitting any Hyperliquid order, the signed-action artifact must satisfy all of the following:
+
+- `readiness_allowed: true`
+- `signature_envelope.signature_state: signed`
+- `identity_readiness.identity_ready: true`
+- `signing_readiness.signing_ready: true`
+- `value_readiness.value_sufficient: true` (effective notional ≥ $10 USD)
+- top-of-book present in public_preflight (`best_ask` / `best_bid` not null), or the fallback to mid_price is explicitly reviewed and accepted
+- price is tick-quantized (5 significant figures, buy rounds up, sell rounds down)
+- IOC buffer applied (5 bps from executable side)
+- explicit operator approval given before submit call
+
+Additional rules for close flows:
+
+- `action_payload.orders[0].r: true` for any reduce-only close
+- close side must be opposite to the open position side
+- close quantity must not exceed the open position size
+- artifact reviewed before submit; no auto-close from UI unless emergency
+
+Rejection handling:
+
+- do not retry within the same session after an exchange rejection
+- generate a new signed-action artifact, inspect it, and obtain approval before a second attempt
+- record each rejection as a named session; do not overwrite prior artifacts
