@@ -417,8 +417,81 @@ def test_hyperliquid_signed_action_report_builds_deterministic_payload_and_envel
     assert report["action_payload"]["type"] == "order"
     assert report["action_payload"]["orders"][0]["a"] == 0
     assert report["action_payload"]["orders"][0]["b"] is True
+    assert report["action_payload"]["orders"][0]["p"] == "2451.4"
     assert report["signature_envelope"]["signature_present"] is False
     assert report["signature_envelope"]["signature_state"] == "pending_signer_backend"
+
+
+def test_hyperliquid_signed_action_buy_uses_ioc_buffer_before_tick_quantization():
+    adapter = HyperliquidBrokerAdapter()
+    policy = ExecutionPolicy(max_notional_per_order=1000.0)
+    context = ExecutionContext(
+        execution_account_id="0x1111111111111111111111111111111111111111",
+        signer_id="0x2222222222222222222222222222222222222222",
+        signer_type="agent_wallet",
+        routing_target="subaccount",
+        nonce_hint=1700000000000,
+    )
+
+    def fake_fetch_json(payload, **kwargs):
+        if payload["type"] == "allMids":
+            return {"ETH": "2259.45"}
+        if payload["type"] == "meta":
+            return {"universe": [{"name": "ETH", "szDecimals": 4}]}
+        if payload["type"] == "userRole" and payload["user"] == "0x1111111111111111111111111111111111111111":
+            return {"role": "subAccount"}
+        if payload["type"] == "userRole" and payload["user"] == "0x2222222222222222222222222222222222222222":
+            return {"role": "agent"}
+        if payload["type"] in {"openOrders", "frontendOpenOrders"}:
+            return []
+        raise AssertionError(payload)
+
+    report = adapter.build_signed_action_report(
+        _make_intent(side="buy"),
+        policy,
+        context=context,
+        fetch_json=fake_fetch_json,
+    ).to_dict()
+
+    price = report["action_payload"]["orders"][0]["p"]
+    assert float(price) > 2259.45
+    assert price == "2260.6"
+
+
+def test_hyperliquid_signed_action_sell_uses_ioc_buffer_before_tick_quantization():
+    adapter = HyperliquidBrokerAdapter()
+    policy = ExecutionPolicy(max_notional_per_order=1000.0)
+    context = ExecutionContext(
+        execution_account_id="0x1111111111111111111111111111111111111111",
+        signer_id="0x2222222222222222222222222222222222222222",
+        signer_type="agent_wallet",
+        routing_target="subaccount",
+        nonce_hint=1700000000000,
+    )
+
+    def fake_fetch_json(payload, **kwargs):
+        if payload["type"] == "allMids":
+            return {"ETH": "2259.45"}
+        if payload["type"] == "meta":
+            return {"universe": [{"name": "ETH", "szDecimals": 4}]}
+        if payload["type"] == "userRole" and payload["user"] == "0x1111111111111111111111111111111111111111":
+            return {"role": "subAccount"}
+        if payload["type"] == "userRole" and payload["user"] == "0x2222222222222222222222222222222222222222":
+            return {"role": "agent"}
+        if payload["type"] in {"openOrders", "frontendOpenOrders"}:
+            return []
+        raise AssertionError(payload)
+
+    report = adapter.build_signed_action_report(
+        _make_intent(side="sell"),
+        policy,
+        context=context,
+        fetch_json=fake_fetch_json,
+    ).to_dict()
+
+    price = report["action_payload"]["orders"][0]["p"]
+    assert float(price) < 2259.45
+    assert price == "2258.3"
 
 
 def test_hyperliquid_signed_action_report_rejects_when_account_readiness_is_not_ready():

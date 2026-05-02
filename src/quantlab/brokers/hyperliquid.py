@@ -42,6 +42,7 @@ from .boundary import (
 HYPERLIQUID_INFO_API_URL = "https://api.hyperliquid.xyz/info"
 HYPERLIQUID_EXCHANGE_API_URL = "https://api.hyperliquid.xyz/exchange"
 HYPERLIQUID_MAINNET_WS_URL = "wss://api.hyperliquid.xyz/ws"
+HYPERLIQUID_IOC_PRICE_BUFFER_BPS = Decimal("5")
 _SPOT_SYMBOL_ALIASES = {
     "BTC/USDC": "UBTC/USDC",
 }
@@ -759,7 +760,10 @@ class HyperliquidBrokerAdapter(BrokerAdapter):
             "a": public_preflight.resolved_asset,
             "b": intent.side.lower() == "buy",
             "p": _quantize_hyperliquid_price(
-                str(public_preflight.mid_price or "0"),
+                _apply_hyperliquid_ioc_price_buffer(
+                    str(public_preflight.mid_price or "0"),
+                    side=intent.side,
+                ),
                 round_up=intent.side.lower() == "buy",
             ),
             "s": _format_hyperliquid_size(intent.quantity),
@@ -2011,6 +2015,18 @@ def _quantize_hyperliquid_price(price_str: str, *, round_up: bool, sig_figs: int
     quant = Decimal(10) ** -decimal_places
     rounding = ROUND_UP if round_up else ROUND_DOWN
     return str(price.quantize(quant, rounding=rounding))
+
+
+def _apply_hyperliquid_ioc_price_buffer(price_str: str, *, side: str) -> str:
+    try:
+        price = Decimal(price_str)
+    except InvalidOperation:
+        return price_str
+    if price <= 0:
+        return price_str
+    buffer_ratio = HYPERLIQUID_IOC_PRICE_BUFFER_BPS / Decimal("10000")
+    multiplier = Decimal("1") - buffer_ratio if side.lower() == "sell" else Decimal("1") + buffer_ratio
+    return str(price * multiplier)
 
 
 def _build_hyperliquid_cloid(request_id: str) -> str:
