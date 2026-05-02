@@ -40,6 +40,36 @@ def _extract_cloid(signed_action: dict[str, object]) -> str | None:
     return str(value) if value is not None else None
 
 
+def _ready_submit_gates() -> dict[str, dict[str, object]]:
+    return {
+        "identity_readiness": {
+            "declared_execution_account_id": "0x1111111111111111111111111111111111111111",
+            "declared_execution_signer_id": "0x1111111111111111111111111111111111111111",
+            "derived_signer_address": "0x1111111111111111111111111111111111111111",
+            "signer_type": "direct",
+            "signer_matches_declared": True,
+            "account_matches_signer_for_direct": True,
+            "signer_role": "missing",
+            "execution_account_role": "missing",
+            "identity_ready": True,
+            "identity_reasons": [],
+        },
+        "signing_readiness": {
+            "signing_scheme": "hyperliquid_l1_action",
+            "action_hash": "abc123",
+            "phantom_agent_source": "a",
+            "connection_id": "abc123",
+            "nonce": 1700000000000,
+            "vaultAddress": None,
+            "expiresAfter": None,
+            "signer_type": "direct",
+            "payload_shape_version_or_method": "quantlab_hyperliquid_l1_action_v1_msgpack",
+            "signing_ready": True,
+            "signing_reasons": [],
+        },
+    }
+
+
 def _fake_l2_book(*, bid: str = "2449.9", ask: str = "2450.2", time: int = 1700000000123) -> dict[str, object]:
     return {
         "coin": "ETH",
@@ -468,6 +498,14 @@ def test_hyperliquid_signed_action_report_builds_deterministic_payload_and_envel
     assert report["action_payload"]["orders"][0]["p"] == "2451.5"
     assert report["signature_envelope"]["signature_present"] is False
     assert report["signature_envelope"]["signature_state"] == "pending_signer_backend"
+    assert report["identity_readiness"]["declared_execution_account_id"] == context.execution_account_id
+    assert report["identity_readiness"]["declared_execution_signer_id"] == context.signer_id
+    assert report["identity_readiness"]["signer_type"] == "agent_wallet"
+    assert report["identity_readiness"]["identity_ready"] is False
+    assert "missing_derived_signer_address" in report["identity_readiness"]["identity_reasons"]
+    assert report["signing_readiness"]["signing_scheme"] == "hyperliquid_l1_action"
+    assert report["signing_readiness"]["payload_shape_version_or_method"] == "quantlab_hyperliquid_l1_action_v1_msgpack"
+    assert report["signing_readiness"]["signing_ready"] is False
 
 
 def test_hyperliquid_signed_action_buy_uses_ioc_buffer_before_tick_quantization():
@@ -685,6 +723,15 @@ def test_hyperliquid_signed_action_report_signs_with_local_private_key():
     assert isinstance(report["signature_envelope"]["signature"]["r"], str)
     assert isinstance(report["signature_envelope"]["signature"]["s"], str)
     assert isinstance(report["signature_envelope"]["eip712_payload"]["message"]["connectionId"], str)
+    assert report["identity_readiness"]["derived_signer_address"] == report["signature_envelope"]["derived_signer_address"]
+    assert report["identity_readiness"]["signer_matches_declared"] is True
+    assert report["identity_readiness"]["identity_ready"] is True
+    assert report["signing_readiness"]["action_hash"] == report["signature_envelope"]["action_hash"]
+    assert report["signing_readiness"]["connection_id"] == report["signature_envelope"]["action_hash"]
+    assert report["signing_readiness"]["phantom_agent_source"] == "a"
+    assert report["signing_readiness"]["vaultAddress"] == "0x1111111111111111111111111111111111111111"
+    assert report["signing_readiness"]["expiresAfter"] == 1700000060000
+    assert report["signing_readiness"]["signing_ready"] is True
     recovered = recover_hyperliquid_l1_action_signer(
         action_payload=report["action_payload"],
         signature=report["signature_envelope"]["signature"],
@@ -736,6 +783,79 @@ def test_hyperliquid_signed_action_report_flags_signer_identity_mismatch():
     assert report["readiness_allowed"] is False
     assert "signer_identity_mismatch" in report["readiness_reasons"]
     assert "signer_identity_mismatch" in report["errors"]
+    assert report["identity_readiness"]["signer_matches_declared"] is False
+    assert report["identity_readiness"]["identity_ready"] is False
+    assert "signer_identity_mismatch" in report["identity_readiness"]["identity_reasons"]
+
+
+def test_hyperliquid_signed_action_report_marks_matching_direct_signer_ready():
+    adapter = HyperliquidBrokerAdapter()
+    policy = ExecutionPolicy(max_notional_per_order=1000.0)
+    signer_private_key = "0x59c6995e998f97a5a0044966f0945382d7f6f9d5c4bbf34c95a98e2ce42928f1"
+    signer_address = "0x4ad91849099DcD0E9e4b80214D8B4969a69f1861"
+    context = ExecutionContext(
+        execution_account_id=signer_address,
+        signer_id=signer_address,
+        signer_type="direct",
+        routing_target="account",
+        transport_preference="websocket",
+        nonce_hint=1700000000000,
+    )
+
+    def fake_fetch_json(payload, **kwargs):
+        if payload["type"] == "allMids":
+            return {"ETH": "2450.1"}
+        if payload["type"] == "meta":
+            return {"universe": [{"name": "ETH", "szDecimals": 4}]}
+        if payload["type"] == "l2Book":
+            return _fake_l2_book()
+        if payload["type"] == "userRole":
+            return {"role": "missing"}
+        if payload["type"] in {"openOrders", "frontendOpenOrders"}:
+            return []
+        raise AssertionError(payload)
+
+    report = adapter.build_signed_action_report(
+        _make_intent(account_id=signer_address),
+        policy,
+        context=context,
+        fetch_json=fake_fetch_json,
+        signing_private_key=signer_private_key,
+    ).to_dict()
+
+    assert report["readiness_allowed"] is True
+    assert report["identity_readiness"]["signer_type"] == "direct"
+    assert report["identity_readiness"]["signer_matches_declared"] is True
+    assert report["identity_readiness"]["account_matches_signer_for_direct"] is True
+    assert report["identity_readiness"]["identity_ready"] is True
+    assert report["signing_readiness"]["signing_ready"] is True
+
+
+def test_hyperliquid_signed_action_report_blocks_direct_account_signer_mismatch():
+    adapter = HyperliquidBrokerAdapter()
+    policy = ExecutionPolicy(max_notional_per_order=1000.0)
+    context = ExecutionContext(
+        execution_account_id="0x1111111111111111111111111111111111111111",
+        signer_id="0x2222222222222222222222222222222222222222",
+        signer_type="direct",
+        routing_target="account",
+        transport_preference="websocket",
+        nonce_hint=1700000000000,
+    )
+
+    report = adapter.build_signed_action_report(
+        _make_intent(),
+        policy,
+        context=context,
+        fetch_json=_fake_hyperliquid_signed_action_fetch,
+    ).to_dict()
+
+    assert report["readiness_allowed"] is False
+    assert report["action_payload"] is None
+    assert "direct_account_signer_mismatch" in report["readiness_reasons"]
+    assert report["identity_readiness"]["account_matches_signer_for_direct"] is False
+    assert report["identity_readiness"]["identity_ready"] is False
+    assert "direct_account_signer_mismatch" in report["identity_readiness"]["identity_reasons"]
 
 
 def test_hyperliquid_signed_action_report_signs_with_env_private_key_when_signer_role_is_unknown(monkeypatch):
@@ -1102,6 +1222,7 @@ def test_hyperliquid_submit_report_labels_missing_reconciliation_identifiers():
             "signature": {"r": "0x1", "s": "0x2", "v": 27},
         },
     }
+    signed_action.update(_ready_submit_gates())
 
     def fake_post_json(payload, **kwargs):
         assert payload["action"]["type"] == "order"
@@ -1121,6 +1242,108 @@ def test_hyperliquid_submit_report_labels_missing_reconciliation_identifiers():
     assert report["cloid"] is None
     assert report["submit_state"] == "submitted_remote_identifier_missing"
     assert "missing_reconciliation_identifiers" in report["errors"]
+
+
+def test_hyperliquid_submit_report_blocks_missing_identity_readiness():
+    adapter = HyperliquidBrokerAdapter()
+    signed_action = {
+        "artifact_type": "quantlab.hyperliquid.signed_action",
+        "readiness_allowed": True,
+        "action_payload": {"type": "order", "orders": [{"a": 1, "b": True, "p": "2450", "s": "0.25"}], "grouping": "na"},
+        "nonce": 1700000000000,
+        "signature_envelope": {
+            "signer_id": "0x1111111111111111111111111111111111111111",
+            "signing_payload_sha256": "abc123",
+            "signature_state": "signed",
+            "signature_present": True,
+            "signature": {"r": "0x1", "s": "0x2", "v": 27},
+        },
+        "signing_readiness": _ready_submit_gates()["signing_readiness"],
+    }
+
+    report = adapter.build_submit_report(
+        source_artifact_path="C:/tmp/hyperliquid_signed_action.json",
+        signed_action_artifact=signed_action,
+        reviewer="marce",
+        remote_submit=True,
+    ).to_dict()
+
+    assert report["submitted"] is False
+    assert report["remote_submit_called"] is False
+    assert report["submit_state"] == "missing_identity_readiness"
+    assert "missing_identity_readiness" in report["errors"]
+
+
+def test_hyperliquid_submit_report_blocks_false_identity_readiness():
+    adapter = HyperliquidBrokerAdapter()
+    signed_action = {
+        "artifact_type": "quantlab.hyperliquid.signed_action",
+        "readiness_allowed": True,
+        "action_payload": {"type": "order", "orders": [{"a": 1, "b": True, "p": "2450", "s": "0.25"}], "grouping": "na"},
+        "nonce": 1700000000000,
+        "signature_envelope": {
+            "signer_id": "0x1111111111111111111111111111111111111111",
+            "signing_payload_sha256": "abc123",
+            "signature_state": "signed",
+            "signature_present": True,
+            "signature": {"r": "0x1", "s": "0x2", "v": 27},
+        },
+    }
+    gates = _ready_submit_gates()
+    gates["identity_readiness"] = {
+        **gates["identity_readiness"],
+        "identity_ready": False,
+        "identity_reasons": ["signer_identity_mismatch"],
+    }
+    signed_action.update(gates)
+
+    report = adapter.build_submit_report(
+        source_artifact_path="C:/tmp/hyperliquid_signed_action.json",
+        signed_action_artifact=signed_action,
+        reviewer="marce",
+        remote_submit=True,
+    ).to_dict()
+
+    assert report["submitted"] is False
+    assert report["remote_submit_called"] is False
+    assert report["submit_state"] == "identity_not_ready"
+    assert "identity_not_ready" in report["errors"]
+
+
+def test_hyperliquid_submit_report_blocks_false_signing_readiness():
+    adapter = HyperliquidBrokerAdapter()
+    signed_action = {
+        "artifact_type": "quantlab.hyperliquid.signed_action",
+        "readiness_allowed": True,
+        "action_payload": {"type": "order", "orders": [{"a": 1, "b": True, "p": "2450", "s": "0.25"}], "grouping": "na"},
+        "nonce": 1700000000000,
+        "signature_envelope": {
+            "signer_id": "0x1111111111111111111111111111111111111111",
+            "signing_payload_sha256": "abc123",
+            "signature_state": "signed",
+            "signature_present": True,
+            "signature": {"r": "0x1", "s": "0x2", "v": 27},
+        },
+    }
+    gates = _ready_submit_gates()
+    gates["signing_readiness"] = {
+        **gates["signing_readiness"],
+        "signing_ready": False,
+        "signing_reasons": ["connection_id_action_hash_mismatch"],
+    }
+    signed_action.update(gates)
+
+    report = adapter.build_submit_report(
+        source_artifact_path="C:/tmp/hyperliquid_signed_action.json",
+        signed_action_artifact=signed_action,
+        reviewer="marce",
+        remote_submit=True,
+    ).to_dict()
+
+    assert report["submitted"] is False
+    assert report["remote_submit_called"] is False
+    assert report["submit_state"] == "signing_not_ready"
+    assert "signing_not_ready" in report["errors"]
 
 
 def test_hyperliquid_submit_report_rejects_unsigned_artifact():

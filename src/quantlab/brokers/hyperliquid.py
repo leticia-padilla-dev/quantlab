@@ -180,6 +180,8 @@ class HyperliquidSignedActionReport:
     expires_after: int | None
     expires_after_mode: str | None
     signature_envelope: dict[str, object]
+    identity_readiness: dict[str, object]
+    signing_readiness: dict[str, object]
     action_payload: dict[str, object] | None
     readiness_allowed: bool
     readiness_reasons: tuple[str, ...]
@@ -219,6 +221,8 @@ class HyperliquidSignedActionReport:
             "expires_after": self.expires_after,
             "expires_after_mode": self.expires_after_mode,
             "signature_envelope": self.signature_envelope,
+            "identity_readiness": self.identity_readiness,
+            "signing_readiness": self.signing_readiness,
             "action_payload": self.action_payload,
             "readiness_allowed": self.readiness_allowed,
             "readiness_reasons": list(self.readiness_reasons),
@@ -716,6 +720,13 @@ class HyperliquidBrokerAdapter(BrokerAdapter):
             readiness_reasons.append("missing_signer_id")
         if not resolved_context.nonce_scope:
             readiness_reasons.append("missing_nonce_scope")
+        if (
+            resolved_context.signer_type == "direct"
+            and resolved_context.execution_account_id
+            and resolved_context.signer_id
+            and resolved_context.execution_account_id.lower() != resolved_context.signer_id.lower()
+        ):
+            readiness_reasons.append("direct_account_signer_mismatch")
 
         action_payload_blocking_reasons = [
             reason for reason in readiness_reasons
@@ -765,6 +776,15 @@ class HyperliquidBrokerAdapter(BrokerAdapter):
             errors.extend(signer_result["errors"])
             readiness_reasons.extend(signer_result["readiness_reasons"])
 
+        identity_readiness = _build_hyperliquid_identity_readiness(
+            resolved_context=resolved_context,
+            signature_envelope=signature_envelope,
+        )
+        signing_readiness = _build_hyperliquid_signing_readiness(
+            resolved_context=resolved_context,
+            signature_envelope=signature_envelope,
+        )
+
         return HyperliquidSignedActionReport(
             adapter_name=self.adapter_name,
             generated_at=dt.datetime.now().replace(microsecond=0).isoformat(),
@@ -778,6 +798,8 @@ class HyperliquidBrokerAdapter(BrokerAdapter):
             expires_after=expires_after,
             expires_after_mode=expires_after_mode,
             signature_envelope=signature_envelope,
+            identity_readiness=identity_readiness,
+            signing_readiness=signing_readiness,
             action_payload=action_payload,
             readiness_allowed=not readiness_reasons,
             readiness_reasons=tuple(_unique_reasons(readiness_reasons)),
@@ -1088,6 +1110,8 @@ class HyperliquidBrokerAdapter(BrokerAdapter):
 
         submit_payload = _build_hyperliquid_submit_payload(signed_action_artifact)
         source_envelope = signed_action_artifact.get("signature_envelope", {})
+        identity_readiness = signed_action_artifact.get("identity_readiness")
+        signing_readiness = signed_action_artifact.get("signing_readiness")
 
         if signed_action_artifact.get("artifact_type") != "quantlab.hyperliquid.signed_action":
             errors.append("unexpected_signed_action_artifact_type")
@@ -1100,6 +1124,14 @@ class HyperliquidBrokerAdapter(BrokerAdapter):
                 errors.append("signed_action_not_signed")
             if not bool(source_envelope.get("signature_present")):
                 errors.append("signature_missing")
+        if not isinstance(identity_readiness, dict):
+            errors.append("missing_identity_readiness")
+        elif not bool(identity_readiness.get("identity_ready")):
+            errors.append("identity_not_ready")
+        if not isinstance(signing_readiness, dict):
+            errors.append("missing_signing_readiness")
+        elif not bool(signing_readiness.get("signing_ready")):
+            errors.append("signing_not_ready")
         if not isinstance(submit_payload, dict):
             errors.append("submit_payload_unavailable")
 
@@ -2145,6 +2177,114 @@ def _calculate_hyperliquid_effective_notional(
     if price is None:
         return None
     return price * Decimal(str(quantity))
+
+
+def _addresses_equal(left: str | None, right: str | None) -> bool | None:
+    if not left or not right:
+        return None
+    return left.lower() == right.lower()
+
+
+def _build_hyperliquid_identity_readiness(
+    *,
+    resolved_context: HyperliquidResolvedExecutionContext,
+    signature_envelope: dict[str, object],
+) -> dict[str, object]:
+    declared_account = resolved_context.execution_account_id
+    declared_signer = resolved_context.signer_id
+    derived_signer = _safe_string(signature_envelope.get("derived_signer_address"))
+    signer_matches_declared = _addresses_equal(derived_signer, declared_signer)
+    account_matches_signer_for_direct = (
+        _addresses_equal(declared_account, declared_signer)
+        if resolved_context.signer_type == "direct"
+        else None
+    )
+    reasons: list[str] = []
+
+    if not declared_account:
+        reasons.append("missing_declared_execution_account_id")
+    if not declared_signer:
+        reasons.append("missing_declared_execution_signer_id")
+    if not derived_signer:
+        reasons.append("missing_derived_signer_address")
+    elif signer_matches_declared is False:
+        reasons.append("signer_identity_mismatch")
+
+    if resolved_context.signer_type == "direct":
+        if account_matches_signer_for_direct is False:
+            reasons.append("direct_account_signer_mismatch")
+    elif resolved_context.signer_type in {"api_wallet", "agent_wallet"}:
+        if resolved_context.signer_role in {None, "missing"}:
+            reasons.append("signer_role_unknown")
+        elif resolved_context.signer_role != "agent":
+            reasons.append("signer_role_mismatch")
+    else:
+        reasons.append("unsupported_signer_type")
+
+    return {
+        "declared_execution_account_id": declared_account,
+        "declared_execution_signer_id": declared_signer,
+        "derived_signer_address": derived_signer,
+        "signer_type": resolved_context.signer_type,
+        "signer_matches_declared": signer_matches_declared,
+        "account_matches_signer_for_direct": account_matches_signer_for_direct,
+        "signer_role": resolved_context.signer_role,
+        "execution_account_role": resolved_context.execution_account_role,
+        "identity_ready": not reasons,
+        "identity_reasons": list(_unique_reasons(reasons)),
+    }
+
+
+def _build_hyperliquid_signing_readiness(
+    *,
+    resolved_context: HyperliquidResolvedExecutionContext,
+    signature_envelope: dict[str, object],
+) -> dict[str, object]:
+    signing_payload = signature_envelope.get("signing_payload")
+    if not isinstance(signing_payload, dict):
+        signing_payload = {}
+    phantom_agent = signature_envelope.get("phantom_agent")
+    if not isinstance(phantom_agent, dict):
+        phantom_agent = {}
+
+    action_hash = _safe_string(signature_envelope.get("action_hash"))
+    connection_id = _safe_string(phantom_agent.get("connectionId"))
+    phantom_source = _safe_string(phantom_agent.get("source"))
+    nonce = signing_payload.get("nonce")
+    vault_address = signing_payload.get("vaultAddress")
+    expires_after = signing_payload.get("expiresAfter")
+    signature_state = _safe_string(signature_envelope.get("signature_state"))
+    signature_present = bool(signature_envelope.get("signature_present"))
+    reasons: list[str] = []
+
+    if signature_state != "signed":
+        reasons.append("signature_not_signed")
+    if not signature_present:
+        reasons.append("signature_missing")
+    if not action_hash:
+        reasons.append("missing_action_hash")
+    if not connection_id:
+        reasons.append("missing_connection_id")
+    elif action_hash and connection_id != action_hash:
+        reasons.append("connection_id_action_hash_mismatch")
+    if not phantom_source:
+        reasons.append("missing_phantom_agent_source")
+    if nonce is None:
+        reasons.append("missing_nonce")
+
+    return {
+        "signing_scheme": signature_envelope.get("signing_scheme"),
+        "action_hash": action_hash,
+        "phantom_agent_source": phantom_source,
+        "connection_id": connection_id,
+        "nonce": nonce,
+        "vaultAddress": vault_address,
+        "expiresAfter": expires_after,
+        "signer_type": resolved_context.signer_type,
+        "payload_shape_version_or_method": "quantlab_hyperliquid_l1_action_v1_msgpack",
+        "signing_ready": not reasons,
+        "signing_reasons": list(_unique_reasons(reasons)),
+    }
 
 
 def _build_hyperliquid_cloid(request_id: str) -> str:
