@@ -765,7 +765,7 @@ class HyperliquidBrokerAdapter(BrokerAdapter):
 
         value_readiness = _build_hyperliquid_value_readiness(
             action_payload=unblocked_action_payload,
-            quantity=intent.quantity,
+            effective_notional=effective_notional if not action_payload_blocking_reasons else None,
         )
 
         signer_backend = None
@@ -2312,16 +2312,25 @@ def _build_hyperliquid_signing_readiness(
 def _build_hyperliquid_value_readiness(
     *,
     action_payload: dict[str, object] | None,
-    quantity: float,
+    quantity: float = 0.0,
+    effective_notional: Decimal | None = None,
 ) -> dict[str, object]:
-    effective_notional = _calculate_hyperliquid_effective_notional(action_payload, quantity)
+    if effective_notional is None:
+        effective_notional = _calculate_hyperliquid_effective_notional(action_payload, quantity)
     required_min = float(_HYPERLIQUID_MIN_ORDER_VALUE_USD)
     effective_value = float(effective_notional) if effective_notional is not None else None
     value_sufficient = (
         effective_notional is not None and effective_notional >= _HYPERLIQUID_MIN_ORDER_VALUE_USD
     )
+    if value_sufficient:
+        return {
+            "effective_order_value": effective_value,
+            "required_min_value": required_min,
+            "value_sufficient": True,
+            "minimum_quantity_needed": None,
+        }
     minimum_quantity_needed: float | None = None
-    if effective_notional is not None and not value_sufficient and action_payload is not None:
+    if effective_notional is not None and action_payload is not None:
         orders = action_payload.get("orders")
         if isinstance(orders, list) and orders:
             price = _parse_decimal(orders[0].get("p"))
@@ -2333,7 +2342,7 @@ def _build_hyperliquid_value_readiness(
     return {
         "effective_order_value": effective_value,
         "required_min_value": required_min,
-        "value_sufficient": value_sufficient,
+        "value_sufficient": False,
         "minimum_quantity_needed": minimum_quantity_needed,
     }
 
