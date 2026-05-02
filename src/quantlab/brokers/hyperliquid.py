@@ -98,6 +98,9 @@ class HyperliquidPreflightReport:
     resolved_coin: str | None
     resolved_asset: int | None
     mid_price: str | None
+    best_bid: str | None
+    best_ask: str | None
+    book_time: int | None
     rest_info_url: str
     websocket_url: str
     execution_context: HyperliquidResolvedExecutionContext
@@ -118,6 +121,9 @@ class HyperliquidPreflightReport:
             "resolved_coin": self.resolved_coin,
             "resolved_asset": self.resolved_asset,
             "mid_price": self.mid_price,
+            "best_bid": self.best_bid,
+            "best_ask": self.best_ask,
+            "book_time": self.book_time,
             "rest_info_url": self.rest_info_url,
             "websocket_url": self.websocket_url,
             "execution_context": self.execution_context.to_dict(),
@@ -587,6 +593,9 @@ class HyperliquidBrokerAdapter(BrokerAdapter):
         resolved_coin = None
         resolved_asset = None
         mid_price = None
+        best_bid = None
+        best_ask = None
+        book_time = None
 
         resolved_context = self.resolve_execution_context(
             intent_account_id=intent_account_id,
@@ -631,6 +640,18 @@ class HyperliquidBrokerAdapter(BrokerAdapter):
             resolved_asset = market["resolved_asset"]
             if resolved_coin and isinstance(all_mids, dict):
                 mid_price = all_mids.get(resolved_coin)
+            if resolved_coin:
+                try:
+                    l2_book = fetch_hyperliquid_l2_book(
+                        resolved_coin,
+                        timeout_seconds=timeout_seconds,
+                        fetch_json=fetch_json,
+                    )
+                    best_bid, best_ask, book_time = _extract_hyperliquid_top_of_book(l2_book)
+                except Exception as exc:  # noqa: BLE001
+                    errors.append(f"l2_book_probe_failed:{exc.__class__.__name__}")
+                if not best_bid or not best_ask:
+                    errors.append("l2_book_top_of_book_unavailable")
         else:
             errors.append("market_not_supported")
 
@@ -647,6 +668,9 @@ class HyperliquidBrokerAdapter(BrokerAdapter):
             resolved_coin=resolved_coin,
             resolved_asset=resolved_asset,
             mid_price=mid_price,
+            best_bid=best_bid,
+            best_ask=best_ask,
+            book_time=book_time,
             rest_info_url=HYPERLIQUID_INFO_API_URL,
             websocket_url=HYPERLIQUID_MAINNET_WS_URL,
             execution_context=resolved_context,
@@ -694,7 +718,10 @@ class HyperliquidBrokerAdapter(BrokerAdapter):
             readiness_reasons.append("missing_nonce_scope")
 
         action_payload_blocking_reasons = [
-            reason for reason in readiness_reasons if reason != "signer_role_unknown"
+            reason for reason in readiness_reasons
+            if reason != "signer_role_unknown"
+            and reason != "l2_book_top_of_book_unavailable"
+            and not reason.startswith("l2_book_probe_failed:")
         ]
         action_payload = None
         if not action_payload_blocking_reasons:
@@ -702,6 +729,17 @@ class HyperliquidBrokerAdapter(BrokerAdapter):
                 intent,
                 public_preflight=public_preflight,
             )
+            effective_notional = _calculate_hyperliquid_effective_notional(
+                action_payload,
+                intent.quantity,
+            )
+            if (
+                effective_notional is not None
+                and policy.max_notional_per_order is not None
+                and effective_notional > Decimal(str(policy.max_notional_per_order))
+            ):
+                readiness_reasons.append("effective_max_notional_exceeded")
+                action_payload = None
 
         signer_backend = None
         signature_envelope = self.build_signature_envelope(
@@ -761,7 +799,10 @@ class HyperliquidBrokerAdapter(BrokerAdapter):
             "b": intent.side.lower() == "buy",
             "p": _quantize_hyperliquid_price(
                 _apply_hyperliquid_ioc_price_buffer(
-                    str(public_preflight.mid_price or "0"),
+                    _select_hyperliquid_ioc_base_price(
+                        public_preflight,
+                        side=intent.side,
+                    ),
                     side=intent.side,
                 ),
                 round_up=intent.side.lower() == "buy",
@@ -1763,6 +1804,20 @@ def fetch_hyperliquid_all_mids(
     return {}
 
 
+def fetch_hyperliquid_l2_book(
+    coin: str,
+    *,
+    timeout_seconds: float = 10.0,
+    fetch_json=None,
+) -> dict[str, object]:
+    payload = fetch_hyperliquid_info(
+        {"type": "l2Book", "coin": coin},
+        timeout_seconds=timeout_seconds,
+        fetch_json=fetch_json,
+    )
+    return payload if isinstance(payload, dict) else {"raw_response": payload}
+
+
 def fetch_hyperliquid_user_role(
     user: str,
     *,
@@ -2027,6 +2082,69 @@ def _apply_hyperliquid_ioc_price_buffer(price_str: str, *, side: str) -> str:
     buffer_ratio = HYPERLIQUID_IOC_PRICE_BUFFER_BPS / Decimal("10000")
     multiplier = Decimal("1") - buffer_ratio if side.lower() == "sell" else Decimal("1") + buffer_ratio
     return str(price * multiplier)
+
+
+def _select_hyperliquid_ioc_base_price(
+    public_preflight: HyperliquidPreflightReport,
+    *,
+    side: str,
+) -> str:
+    if side.lower() == "buy" and public_preflight.best_ask:
+        return public_preflight.best_ask
+    if side.lower() == "sell" and public_preflight.best_bid:
+        return public_preflight.best_bid
+    return str(public_preflight.mid_price or "0")
+
+
+def _extract_hyperliquid_top_of_book(
+    l2_book: dict[str, object] | None,
+) -> tuple[str | None, str | None, int | None]:
+    if not isinstance(l2_book, dict):
+        return None, None, None
+    levels = l2_book.get("levels")
+    if not isinstance(levels, list) or len(levels) < 2:
+        return None, None, _parse_optional_int(l2_book.get("time"))
+    bids = levels[0]
+    asks = levels[1]
+    best_bid = _extract_hyperliquid_book_level_price(bids)
+    best_ask = _extract_hyperliquid_book_level_price(asks)
+    return best_bid, best_ask, _parse_optional_int(l2_book.get("time"))
+
+
+def _extract_hyperliquid_book_level_price(levels: object) -> str | None:
+    if not isinstance(levels, list) or not levels:
+        return None
+    first_level = levels[0]
+    if not isinstance(first_level, dict):
+        return None
+    return _safe_string(first_level.get("px"))
+
+
+def _parse_optional_int(value: object) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _calculate_hyperliquid_effective_notional(
+    action_payload: dict[str, object] | None,
+    quantity: float,
+) -> Decimal | None:
+    if not isinstance(action_payload, dict):
+        return None
+    orders = action_payload.get("orders")
+    if not isinstance(orders, list) or not orders:
+        return None
+    first_order = orders[0]
+    if not isinstance(first_order, dict):
+        return None
+    price = _parse_decimal(first_order.get("p"))
+    if price is None:
+        return None
+    return price * Decimal(str(quantity))
 
 
 def _build_hyperliquid_cloid(request_id: str) -> str:
