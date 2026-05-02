@@ -5,6 +5,7 @@ import json
 from quantlab.brokers import ExecutionContext, ExecutionIntent, ExecutionPolicy
 from quantlab.brokers.hyperliquid import (
     HyperliquidBrokerAdapter,
+    _build_hyperliquid_value_readiness,
     _quantize_hyperliquid_price,
     recover_hyperliquid_l1_action_signer,
 )
@@ -66,6 +67,12 @@ def _ready_submit_gates() -> dict[str, dict[str, object]]:
             "payload_shape_version_or_method": "quantlab_hyperliquid_l1_action_v1_msgpack",
             "signing_ready": True,
             "signing_reasons": [],
+        },
+        "value_readiness": {
+            "effective_order_value": 612.5,
+            "required_min_value": 10.0,
+            "value_sufficient": True,
+            "minimum_quantity_needed": None,
         },
     }
 
@@ -1623,3 +1630,104 @@ def test_quantize_price_zero_returns_unchanged():
 
 def test_quantize_price_invalid_returns_unchanged():
     assert _quantize_hyperliquid_price("not_a_price", round_up=True) == "not_a_price"
+
+
+# value_readiness — signed action blocks when effective order value < $10
+
+
+def _direct_context(**overrides):
+    params = {
+        "execution_account_id": "0x1111111111111111111111111111111111111111",
+        "signer_id": "0x1111111111111111111111111111111111111111",
+        "signer_type": "direct",
+        "routing_target": "account",
+        "nonce_hint": 1700000000000,
+    }
+    params.update(overrides)
+    return ExecutionContext(**params)
+
+
+def _direct_fetch(payload, **kwargs):
+    if payload["type"] == "allMids":
+        return {"ETH": "2450.1"}
+    if payload["type"] == "meta":
+        return {"universe": [{"name": "ETH", "szDecimals": 4}]}
+    if payload["type"] == "l2Book":
+        return _fake_l2_book(bid="2449.9", ask="2450.2")
+    if payload["type"] == "userRole":
+        return {"role": "account"}
+    if payload["type"] in {"openOrders", "frontendOpenOrders"}:
+        return []
+    raise AssertionError(payload)
+
+
+def test_build_hyperliquid_value_readiness_below_minimum():
+    # 0.004 ETH * 2451.5 = 9.806 USD < $10 minimum
+    action_payload = {"type": "order", "orders": [{"p": "2451.5"}], "grouping": "na"}
+    vr = _build_hyperliquid_value_readiness(action_payload=action_payload, quantity=0.004)
+    assert vr["value_sufficient"] is False
+    assert vr["required_min_value"] == 10.0
+    assert abs(vr["effective_order_value"] - 9.806) < 0.001
+    assert vr["minimum_quantity_needed"] is not None
+    assert vr["minimum_quantity_needed"] > 0.004
+
+
+def test_build_hyperliquid_value_readiness_sufficient():
+    # 0.25 ETH * 2451.5 = 612.875 USD >> $10 minimum
+    action_payload = {"type": "order", "orders": [{"p": "2451.5"}], "grouping": "na"}
+    vr = _build_hyperliquid_value_readiness(action_payload=action_payload, quantity=0.25)
+    assert vr["value_sufficient"] is True
+    assert vr["required_min_value"] == 10.0
+    assert abs(vr["effective_order_value"] - 612.875) < 0.001
+    assert vr["minimum_quantity_needed"] is None
+
+
+def test_build_hyperliquid_value_readiness_none_payload():
+    vr = _build_hyperliquid_value_readiness(action_payload=None, quantity=0.25)
+    assert vr["value_sufficient"] is False
+    assert vr["effective_order_value"] is None
+    assert vr["minimum_quantity_needed"] is None
+
+
+def test_hyperliquid_submit_gate_rejects_artifact_with_insufficient_order_value():
+    # Tests the defense-in-depth check: readiness_allowed=True but value_sufficient=False
+    adapter = HyperliquidBrokerAdapter()
+
+    signed_action = {
+        "artifact_type": "quantlab.hyperliquid.signed_action",
+        "readiness_allowed": True,
+        "signature_envelope": {
+            "signature_state": "signed",
+            "signature_present": True,
+            "signature": {"r": "0xabc", "s": "0xdef", "v": 27},
+            "signing_payload": {},
+            "action_hash": "abc123",
+            "phantom_agent": {"source": "a"},
+            "signer_id": "0x1111111111111111111111111111111111111111",
+            "nonce_scope": "0x1111111111111111111111111111111111111111",
+        },
+        **_ready_submit_gates(),
+        "value_readiness": {
+            "effective_order_value": 9.3,
+            "required_min_value": 10.0,
+            "value_sufficient": False,
+            "minimum_quantity_needed": 0.0043,
+        },
+        "action_payload": {
+            "type": "order",
+            "orders": [{"a": 1, "b": True, "p": "2326.6", "s": "0.004"}],
+            "grouping": "na",
+        },
+        "nonce": 1700000000000,
+        "expires_after": None,
+    }
+
+    report = adapter.build_submit_report(
+        source_artifact_path="outputs/test/hyperliquid_signed_action.json",
+        signed_action_artifact=signed_action,
+        reviewer="marce",
+    ).to_dict()
+
+    assert report["submitted"] is False
+    assert report["remote_submit_called"] is False
+    assert report["submit_state"] == "effective_order_value_below_minimum"
