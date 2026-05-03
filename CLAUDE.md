@@ -31,9 +31,8 @@ PYTHONPATH=src pytest test/test_hyperliquid_broker_adapter.py -q   # broker only
 ```bash
 cd desktop && npm run typecheck   # TypeScript — must pass before any commit
 cd desktop && npm run build       # Vite build — must pass before any commit
-# Smoke tests require xvfb (CI only, not available locally without display):
-# npm run smoke:react:fallback
-# npm run smoke:react:real-path
+npm run smoke:react:fallback      # React fallback smoke
+npm run smoke:react:real-path     # React real-path smoke
 ```
 
 ## Git workflow — non-negotiable rules
@@ -41,7 +40,7 @@ cd desktop && npm run build       # Vite build — must pass before any commit
 1. **Always create a new branch before touching any file.** Never commit directly to `main`.
 2. **Branch naming:** `feat/`, `fix/`, `docs/` prefixes. Descriptive slug.
 3. **Push with:** `git push -u origin <branch-name>`
-4. **Always open a draft PR** after pushing. CI must pass before marking ready.
+4. **Open a PR** after pushing. Use draft only when the slice is incomplete, risky, or intentionally waiting for review.
 5. **Merge only after CI green.** Check with `gh pr checks <number>`.
 6. **After merge:** `git checkout main && git pull origin main`
 
@@ -49,14 +48,14 @@ The direct-to-main exception that happened in Slice B (#410) must not be repeate
 
 ## Desktop renderer architecture
 
-### Two renderers — legacy is default
+### Two renderers — React is default, legacy is rollback
 
 | Mode | Command | Status |
 |------|---------|--------|
-| Legacy (v0.1) | `npm run start:legacy` or `npm start` | Default, production |
-| React | `npm run start:react` | Future renderer |
+| React | `npm start` or `npm run start:react` | Default renderer |
+| Legacy | `npm run start:legacy` | Rollback / continuity path |
 
-**Never make React the default renderer. Never retire legacy.**
+**Do not retire legacy or remove rollback support unless a slice explicitly owns that retirement boundary.**
 
 ### Legacy is behavioral reference, not architectural truth
 
@@ -96,7 +95,7 @@ Established hooks and what they mirror:
 
 **Not yet bridged (known gap):** `toggleSweepEntry`, `toggleSweepShortlist`, `setSweepBaseline`, `findSweepDecisionRow`, `refresh`
 
-## Files that are permanently out of scope
+## Files that are out of scope by default
 
 Unless a task explicitly targets one of these, never modify them:
 
@@ -131,14 +130,6 @@ Each surface component has a `data-smoke` attribute that must be preserved:
 | `SystemPane` | `data-smoke="surface-system"` |
 | `ExperimentsPane` | `data-smoke="surface-experiments"` |
 | `RunDetailPane` | `.run-detail-shell`, `.artifact-list`, `.tab-placeholder` |
-
-## Open issues — current priorities
-
-| # | Topic | Status |
-|---|-------|--------|
-| #412 | Desktop legacy retirement boundary | Active roadmap |
-| #413 | D.3 micro-live promotion gate (Hyperliquid) | Active |
-| #414 | Profiling + legacy contract deprecation | Upstream of #412 |
 
 ## IPC bridge methods available to hooks
 
