@@ -26,15 +26,18 @@ export function useLegacyBridge() {
   // Wrapper function to call a global legacy function and trigger re-render
   const callLegacyFunction = useCallback((fnName, ...args) => {
     try {
-      // eslint-disable-next-line no-undef
-      if (typeof globalThis[fnName] === 'function') {
-        // eslint-disable-next-line no-undef
-        globalThis[fnName](...args);
+      const fn = globalThis[fnName];
+      if (typeof fn !== 'function') {
+        console.warn(`[useLegacyBridge] Legacy function ${fnName} is not available.`);
+        return Promise.resolve(null);
       }
+      const result = fn(...args);
       // Force React to re-render after legacy function executes
-      setTimeout(forceUpdate, 100);
+      return Promise.resolve(result).finally(() => setTimeout(forceUpdate, 100));
     } catch (err) {
       console.error(`Error calling legacy function ${fnName}:`, err);
+      setTimeout(forceUpdate, 100);
+      return Promise.resolve(null);
     }
   }, []);
 
@@ -50,6 +53,37 @@ export function useLegacyBridge() {
     ),
     toggleShortlist: useCallback(
       (runId) => callLegacyFunction('toggleShortlist', runId),
+      [callLegacyFunction]
+    ),
+    // Temporary legacy-backed refresh for ExperimentsPane until launch/sweep
+    // workspace ownership moves fully into React-native data hooks.
+    refresh: useCallback(
+      () => callLegacyFunction('refreshExperimentsWorkspace', { focusTab: false, silent: true }),
+      [callLegacyFunction]
+    ),
+    toggleSweepEntry: useCallback(
+      (entryOrId) => {
+        if (entryOrId && typeof entryOrId === 'object') {
+          return callLegacyFunction('toggleSweepDecisionEntry', entryOrId);
+        }
+        const entryId = typeof entryOrId === 'string' ? entryOrId : null;
+        const row = entryId && typeof globalThis.findSweepDecisionRow === 'function'
+          ? globalThis.findSweepDecisionRow(entryId)
+          : null;
+        if (!row) {
+          console.warn(`[useLegacyBridge] Sweep row ${entryId || '<missing>'} is not available.`);
+          return Promise.resolve(null);
+        }
+        return callLegacyFunction('toggleSweepDecisionEntry', row);
+      },
+      [callLegacyFunction]
+    ),
+    toggleSweepShortlist: useCallback(
+      (entryId) => callLegacyFunction('toggleSweepDecisionShortlist', entryId),
+      [callLegacyFunction]
+    ),
+    setSweepBaseline: useCallback(
+      (entryId) => callLegacyFunction('setSweepDecisionBaseline', entryId),
       [callLegacyFunction]
     ),
   };
@@ -112,6 +146,11 @@ export function useLegacyDataAccessors() {
     getSweepDecisionEntriesForRun: useCallback((runId) => {
       // eslint-disable-next-line no-undef
       return typeof getSweepDecisionEntriesForRun === 'function' ? getSweepDecisionEntriesForRun(runId) : [];
+    }, []),
+
+    findSweepDecisionRow: useCallback((entryId) => {
+      // eslint-disable-next-line no-undef
+      return typeof findSweepDecisionRow === 'function' ? findSweepDecisionRow(entryId) : null;
     }, []),
   };
 }

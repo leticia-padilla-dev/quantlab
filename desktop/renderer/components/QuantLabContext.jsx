@@ -230,6 +230,7 @@ export function useQuantLabContextValue() {
     loadRunDetail: legacyDataAccessors.loadRunDetail,
     getRunRelatedJobs: legacyDataAccessors.getRunRelatedJobs,
     getSweepDecisionEntriesForRun: legacyDataAccessors.getSweepDecisionEntriesForRun,
+    findSweepDecisionRow: legacyDataAccessors.findSweepDecisionRow,
   }), [registry.runs, selectedRunIds, legacyDataAccessors]);
 
   // Combine native workstation state with legacy snapshot/decision data
