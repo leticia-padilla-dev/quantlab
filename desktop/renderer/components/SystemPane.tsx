@@ -3,6 +3,7 @@ import type { SystemTab } from '../../shared/models/tab';
 import type { WorkspaceState } from '../../shared/models/workspace';
 import type { SnapshotStatus } from '../../shared/models/snapshot';
 import { useQuantLab as _useQuantLab } from './QuantLabContext';
+import { useSnapshot } from '../hooks/useSnapshot.js';
 
 // QuantLabContext is a JS file; cast to any so strict-mode TSX can consume it.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -97,8 +98,10 @@ export function SystemPane({ tab: _tab }: { tab: SystemTab }) {
   const { state, getRuns, getLatestRun, getLatestFailedJob, findJob, decision, openTab } = ctx;
 
   const workspace: Partial<WorkspaceState> = state.workspace ?? {};
-  const snapshotStatus: Partial<SnapshotStatus> = state.snapshotStatus ?? {};
-  const snapshot = state.snapshot ?? {};
+  const serverUrl: string | null = workspace.serverUrl ?? null;
+  const native = useSnapshot(state.snapshot != null ? null : serverUrl);
+  const snapshotStatus: Partial<SnapshotStatus> = state.snapshotStatus ?? native.snapshotStatus ?? {};
+  const snapshot = state.snapshot ?? native.snapshot ?? {};
   const launchControl = (snapshot as any).launchControl ?? null;
   const paper = (snapshot as any).paperHealth ?? null;
   const broker = (snapshot as any).brokerHealth ?? null;

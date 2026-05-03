@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import type { PaperTab } from '../../shared/models/tab';
 import { formatDateTime, formatCount, titleCase } from '../modules/utils';
 import { useQuantLab as _useQuantLab } from './QuantLabContext';
+import { useSnapshot } from '../hooks/useSnapshot.js';
 
 // QuantLabContext is a JS file; cast to any so strict-mode TSX can consume it.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -96,13 +97,14 @@ export function PaperOpsPane({ tab: _tab }: { tab: PaperTab }) {
   const ctx = useQuantLab();
   const { state, getJobs, getLatestRun, getLatestFailedJob, findJob, decision, openTab } = ctx;
 
-  const snapshot = state.snapshot ?? {};
+  const serverUrl: string | null = state.workspace?.serverUrl ?? null;
+  const native = useSnapshot(state.snapshot != null ? null : serverUrl);
+  const snapshot = state.snapshot ?? native.snapshot ?? {};
   const paper = (snapshot as any).paperHealth ?? null;
   const broker = (snapshot as any).brokerHealth ?? null;
   const stepbit = (snapshot as any).stepbitWorkspace ?? null;
   const liveUrls = stepbit?.live_urls ?? {};
   const store = state.candidatesStore ?? {};
-  const serverUrl: string | null = state.workspace?.serverUrl ?? null;
 
   const jobs: any[] = Array.isArray((snapshot as any).launchControl?.jobs)
     ? (snapshot as any).launchControl.jobs
