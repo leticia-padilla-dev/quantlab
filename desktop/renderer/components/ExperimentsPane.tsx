@@ -10,6 +10,7 @@ import {
   toneClass,
 } from '../modules/utils';
 import { useQuantLab as _useQuantLab } from './QuantLabContext';
+import { useExperimentsWorkspace } from '../hooks/useExperimentsWorkspace.js';
 
 // QuantLabContext is a JS file; cast to any so strict-mode TSX can consume it.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -204,7 +205,13 @@ export function ExperimentsPane({ tab }: { tab: ExperimentsTab }) {
   const ctx = useQuantLab();
   const { state, refresh, toggleSweepEntry, toggleSweepShortlist, setSweepBaseline, findSweepDecisionRow } = ctx;
 
-  const workspace = state.experimentsWorkspace ?? { status: 'idle', configs: [], sweeps: [], error: null };
+  const hasLegacyWorkspace = Boolean(state.experimentsWorkspace);
+  const native = useExperimentsWorkspace(!hasLegacyWorkspace);
+  const workspace = hasLegacyWorkspace
+    ? state.experimentsWorkspace
+    : (native.workspace ?? { status: 'idle', configs: [], sweeps: [], error: null });
+  const handleExperimentsRefresh = hasLegacyWorkspace ? () => refresh() : () => native.refresh();
+
   const configs: any[] = Array.isArray(workspace.configs) ? workspace.configs : [];
   const sweeps: any[] = Array.isArray(workspace.sweeps) ? workspace.sweeps : [];
   const sweepDecisionStore = state.sweepDecisionStore ?? {};
@@ -248,7 +255,7 @@ export function ExperimentsPane({ tab }: { tab: ExperimentsTab }) {
         command: 'sweep',
         params: { config_path: configPath },
       });
-      await refresh();
+      await handleExperimentsRefresh();
     } catch (err) {
       console.error('ExperimentsPane: launch sweep failed', err);
     }
@@ -283,7 +290,7 @@ export function ExperimentsPane({ tab }: { tab: ExperimentsTab }) {
           </div>
         </div>
         <div className="workflow-actions">
-          <button className="ghost-btn" type="button" onClick={() => refresh()}>
+          <button className="ghost-btn" type="button" onClick={handleExperimentsRefresh}>
             Refresh
           </button>
           {selectedConfig && (
