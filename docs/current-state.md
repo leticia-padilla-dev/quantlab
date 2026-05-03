@@ -25,6 +25,18 @@ The repository does **not** need a new base architecture layer. The current fron
 - **Stage D.3**: next real frontier, gated by explicit promotion criteria
 - **Live automated execution**: not ready
 
+## Desktop Native Hydration Completion
+
+The `#410` native hydration track is complete as of `09c8801`:
+
+- Run Detail completed through `#501`
+- Paper Ops and System completed through `#503`
+- Experiments completed through a documented direct-main exception
+
+The direct-main completion is a traceability exception only. It is not a
+precedent for future Desktop work. Future Desktop changes must start from a
+fresh `main` branch and go through PR review.
+
 ## Active Promotion Path
 
 The current execution path is sequential, not parallel:
