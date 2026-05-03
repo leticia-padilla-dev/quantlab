@@ -2,8 +2,20 @@ import React, { createContext, useContext, useMemo, useState, useEffect, useCall
 import {
   useLegacyBridge,
   useLegacyDataAccessors,
-  useLegacyDecision,
 } from '../hooks/useLegacyBridge';
+import { useCandidatesStore } from '../hooks/useCandidatesStore.js';
+import {
+  buildMissingCandidateEntry,
+  getCandidateEntriesResolved,
+  getCandidateEntry,
+  getDecisionCompareRunIds as getDecisionCompareRunIdsFromStore,
+  getShortlistRunIds,
+  isBaselineRun,
+  isCandidateRun,
+  isShortlistedRun,
+  summarizeCandidateState,
+} from '../modules/decision-store.js';
+import { uniqueRunIds } from '../modules/utils.js';
 import { useRegistry } from './RegistryContext';
 export { RegistryProvider } from './RegistryContext';
 
@@ -37,7 +49,6 @@ export function useQuantLab() {
 export function useQuantLabContextValue() {
   const { state: legacyState, actions: legacyActions } = useLegacyBridge();
   const legacyDataAccessors = useLegacyDataAccessors();
-  const decision = useLegacyDecision();
 
   // Native registry: authoritative source of run data (#412 B.1)
   const registry = useRegistry();
@@ -47,6 +58,12 @@ export function useQuantLabContextValue() {
   const [activeTabId, setActiveTabId] = useState(null);
   const [selectedRunIds, setSelectedRunIds] = useState([]);
   const [isInitialized, setIsInitialized] = useState(false);
+
+  const findRun = useCallback((runId) => (
+    registry.runs.find((r) => r.run_id === runId) || null
+  ), [registry.runs]);
+
+  const candidates = useCandidatesStore(legacyState?.candidatesStore, findRun);
 
   // 2. Initialize state from persistence layer on mount
   useEffect(() => {
@@ -221,7 +238,7 @@ export function useQuantLabContextValue() {
   const dataAccessors = useMemo(() => ({
     getRuns: () => registry.runs,
     getLatestRun: () => registry.runs[registry.runs.length - 1] || null,
-    findRun: (runId) => registry.runs.find((r) => r.run_id === runId) || null,
+    findRun,
     getSelectedRuns: () =>
       registry.runs.filter((r) => selectedRunIds.includes(r.run_id)),
     // These still delegate to legacy globals for now
@@ -231,7 +248,60 @@ export function useQuantLabContextValue() {
     getRunRelatedJobs: legacyDataAccessors.getRunRelatedJobs,
     getSweepDecisionEntriesForRun: legacyDataAccessors.getSweepDecisionEntriesForRun,
     findSweepDecisionRow: legacyDataAccessors.findSweepDecisionRow,
-  }), [registry.runs, selectedRunIds, legacyDataAccessors]);
+  }), [registry.runs, selectedRunIds, findRun, legacyDataAccessors]);
+
+  const decision = useMemo(() => {
+    const store = candidates.store;
+    const resolveStoreAndRunId = (storeOrRunId, maybeRunId) => {
+      if (maybeRunId === undefined) return { store, runId: storeOrRunId };
+      return { store: storeOrRunId || store, runId: maybeRunId };
+    };
+
+    return {
+      isBaselineRun: (storeOrRunId, maybeRunId) => {
+        const resolved = resolveStoreAndRunId(storeOrRunId, maybeRunId);
+        return isBaselineRun(resolved.store, resolved.runId);
+      },
+      isCandidateRun: (storeOrRunId, maybeRunId) => {
+        const resolved = resolveStoreAndRunId(storeOrRunId, maybeRunId);
+        return isCandidateRun(resolved.store, resolved.runId);
+      },
+      isShortlistedRun: (storeOrRunId, maybeRunId) => {
+        const resolved = resolveStoreAndRunId(storeOrRunId, maybeRunId);
+        return isShortlistedRun(resolved.store, resolved.runId);
+      },
+      getCandidateEntry: (storeOrRunId, maybeRunId) => {
+        const resolved = resolveStoreAndRunId(storeOrRunId, maybeRunId);
+        return getCandidateEntry(resolved.store, resolved.runId);
+      },
+      getCandidateEntriesResolved: (storeOrFindRun, maybeFindRun) => {
+        const useProvidedStore = storeOrFindRun && typeof storeOrFindRun === 'object';
+        const selectedStore = useProvidedStore ? storeOrFindRun : store;
+        const selectedFindRun = typeof maybeFindRun === 'function'
+          ? maybeFindRun
+          : (typeof storeOrFindRun === 'function' ? storeOrFindRun : findRun);
+        return getCandidateEntriesResolved(selectedStore, selectedFindRun);
+      },
+      buildMissingCandidateEntry: (runId) => buildMissingCandidateEntry(runId, findRun),
+      getShortlistRunIds: (selectedStore = store, selectedFindRun = findRun) =>
+        getShortlistRunIds(selectedStore, selectedFindRun),
+      getDecisionCompareRunIds: (
+        uniqueRunIdsFn = uniqueRunIds,
+        maxCandidateCompare = 4,
+        selectedStore = store,
+        selectedFindRun = findRun
+      ) => getDecisionCompareRunIdsFromStore(
+        selectedStore,
+        selectedFindRun,
+        uniqueRunIdsFn,
+        maxCandidateCompare
+      ),
+      summarizeCandidateState: (storeOrRunId, maybeRunId) => {
+        const resolved = resolveStoreAndRunId(storeOrRunId, maybeRunId);
+        return summarizeCandidateState(resolved.store, resolved.runId);
+      },
+    };
+  }, [candidates.store, findRun]);
 
   // Combine native workstation state with legacy snapshot/decision data
   const value = useMemo(
@@ -241,6 +311,9 @@ export function useQuantLabContextValue() {
         tabs,
         activeTabId,
         selectedRunIds,
+        candidatesStore: candidates.store,
+        candidatesStoreStatus: candidates.status,
+        candidatesStoreError: candidates.error,
         isInitialized,
         // Surface registry health for Topbar / smoke diagnostics
         registryLoading: registry.isLoading,
@@ -249,13 +322,16 @@ export function useQuantLabContextValue() {
       ...dataAccessors,
       decision,
       ...legacyActions, // decision-related actions (setBaseline, etc.)
+      setBaseline: candidates.setBaseline,
+      toggleCandidate: candidates.toggleCandidate,
+      toggleShortlist: candidates.toggleShortlist,
       openTab,
       closeTab,
       setActiveTab,
       navigateToSurface,
       toggleRunSelection,
     }),
-    [legacyState, tabs, activeTabId, selectedRunIds, isInitialized, registry.isLoading, registry.lastError, dataAccessors, decision, legacyActions, openTab, closeTab, setActiveTab, navigateToSurface, toggleRunSelection]
+    [legacyState, tabs, activeTabId, selectedRunIds, candidates, isInitialized, registry.isLoading, registry.lastError, dataAccessors, decision, legacyActions, openTab, closeTab, setActiveTab, navigateToSurface, toggleRunSelection]
   );
 
   return value;

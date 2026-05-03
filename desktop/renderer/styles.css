@@ -1791,7 +1791,9 @@ button:disabled {
     grid-column: 1 / -1;
     grid-row: 2;
     display: grid;
-    grid-template-columns: 280px 1fr;
+    grid-template-columns: 280px minmax(0, 1fr);
+    min-height: calc(100vh - 61px);
+    overflow: hidden;
 }
 
 #react-root:not([hidden]) .sidebar.collapsed {
@@ -1901,11 +1903,31 @@ button:disabled {
 
 #react-root:not([hidden]) .main-content {
     grid-column: 2;
-    grid-row: 2;
-    display: grid;
-    grid-template-columns: 1fr 240px;
-    gap: 1px;
+    grid-row: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    overflow: hidden;
     border-left: 1px solid var(--border);
+}
+
+#react-root:not([hidden]) #tabs-bar.tabs-bar {
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    padding: 12px 24px;
+    min-height: 48px;
+    border-bottom: 1px solid var(--border);
+}
+
+#react-root:not([hidden]) #tab-content > .tab-shell,
+#react-root:not([hidden]) #tab-content > .tab-placeholder {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    padding: 24px;
 }
 
 #react-root:not([hidden]) .content-tabs {
