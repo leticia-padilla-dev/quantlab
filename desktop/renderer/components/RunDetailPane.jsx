@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { useQuantLab } from './QuantLabContext';
+import { useRunDetail } from '../hooks/useRunDetail.js';
 import {
   formatCount,
   formatPercent,
@@ -55,17 +56,24 @@ export function RunDetailPane({ tab }) {
 
   const run = findRun(tab.runId);
 
+  // Native lazy hydration: only active when legacy has not pre-populated tab.detail.
+  const native = useRunDetail(tab.detail != null ? null : tab.runId, run);
+
   if (!run) {
     return <div className="tab-shell run-detail-shell tab-placeholder">The requested run is no longer present in the registry.</div>;
   }
-  if (tab.status === "loading") {
+
+  const effectiveStatus = tab.detail != null ? tab.status : native.status;
+  const effectiveError  = tab.detail != null ? tab.error  : native.error;
+
+  if (effectiveStatus === "loading") {
     return <div className="tab-shell run-detail-shell tab-placeholder">Reading canonical detail for {run.run_id}...</div>;
   }
-  if (tab.status === "error") {
-    return <div className="tab-shell run-detail-shell tab-placeholder">{tab.error || "Could not load run detail."}</div>;
+  if (effectiveStatus === "missing" || effectiveStatus === "error") {
+    return <div className="tab-shell run-detail-shell tab-placeholder">{effectiveError || "Could not load run detail."}</div>;
   }
 
-  const detail = tab.detail || {};
+  const detail = (tab.detail != null ? tab.detail : native.detail) || {};
   const report = detail.report;
   const primaryResult = selectPrimaryResult(run, report);
   const configEntries = summarizeObjectEntries(report?.config_resolved);
