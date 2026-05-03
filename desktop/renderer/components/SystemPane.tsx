@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import type { SystemTab } from '../../shared/models/tab';
 import type { WorkspaceState } from '../../shared/models/workspace';
 import type { SnapshotStatus } from '../../shared/models/snapshot';
+import { useSnapshot } from '../hooks/useSnapshot.js';
 import { useQuantLab as _useQuantLab } from './QuantLabContext';
 
 // QuantLabContext is a JS file; cast to any so strict-mode TSX can consume it.
@@ -97,8 +98,9 @@ export function SystemPane({ tab: _tab }: { tab: SystemTab }) {
   const { state, getRuns, getLatestRun, getLatestFailedJob, findJob, decision, openTab } = ctx;
 
   const workspace: Partial<WorkspaceState> = state.workspace ?? {};
-  const snapshotStatus: Partial<SnapshotStatus> = state.snapshotStatus ?? {};
-  const snapshot = state.snapshot ?? {};
+  const native = useSnapshot(state.snapshot != null ? null : workspace.serverUrl ?? null);
+  const snapshotStatus: Partial<SnapshotStatus> = state.snapshotStatus ?? native.snapshotStatus ?? {};
+  const snapshot = state.snapshot ?? native.snapshot ?? {};
   const launchControl = (snapshot as any).launchControl ?? null;
   const paper = (snapshot as any).paperHealth ?? null;
   const broker = (snapshot as any).brokerHealth ?? null;
