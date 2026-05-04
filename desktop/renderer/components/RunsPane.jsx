@@ -28,6 +28,7 @@ export function RunsPane({ tab }) {
     setBaseline,
     toggleShortlist,
     openTab,
+    refreshRegistry,
   } = useQuantLab();
 
   const runs = getRuns();
@@ -69,6 +70,12 @@ export function RunsPane({ tab }) {
           </div>
         </div>
         <div className="artifact-actions">
+          <button
+            className="ghost-btn"
+            onClick={() => refreshRegistry?.()}
+          >
+            Refresh runs
+          </button>
           <button
             className="ghost-btn"
             onClick={() => openTab({ kind: 'launch', title: 'Launch', href: '#/launch' })}
