@@ -1,4 +1,6 @@
-import { useEffect, useReducer, useCallback } from 'react';
+import { useEffect, useReducer, useCallback, useState } from 'react';
+
+const defaultWorkspace = { status: 'idle', serverUrl: null, logs: [], error: null, source: null };
 
 /**
  * useLegacyBridge - Hook that provides access to the legacy app.js state
@@ -18,10 +20,35 @@ import { useEffect, useReducer, useCallback } from 'react';
  */
 export function useLegacyBridge() {
   const [renderCount, forceUpdate] = useReducer((x) => x + 1, 0);
+  const [workspaceState, setWorkspaceState] = useState(null);
 
   // Get current state from global scope (set by app-legacy.js)
   // eslint-disable-next-line no-undef
   const legacyState = typeof state !== 'undefined' ? state : null;
+
+  useEffect(() => {
+    const bridge = window.quantlabDesktop;
+    if (!bridge?.getWorkspaceState || !bridge?.onWorkspaceState) {
+      return undefined;
+    }
+
+    let mounted = true;
+
+    bridge.getWorkspaceState()
+      .then((nextWorkspace) => mounted && setWorkspaceState(nextWorkspace))
+      .catch((err) => {
+        console.warn('[useLegacyBridge] Workspace state is not available.', err);
+      });
+
+    const unsubscribe = bridge.onWorkspaceState((nextWorkspace) => {
+      setWorkspaceState(nextWorkspace);
+    });
+
+    return () => {
+      mounted = false;
+      if (typeof unsubscribe === 'function') unsubscribe();
+    };
+  }, []);
 
   // Wrapper function to call a global legacy function and trigger re-render
   const callLegacyFunction = useCallback((fnName, ...args) => {
@@ -91,9 +118,12 @@ export function useLegacyBridge() {
   // Polling removed in #412: React now owns the shell state and
   // persistence. Legacy data is still read on mount or via
   // explicit bridge actions.
+  const bridgedState = legacyState
+    ? { ...legacyState, workspace: workspaceState ?? legacyState.workspace }
+    : { workspace: workspaceState ?? defaultWorkspace };
 
   return {
-    state: legacyState,
+    state: bridgedState,
     actions,
   };
 }
