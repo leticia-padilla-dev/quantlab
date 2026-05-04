@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import type { LaunchTab } from '../../shared/models/tab';
 import { formatDateTime, formatCount, titleCase } from '../modules/utils';
 import { useQuantLab as _useQuantLab } from './QuantLabContext';
@@ -51,11 +51,54 @@ function JobCard({ job, onOpen }: { job: any; onOpen: () => void }) {
 
 // ── Quick-launch form ─────────────────────────────────────────────────────────
 
+const EXPERIMENTS_CONFIG_DIR = 'configs/experiments';
+const CUSTOM_CONFIG_VALUE = '__custom__';
+
+type ConfigOption = {
+  name: string;
+  path: string;
+};
+
 function QuickLaunchForm({ serverUrl, onRefresh }: { serverUrl: string | null; onRefresh: () => void }) {
   const [command, setCommand] = useState<'run' | 'sweep'>('sweep');
   const [configPath, setConfigPath] = useState('');
+  const [configOptions, setConfigOptions] = useState<ConfigOption[]>([]);
+  const [configSelection, setConfigSelection] = useState(CUSTOM_CONFIG_VALUE);
+  const [configLoadStatus, setConfigLoadStatus] = useState<'loading' | 'ready' | 'empty'>('loading');
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadConfigs() {
+      try {
+        const listing = await window.quantlabDesktop.listDirectory(EXPERIMENTS_CONFIG_DIR, 1);
+        const options = (listing.entries || [])
+          .filter((entry: any) => entry.kind === 'file' && /\.(ya?ml|json)$/i.test(entry.name || ''))
+          .map((entry: any) => ({
+            name: entry.relative_path || entry.name,
+            path: entry.relative_path || entry.path || entry.name,
+          }))
+          .sort((left: ConfigOption, right: ConfigOption) => left.path.localeCompare(right.path));
+        if (cancelled) return;
+        setConfigOptions(options);
+        setConfigLoadStatus(options.length ? 'ready' : 'empty');
+        if (options.length && !configPath.trim()) {
+          setConfigSelection(options[0].path);
+          setConfigPath(options[0].path);
+        }
+      } catch (_err) {
+        if (cancelled) return;
+        setConfigOptions([]);
+        setConfigSelection(CUSTOM_CONFIG_VALUE);
+        setConfigLoadStatus('empty');
+      }
+    }
+    loadConfigs();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,16 +145,44 @@ function QuickLaunchForm({ serverUrl, onRefresh }: { serverUrl: string | null; o
         </div>
         {command === 'sweep' && (
           <div className="launch-form-row">
-            <label className="launch-label" htmlFor="launch-config-path">Config path</label>
-            <input
-              id="launch-config-path"
-              className="launch-input"
-              type="text"
-              placeholder="configs/experiments/my_config.yaml"
-              value={configPath}
-              onChange={(e) => setConfigPath(e.target.value)}
-              disabled={busy}
-            />
+            <label className="launch-label" htmlFor={configOptions.length ? 'launch-config-select' : 'launch-config-path'}>
+              Config path
+            </label>
+            {configOptions.length ? (
+              <select
+                id="launch-config-select"
+                className="launch-input"
+                value={configSelection}
+                onChange={(e) => {
+                  const nextValue = e.target.value;
+                  setConfigSelection(nextValue);
+                  setConfigPath(nextValue === CUSTOM_CONFIG_VALUE ? '' : nextValue);
+                }}
+                disabled={busy}
+              >
+                {configOptions.map((option) => (
+                  <option key={option.path} value={option.path}>{option.path}</option>
+                ))}
+                <option value={CUSTOM_CONFIG_VALUE}>Custom path...</option>
+              </select>
+            ) : (
+              <div className="artifact-meta">
+                {configLoadStatus === 'loading'
+                  ? 'Reading configs/experiments/...'
+                  : 'No config files found in configs/experiments.'}
+              </div>
+            )}
+            {(!configOptions.length || configSelection === CUSTOM_CONFIG_VALUE) && (
+              <input
+                id="launch-config-path"
+                className="launch-input"
+                type="text"
+                placeholder="configs/experiments/my_config.yaml"
+                value={configPath}
+                onChange={(e) => setConfigPath(e.target.value)}
+                disabled={busy}
+              />
+            )}
           </div>
         )}
         <div className="workflow-actions" style={{ marginTop: '12px' }}>
