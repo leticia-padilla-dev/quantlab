@@ -149,12 +149,37 @@ function SummaryCard({ label, value, tone = '' }) {
  * Runs table with selection, metrics, and actions
  */
 function RunsTable({ runs }) {
-  const { state, toggleCandidate, openTab, decision } = useQuantLab();
+  const { state, decision, navigateToSurface, refreshRegistry } = useQuantLab();
 
   if (!runs.length) {
+    const serverUrl = state.workspace?.serverUrl
+      ? String(state.workspace.serverUrl).replace(/\/$/, '')
+      : '';
     return (
-      <div className="empty-state">
-        The run index is empty. Launch a run or wait for artifacts.
+      <div className="empty-state" data-smoke="empty-runs-recovery">
+        <div className="section-label">No indexed runs found</div>
+        <p>
+          React reads QuantLab evidence from <code>outputs/runs/runs_index.json</code>.
+          The shell is empty because no run index is available yet, or the index exists
+          with no runs.
+        </p>
+        <div className="workflow-actions" style={{ marginTop: '12px' }}>
+          <button className="ghost-btn" type="button" onClick={() => refreshRegistry?.()}>
+            Refresh run registry
+          </button>
+          <button className="ghost-btn" type="button" onClick={() => navigateToSurface('launch')}>
+            Open Launch
+          </button>
+          {serverUrl && (
+            <button
+              className="ghost-btn"
+              type="button"
+              onClick={() => window.quantlabDesktop?.openExternal?.(`${serverUrl}/research_ui/index.html#/launch`)}
+            >
+              Open browser launch
+            </button>
+          )}
+        </div>
       </div>
     );
   }
@@ -275,7 +300,7 @@ function RunsSpotlightCard({ run, baselineId }) {
  * Decision queue card showing candidate/shortlist/comparison readiness
  */
 function RunsDecisionQueueCard({ candidateCount, shortlistCount, compareReady }) {
-  const { openTab } = useQuantLab();
+  const { decision, openTab } = useQuantLab();
   return (
     <div className="artifact-panel">
       <div className="section-label">Decision queue</div>

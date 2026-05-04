@@ -329,9 +329,10 @@ export function useQuantLabContextValue() {
       closeTab,
       setActiveTab,
       navigateToSurface,
+      refreshRegistry: registry.refreshSnapshot,
       toggleRunSelection,
     }),
-    [legacyState, tabs, activeTabId, selectedRunIds, candidates, isInitialized, registry.isLoading, registry.lastError, dataAccessors, decision, legacyActions, openTab, closeTab, setActiveTab, navigateToSurface, toggleRunSelection]
+    [legacyState, tabs, activeTabId, selectedRunIds, candidates, isInitialized, registry.isLoading, registry.lastError, registry.refreshSnapshot, dataAccessors, decision, legacyActions, openTab, closeTab, setActiveTab, navigateToSurface, toggleRunSelection]
   );
 
   return value;
