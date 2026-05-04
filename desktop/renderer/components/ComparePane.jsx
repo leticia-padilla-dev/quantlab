@@ -24,9 +24,24 @@ const RANK_METRICS = [
  * Mirrors renderCompareTab() from app-legacy.js.
  */
 export function ComparePane({ tab }) {
-  const { state, findRun, decision, loadRunDetail } = useQuantLab();
+  const { state, findRun, decision, loadRunDetail, navigateToSurface, updateTab } = useQuantLab();
   const [detailMap, setDetailMap] = useState(tab.detailMap || {});
   const [loading, setLoading] = useState(tab.status === 'loading');
+
+  // Recalculates on registry refresh or tab.runIds change
+  const runs = useMemo(
+    () => (tab.runIds || []).map(findRun).filter(Boolean),
+    [tab.runIds, findRun]
+  );
+
+  // Prune stale runIds so persisted compare tabs self-heal after index changes
+  useEffect(() => {
+    const ids = tab.runIds || [];
+    const validIds = ids.filter((id) => findRun(id) !== null);
+    if (validIds.length !== ids.length) {
+      updateTab(tab.id, { runIds: validIds });
+    }
+  }, [tab.id, tab.runIds, findRun, updateTab]);
 
   // Load run details on mount if not already loaded
   useEffect(() => {
@@ -52,11 +67,26 @@ export function ComparePane({ tab }) {
     }
   }, [tab.runIds, loading, loadRunDetail]);
 
-  const runs = (tab.runIds || []).map(findRun).filter(Boolean);
   if (runs.length < 2) {
+    const orphanedCount = (tab.runIds || []).length - runs.length;
     return (
-      <div className="tab-placeholder">
-        The selected compare set is no longer available in the registry.
+      <div className="empty-state" data-smoke="compare-stale-recovery">
+        <div className="section-label">Compare set unavailable</div>
+        <p>
+          {orphanedCount > 0
+            ? `${orphanedCount} run${orphanedCount !== 1 ? 's' : ''} in this compare set ${orphanedCount !== 1 ? 'are' : 'is'} no longer available in the registry.`
+            : 'This compare set needs at least 2 runs.'}
+          {' Select runs from the Runs surface to build a new compare set.'}
+        </p>
+        <div className="workflow-actions" style={{ marginTop: '12px' }}>
+          <button
+            className="ghost-btn"
+            type="button"
+            onClick={() => navigateToSurface('runs')}
+          >
+            Go to Runs
+          </button>
+        </div>
       </div>
     );
   }

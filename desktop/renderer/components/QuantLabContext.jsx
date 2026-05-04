@@ -234,6 +234,12 @@ export function useQuantLabContextValue() {
     );
   }, []);
 
+  const updateTab = useCallback((tabId, patch) => {
+    setTabs(currentTabs =>
+      currentTabs.map(t => t.id === tabId ? { ...t, ...patch } : t)
+    );
+  }, []);
+
   // Native data accessors — read from RegistryContext, fall back to legacy globals
   const dataAccessors = useMemo(() => ({
     getRuns: () => registry.runs,
@@ -331,8 +337,9 @@ export function useQuantLabContextValue() {
       navigateToSurface,
       refreshRegistry: registry.refreshSnapshot,
       toggleRunSelection,
+      updateTab,
     }),
-    [legacyState, tabs, activeTabId, selectedRunIds, candidates, isInitialized, registry.isLoading, registry.lastError, registry.refreshSnapshot, dataAccessors, decision, legacyActions, openTab, closeTab, setActiveTab, navigateToSurface, toggleRunSelection]
+    [legacyState, tabs, activeTabId, selectedRunIds, candidates, isInitialized, registry.isLoading, registry.lastError, registry.refreshSnapshot, dataAccessors, decision, legacyActions, openTab, closeTab, setActiveTab, navigateToSurface, toggleRunSelection, updateTab]
   );
 
   return value;
