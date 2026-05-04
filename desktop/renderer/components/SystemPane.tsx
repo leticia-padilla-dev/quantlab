@@ -95,7 +95,7 @@ function WatchItem({ tone, label, body }: { tone: string; label: string; body: s
 
 export function SystemPane({ tab: _tab }: { tab: SystemTab }) {
   const ctx = useQuantLab();
-  const { state, getRuns, getLatestRun, getLatestFailedJob, findJob, decision, openTab } = ctx;
+  const { state, getRuns, getLatestRun, getLatestFailedJob, findJob, decision, openTab, refreshRegistry } = ctx;
 
   const workspace: Partial<WorkspaceState> = state.workspace ?? {};
   const native = useSnapshot(state.snapshot != null ? null : workspace.serverUrl ?? null);
@@ -118,6 +118,20 @@ export function SystemPane({ tab: _tab }: { tab: SystemTab }) {
 
   const wsSig = workspaceSignal(workspace);
   const ssSig = snapshotSignal(snapshotStatus);
+  const backendOnline = Boolean(workspace.serverUrl);
+  const backendDiagnostic = workspace.error
+    ? `Research backend: Error - ${workspace.error}`
+    : backendOnline
+      ? `Research backend: Online at ${workspace.serverUrl}`
+      : "Research backend: Not reachable. Start it manually with 'quantlab research-ui start'.";
+  const backendTone = workspace.error
+    ? 'tone-negative'
+    : backendOnline
+      ? 'tone-positive'
+      : 'tone-warning';
+  const runsIndexDiagnostic = runs.length > 0
+    ? `Runs index: ${fmt(runs.length)} runs indexed`
+    : 'Runs index: No indexed runs found. The index may be empty or not yet generated.';
 
   const logPreview = useMemo(() => {
     const logs: string[] = Array.isArray(workspace.logs) ? workspace.logs.filter((l) => typeof l === 'string' && l.trim()) : [];
@@ -219,6 +233,20 @@ export function SystemPane({ tab: _tab }: { tab: SystemTab }) {
         <SummaryCard label="Stepbit frontend" value={liveUrls.frontend_reachable ? 'Attached' : 'Detached'} tone={liveUrls.frontend_reachable ? 'tone-positive' : 'tone-warning'} />
         <SummaryCard label="Stepbit core" value={liveUrls.core_ready ? 'Ready' : liveUrls.core_reachable ? 'Partial' : 'Detached'} tone={liveUrls.core_ready ? 'tone-positive' : liveUrls.core_reachable ? 'tone-warning' : 'tone-negative'} />
       </div>
+
+      <section className="artifact-panel system-stack">
+        <div className="section-label">Runtime diagnostics</div>
+        <h3>Data source status</h3>
+        <div className={`ops-callout ${backendTone}`}>{backendDiagnostic}</div>
+        <div className={`ops-callout ${runs.length ? 'tone-positive' : 'tone-warning'}`}>{runsIndexDiagnostic}</div>
+        {!runs.length && (
+          <div className="workflow-actions">
+            <button className="ghost-btn" type="button" onClick={() => refreshRegistry?.()}>
+              Refresh registry
+            </button>
+          </div>
+        )}
+      </section>
 
       {/* Main grid */}
       <div className="artifact-grid system-grid">

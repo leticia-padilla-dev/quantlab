@@ -45,7 +45,7 @@ export function RunsPane({ tab }) {
   const compareReady = shortlistCount + (state.candidatesStore?.baseline_run_id ? 1 : 0) >= 2;
 
   const paper = state.snapshot?.paperHealth || null;
-  const broker = state.snapshot?.brokerHealth || null;
+  const backendOnline = Boolean(state.workspace?.serverUrl);
 
   return (
     <div className="tab-shell runs-tab">
@@ -57,6 +57,15 @@ export function RunsPane({ tab }) {
           <div className="artifact-meta">
             Primary workstation for indexed runs, local evidence, shortlist state,
             and operational continuity.
+          </div>
+          <div className="artifact-meta">
+            <span className={backendOnline ? 'tone-positive' : 'tone-warning'}>
+              Backend: {backendOnline ? 'Online' : 'Offline'}
+            </span>
+            {' · '}
+            <span className={runs.length ? 'tone-positive' : 'tone-warning'}>
+              Index: {formatCount(runs.length)} runs
+            </span>
           </div>
         </div>
         <div className="artifact-actions">
@@ -155,6 +164,7 @@ function RunsTable({ runs }) {
     const serverUrl = state.workspace?.serverUrl
       ? String(state.workspace.serverUrl).replace(/\/$/, '')
       : '';
+    const backendOnline = Boolean(serverUrl);
     return (
       <div className="empty-state" data-smoke="empty-runs-recovery">
         <div className="section-label">No indexed runs found</div>
@@ -170,7 +180,7 @@ function RunsTable({ runs }) {
           <button className="ghost-btn" type="button" onClick={() => navigateToSurface('launch')}>
             Open Launch
           </button>
-          {serverUrl && (
+          {backendOnline && (
             <button
               className="ghost-btn"
               type="button"
@@ -180,6 +190,11 @@ function RunsTable({ runs }) {
             </button>
           )}
         </div>
+        {!backendOnline && (
+          <div className="artifact-meta" style={{ marginTop: '10px' }}>
+            Backend unavailable. Refresh may not work until the server is restarted.
+          </div>
+        )}
       </div>
     );
   }
