@@ -21,6 +21,7 @@ const defaultWorkspace = { status: 'idle', serverUrl: null, logs: [], error: nul
 export function useLegacyBridge() {
   const [renderCount, forceUpdate] = useReducer((x) => x + 1, 0);
   const [workspaceState, setWorkspaceState] = useState(null);
+  const [lastKnownServerUrl, setLastKnownServerUrl] = useState(null);
 
   // Get current state from global scope (set by app-legacy.js)
   // eslint-disable-next-line no-undef
@@ -34,21 +35,65 @@ export function useLegacyBridge() {
 
     let mounted = true;
 
+    const applyWorkspaceState = (nextWorkspace) => {
+      if (nextWorkspace?.serverUrl) setLastKnownServerUrl(nextWorkspace.serverUrl);
+      setWorkspaceState(nextWorkspace);
+    };
+
     bridge.getWorkspaceState()
-      .then((nextWorkspace) => mounted && setWorkspaceState(nextWorkspace))
+      .then((nextWorkspace) => mounted && applyWorkspaceState(nextWorkspace))
       .catch((err) => {
         console.warn('[useLegacyBridge] Workspace state is not available.', err);
       });
 
-    const unsubscribe = bridge.onWorkspaceState((nextWorkspace) => {
-      setWorkspaceState(nextWorkspace);
-    });
+    const unsubscribe = bridge.onWorkspaceState(applyWorkspaceState);
 
     return () => {
       mounted = false;
       if (typeof unsubscribe === 'function') unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    if (!lastKnownServerUrl) {
+      return undefined;
+    }
+
+    const healthUrl = `${lastKnownServerUrl.replace(/\/$/, '')}/api/paper-sessions-health`;
+    let cancelled = false;
+
+    const checkHealth = async () => {
+      try {
+        const response = await fetch(healthUrl, { cache: 'no-store' });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        if (!cancelled) {
+          setWorkspaceState((current) => ({
+            ...(current || defaultWorkspace),
+            status: 'ready',
+            serverUrl: lastKnownServerUrl,
+            error: null,
+          }));
+        }
+      } catch {
+        if (!cancelled) {
+          setWorkspaceState((current) => ({
+            ...(current || defaultWorkspace),
+            status: 'error',
+            serverUrl: null,
+            error: 'Research backend is not reachable',
+          }));
+        }
+      }
+    };
+
+    checkHealth();
+    const intervalId = window.setInterval(checkHealth, 5000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [lastKnownServerUrl]);
 
   // Wrapper function to call a global legacy function and trigger re-render
   const callLegacyFunction = useCallback((fnName, ...args) => {
