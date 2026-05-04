@@ -123,6 +123,11 @@ function QuickLaunchForm({ serverUrl, onRefresh }: { serverUrl: string | null; o
     <section className="artifact-panel">
       <div className="section-label">Quick launch</div>
       <h3>Submit a new job</h3>
+      <div className={`ops-callout ${serverUrl ? 'tone-positive' : 'tone-warning'}`}>
+        {serverUrl
+          ? 'Backend: Online - ready to submit jobs'
+          : 'Backend: Offline - job submission may be unavailable'}
+      </div>
       <form className="launch-form" onSubmit={handleSubmit}>
         <div className="launch-form-row">
           <label className="launch-label">Command</label>
@@ -203,6 +208,11 @@ function QuickLaunchForm({ serverUrl, onRefresh }: { serverUrl: string | null; o
             </button>
           )}
         </div>
+        {!serverUrl && (
+          <div className="artifact-meta" style={{ marginTop: '10px' }}>
+            Submit remains available, but the backend may need to be started manually before the job can be accepted.
+          </div>
+        )}
         {status && <div className={`ops-callout ${status.startsWith('Error') ? 'tone-negative' : 'tone-positive'}`} style={{ marginTop: '10px' }}>{status}</div>}
       </form>
     </section>
