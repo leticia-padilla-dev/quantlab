@@ -24,7 +24,7 @@ const RANK_METRICS = [
  * Mirrors renderCompareTab() from app-legacy.js.
  */
 export function ComparePane({ tab }) {
-  const { state, findRun, decision, loadRunDetail, navigateToSurface, updateTab } = useQuantLab();
+  const { state, findRun, decision, loadRunDetail, navigateToSurface, updateTab, openTab } = useQuantLab();
   const [detailMap, setDetailMap] = useState(tab.detailMap || {});
   const [loading, setLoading] = useState(tab.status === 'loading');
 
@@ -69,16 +69,38 @@ export function ComparePane({ tab }) {
 
   if (runs.length < 2) {
     const orphanedCount = (tab.runIds || []).length - runs.length;
+    const isEmpty = !tab.runIds || tab.runIds.length === 0;
+    const shortlistIds = decision.getDecisionCompareRunIds();
+    const shortlistReady = shortlistIds.length >= 2;
     return (
       <div className="empty-state" data-smoke="compare-stale-recovery">
-        <div className="section-label">Compare set unavailable</div>
+        <div className="section-label">
+          {isEmpty ? 'No compare set selected' : 'Compare set unavailable'}
+        </div>
         <p>
-          {orphanedCount > 0
-            ? `${orphanedCount} run${orphanedCount !== 1 ? 's' : ''} in this compare set ${orphanedCount !== 1 ? 'are' : 'is'} no longer available in the registry.`
-            : 'This compare set needs at least 2 runs.'}
-          {' Select runs from the Runs surface to build a new compare set.'}
+          {isEmpty
+            ? 'Select at least 2 runs to compare.'
+            : orphanedCount > 0
+              ? `${orphanedCount} run${orphanedCount !== 1 ? 's' : ''} in this compare set ${orphanedCount !== 1 ? 'are' : 'is'} no longer available in the registry.`
+              : 'This compare set needs at least 2 runs.'}
         </p>
         <div className="workflow-actions" style={{ marginTop: '12px' }}>
+          {shortlistReady && (
+            <button
+              className="ghost-btn"
+              type="button"
+              onClick={() => openTab({ kind: 'compare', runIds: shortlistIds })}
+            >
+              Compare shortlist
+            </button>
+          )}
+          <button
+            className="ghost-btn"
+            type="button"
+            onClick={() => navigateToSurface('candidates')}
+          >
+            Go to Candidates
+          </button>
           <button
             className="ghost-btn"
             type="button"
