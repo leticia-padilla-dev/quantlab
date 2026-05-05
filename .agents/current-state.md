@@ -1,9 +1,17 @@
 # Current State - QuantLab
 
 ## Active Stage
-- **Stage**: Stage D.2 — Supervised Broker Submit Safety
-- **Last Updated**: 2026-04-19
-- **Focus**: Stage D.2 has now closed the main ambiguity around supervised Hyperliquid submit, especially idempotency, reconciliation, and post-submit operator safety. The remaining posture is residual hardening by evidence, not broadening execution by default. Desktop v0.1 is now a Release Candidate on `main`; the next execution frontier is D.3 (micro-live promotion gate).
+- **Stage**: Stage D.3 — Micro-Live Promotion Gate (hardening)
+- **Last Updated**: 2026-05-05
+- **Focus**: Desktop Legacy renderer migration is complete. React is now the sole renderer after Legacy removal in PR #539 / Issue #529. The operational frontier shifts fully to D.3 hardening: converting initial micro-live evidence into repeatable criteria, runbook updates, blocker analysis, alert confidence, reconciliation confidence, and operator stop-control confidence. D.2 residual hardening continues in parallel where it directly supports D.3 promotion readiness.
+
+### Desktop Operator Workspace
+- **status**: react_only_renderer
+- **legacy_retirement**: completed — Legacy renderer removed 2026-05-05 (PR #539 / #529)
+- **migration_state**: legacy_renderer_removed
+- **remaining_work**: normal polish, surface docs, future hardening
+- **no_longer_blocking**: legacy renderer migration
+- **rollback**: no runtime fallback; rollback requires git revert / restore from Git history
 - **Authority Note**: Stepbit-facing integration remains a secondary boundary track. QuantLab stays autonomous and external consumer needs do not override QuantLab-owned priorities.
 - **Signal Intake Note**: Quant Pulse is an upstream signal layer, not a controller. QuantLab should only consume Quant Pulse output when it can be translated into a research intent, risk filter, or product priority.
 - **Product Identity Note**: Publicly, QuantLab should now be described as a `web3 app` in direction, but still as a supervised and safety-first execution system in current maturity.

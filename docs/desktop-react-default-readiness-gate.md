@@ -11,15 +11,16 @@ Este gate separa "paridad funcional técnica" de "default-ready operativo", exig
 1. **not_ready**: La shell React no ha completado los checks mínimos de funcionalidad o CI.
 2. **parity_validated**: Todos los checks de CI pasan y la verificación manual del ciclo operativo completo ha sido exitosa.
 3. **default_candidate**: React ha demostrado paridad funcional completa durante un período de uso estable sin regresiones. El operador puede optar por usarla como shell principal.
-4. **default_approved**: Se ha ejecutado un PR explícito que activa React como shell por defecto, manteniendo Legacy como fallback.
+4. **default_approved**: React es el único renderer. El Legacy renderer ha sido eliminado. El rollback ya no es posible vía switch de entorno; requiere revertir desde Git history.
 
 ---
 
-## ✅ Current Gate Status: `default_candidate`
+## ✅ Current Gate Status: `default_approved`
 
 **Declared:** 2026-05-05
+**Legacy removal completed:** 2026-05-05 (PR #539 / Issue #529)
 
-React Desktop ha completado todos los checks de CI y la verificación manual del ciclo operativo completo. El operador puede usar React como shell principal. Legacy sigue disponible como rollback.
+React Desktop es el único renderer de QuantLab. El Legacy renderer fue eliminado tras confirmar paridad nativa completa. No existe rollback vía `start:legacy` ni `QUANTLAB_DESKTOP_RENDERER`; el rollback requiere revertir o restaurar desde Git history.
 
 ---
 
@@ -43,7 +44,7 @@ Todos los checks verificados en los PRs habilitadores (#507–#521). CI verde en
 - [x] Open run / Artifacts es accesible y muestra datos correctos por cada run
 - [x] Mark candidate funciona y la superficie Candidates refleja el estado actualizado
 - [x] Compare funciona con al menos 2 runs seleccionados y muestra métricas comparativas
-- [x] Legacy sigue disponible como fallback (`npm run start:legacy` funcional)
+- [x] Legacy estaba disponible como fallback durante la fase `default_candidate` (`npm run start:legacy` funcional)
 - [x] No hay errores críticos en la consola del renderer durante el ciclo completo
 
 Verificación manual completada por el operador el 2026-05-05 sobre `main`.
@@ -58,14 +59,14 @@ Elementos resueltos antes de la declaración de default_candidate:
 - Candidates "Open shortlist compare" sin acción → resuelto en #520
 - Compare sidebar sin runIds no guiaba al operador → resuelto en #521
 
-**Legacy Status Update (2026-05-05):**
-Legacy renderer está oficialmente en modo `deprecated_fallback`. Las funciones de acceso a jobs visibles (Launch jobs, failed jobs) ya fueron migradas a accesos nativos React en #524/#530. Legacy no debe tratarse como verdad arquitectónica.
+**Legacy Removal (2026-05-05) — PR #539 / Issue #529:**
+El Legacy renderer fue eliminado tras confirmar paridad nativa completa:
+- Jobs accessors nativos: #530 (getJobs, getLatestFailedJob, getRunRelatedJobs, findJob)
+- Sweep decision store nativo: #527
+- `smoke:fallback` pasa sin Legacy cargado ✅
+- `npm run typecheck` ✅ · `npm run build` ✅ · `git status` limpio ✅
 
-**Bloqueantes restantes para la eliminación final de Legacy (#529):**
-La eliminación final de Legacy solo ocurrirá tras confirmar paridad/contratos nativos:
-- Decisión de correlación de run-related jobs (#525), si aún aplica.
-- Decisión de necesidad de contrato de backend/producer (#526), si aún aplica.
-- Migración de los accesos a sweep decision (#527), si la función sigue activa.
+No existe rollback de runtime. Rollback requiere `git revert` o restauración desde Git history.
 
 ## Evidence Required
 
@@ -96,19 +97,17 @@ La eliminación final de Legacy solo ocurrirá tras confirmar paridad/contratos 
 - #520: wire Candidates → Compare y Baseline
 - #521: Compare context-aware desde sidebar (empty state guiado)
 
-## Explicit Non-Goals
+## Enabling Slices — Legacy Retirement Completion
 
-- Este gate NO activa React como default.
-- Este gate NO retira Legacy.
-- Este gate NO modifica código runtime, IPC, backend ni desktop/main.
+**Native replacement (post-candidate):**
+- #524/#530: native jobs accessors (getJobs, getLatestFailedJob, getRunRelatedJobs, findJob)
+- #527: native sweep decision store (useSweepDecisionStore)
+- #528: docs deprecated-fallback step
+- #529/PR #539: Legacy renderer removal
 
-## Decision Rule for Promoting React to Default
+## Final State
 
-React podrá ser declarado **default_approved** solo cuando:
-
-1. Todos los checks de este documento estén verificados. ✅
-2. Exista un PR separado (posterior a este gate) que implemente el cambio de shell por defecto.
-3. Ese PR sea revisado y mergeado de forma explícita, no como efecto secundario de otro cambio.
+Gate `default_approved` confirmed. React is the sole Desktop renderer. `window.quantlabDesktop` / preload / IPC are unaffected by Legacy removal — they remain the stable operator-to-backend contract.
 
 ---
 
