@@ -243,8 +243,8 @@ function createSmokeService({
           .filter((node) => !node.disabled);
         status.selectableRunCount = selectionInputs.length;
         const compareButton = query("#workflow-open-compare");
-        const compareNavButton = query('.nav-item[data-action="open-compare"]');
-        if (selectionInputs.length >= 2 && (rendererMode === "react" ? compareNavButton : (compareButton && !compareButton.disabled))) {
+        
+        if (selectionInputs.length >= 2 && compareButton && !compareButton.disabled) {
           selectionInputs.slice(0, 2).forEach((input) => {
             if (input.checked) return;
             if (rendererMode === "react") {
@@ -259,8 +259,8 @@ function createSmokeService({
             }
           });
           await waitFor(() => queryAll("#workflow-runs-list input[data-select-run]").filter((input) => input.checked).length >= 2, 2000, 100);
-          const compareTrigger = rendererMode === "react" ? compareNavButton : compareButton;
-          compareTrigger.dispatchEvent(new MouseEvent("click", {
+          
+          compareButton.dispatchEvent(new MouseEvent("click", {
             bubbles: true,
             cancelable: true,
             view: window,
