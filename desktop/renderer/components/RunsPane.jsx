@@ -142,6 +142,7 @@ export function RunsPane({ tab }) {
             candidateCount={candidateEntries.length}
             shortlistCount={shortlistCount}
             compareReady={compareReady}
+            selectedRunIds={state.selectedRunIds}
           />
         </aside>
       </div>
@@ -321,8 +322,11 @@ function RunsSpotlightCard({ run, baselineId }) {
 /**
  * Decision queue card showing candidate/shortlist/comparison readiness
  */
-function RunsDecisionQueueCard({ candidateCount, shortlistCount, compareReady }) {
+function RunsDecisionQueueCard({ candidateCount, shortlistCount, compareReady, selectedRunIds }) {
   const { decision, openTab } = useQuantLab();
+  const selectionReady = (selectedRunIds || []).length >= 2;
+  const isEnabled = compareReady || selectionReady;
+
   return (
     <div className="artifact-panel">
       <div className="section-label">Decision queue</div>
@@ -339,8 +343,14 @@ function RunsDecisionQueueCard({ candidateCount, shortlistCount, compareReady })
         <button
           id="workflow-open-compare"
           className="ghost-btn"
-          disabled={!compareReady}
-          onClick={() => openTab({ kind: 'compare', runIds: decision.getDecisionCompareRunIds(), label: 'decision runs' })}
+          disabled={!isEnabled}
+          onClick={() => {
+            if (selectionReady && !compareReady) {
+              openTab({ kind: 'compare', runIds: selectedRunIds });
+            } else {
+              openTab({ kind: 'compare', runIds: decision.getDecisionCompareRunIds(), label: 'decision runs' });
+            }
+          }}
         >
           Compare
         </button>

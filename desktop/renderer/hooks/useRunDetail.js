@@ -1,13 +1,8 @@
 import { useState, useEffect } from "react";
-import { buildRunArtifactHref } from "../modules/utils";
+import { loadRunDetailNative } from "../modules/run-detail-loader.js";
 
-const DETAIL_ARTIFACTS = ["report.json", "run_report.json"];
 const CACHE_MAX = 50;
 const _cache = new Map();
-
-function joinPath(base, leaf) {
-  return `${String(base || "").replace(/[\\/]+$/, "")}/${leaf}`;
-}
 
 /**
  * Lazily hydrates run detail via native IPC when legacy has not pre-populated
@@ -41,50 +36,21 @@ export function useRunDetail(runId, run) {
     setState({ detail: null, status: "loading", error: null });
 
     (async () => {
-      let detail = {
-        report: null,
-        reportUrl: null,
-        directoryEntries: [],
-        directoryTruncated: false,
-      };
-
-      for (const artifact of DETAIL_ARTIFACTS) {
-        const localPath = joinPath(run.path, artifact);
-        const href = buildRunArtifactHref(run.path, artifact);
-        try {
-          const report = await window.quantlabDesktop.readProjectJson(localPath);
-          detail = { ...detail, report, reportUrl: href || localPath };
-          break;
-        } catch (_localErr) {
-          if (!href) continue;
-          try {
-            const report = await window.quantlabDesktop.requestJson(href);
-            detail = { ...detail, report, reportUrl: href };
-            break;
-          } catch (_remoteErr) {
-            // Try next artifact name.
-          }
-        }
-      }
-
       try {
-        const listing = await window.quantlabDesktop.listDirectory(run.path, 2);
-        detail.directoryEntries = listing.entries || [];
-        detail.directoryTruncated = Boolean(listing.truncated);
-      } catch (_) {
-        // Directory listing is helpful but optional.
+        const detail = await loadRunDetailNative(run);
+        if (detail.report) {
+          if (_cache.size >= CACHE_MAX) _cache.delete(_cache.keys().next().value);
+          _cache.set(runId, detail);
+        }
+        if (!cancelled) setState({ detail, status: "ready", error: null });
+      } catch (err) {
+        if (!cancelled) setState({ detail: null, status: "missing", error: err.message || "run_path_unavailable" });
       }
-
-      if (detail.report) {
-        if (_cache.size >= CACHE_MAX) _cache.delete(_cache.keys().next().value);
-        _cache.set(runId, detail);
-      }
-
-      if (!cancelled) setState({ detail, status: "ready", error: null });
     })();
 
     return () => { cancelled = true; };
-  }, [runId, run?.path]);
+  }, [runId, run?.path, run]);
 
   return state;
 }
+

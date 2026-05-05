@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { loadRunDetailNative } from '../modules/run-detail-loader.js';
 import { useQuantLab } from './QuantLabContext';
 import {
   formatCount,
@@ -24,7 +25,7 @@ const RANK_METRICS = [
  * Mirrors renderCompareTab() from app-legacy.js.
  */
 export function ComparePane({ tab }) {
-  const { state, findRun, decision, loadRunDetail, navigateToSurface, updateTab, openTab } = useQuantLab();
+  const { state, findRun, decision, navigateToSurface, updateTab, openTab } = useQuantLab();
   const [detailMap, setDetailMap] = useState(tab.detailMap || {});
   const [loading, setLoading] = useState(tab.status === 'loading');
 
@@ -51,7 +52,8 @@ export function ComparePane({ tab }) {
           const details = await Promise.all(
             tab.runIds.map(async (runId) => {
               try {
-                const detail = await loadRunDetail(runId);
+                const run = findRun(runId);
+                const detail = run ? await loadRunDetailNative(run) : null;
                 return [runId, detail];
               } catch (_err) {
                 return [runId, null];
@@ -65,7 +67,7 @@ export function ComparePane({ tab }) {
         }
       })();
     }
-  }, [tab.runIds, loading, loadRunDetail]);
+  }, [tab.runIds, loading, findRun]);
 
   if (runs.length < 2) {
     const orphanedCount = (tab.runIds || []).length - runs.length;

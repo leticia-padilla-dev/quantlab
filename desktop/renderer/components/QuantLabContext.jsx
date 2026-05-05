@@ -291,14 +291,12 @@ export function useQuantLabContextValue() {
     getLatestFailedJob,
     getRunRelatedJobs,
     findJob,
-    // These still delegate to legacy globals
-    loadRunDetail: legacyDataAccessors.loadRunDetail,
     getSweepDecisionEntriesForRun: (runId) => {
       return getSweepDecisionEntries(sweepDecisions.store).filter(
         (entry) => entry.sweep_run_id === runId
       );
     },
-  }), [registry.runs, selectedRunIds, findRun, getJobs, getLatestFailedJob, getRunRelatedJobs, findJob, legacyDataAccessors, sweepDecisions.store]);
+  }), [registry.runs, selectedRunIds, findRun, getJobs, getLatestFailedJob, getRunRelatedJobs, findJob, sweepDecisions.store]);
 
   const decision = useMemo(() => {
     const store = candidates.store;
