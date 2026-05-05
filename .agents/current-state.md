@@ -51,7 +51,7 @@
 | M.3 | Portfolio Selection / Session Inclusion Rules | ✅ Done |
 | M.4 | Portfolio Mode Comparison | ✅ Done |
 | N | Run Lifecycle Management (`quantlab runs`) | ✅ Done |
-| C.1 | Paper Trading Operationalization | 🟨 In Progress |
+| C.1 | Paper Trading Operationalization | ✅ Done |
 | O | Stepbit Automation Readiness (I/O & CLI Stability) | 🟨 In Progress |
 
 ## Active Work
