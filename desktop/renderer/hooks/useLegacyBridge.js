@@ -113,48 +113,6 @@ export function useLegacyBridge() {
     }
   }, []);
 
-  // Bridge actions that map to legacy functions (excluding shell state ownership)
-  const actions = {
-    setBaseline: useCallback(
-      (runId) => callLegacyFunction('setBaseline', runId),
-      [callLegacyFunction]
-    ),
-    toggleCandidate: useCallback(
-      (runId) => callLegacyFunction('toggleCandidate', runId),
-      [callLegacyFunction]
-    ),
-    toggleShortlist: useCallback(
-      (runId) => callLegacyFunction('toggleShortlist', runId),
-      [callLegacyFunction]
-    ),
-
-    toggleSweepEntry: useCallback(
-      (entryOrId) => {
-        if (entryOrId && typeof entryOrId === 'object') {
-          return callLegacyFunction('toggleSweepDecisionEntry', entryOrId);
-        }
-        const entryId = typeof entryOrId === 'string' ? entryOrId : null;
-        const row = entryId && typeof globalThis.findSweepDecisionRow === 'function'
-          ? globalThis.findSweepDecisionRow(entryId)
-          : null;
-        if (!row) {
-          console.warn(`[useLegacyBridge] Sweep row ${entryId || '<missing>'} is not available.`);
-          return Promise.resolve(null);
-        }
-        return callLegacyFunction('toggleSweepDecisionEntry', row);
-      },
-      [callLegacyFunction]
-    ),
-    toggleSweepShortlist: useCallback(
-      (entryId) => callLegacyFunction('toggleSweepDecisionShortlist', entryId),
-      [callLegacyFunction]
-    ),
-    setSweepBaseline: useCallback(
-      (entryId) => callLegacyFunction('setSweepDecisionBaseline', entryId),
-      [callLegacyFunction]
-    ),
-  };
-
   // Polling removed in #412: React now owns the shell state and
   // persistence. Legacy data is still read on mount or via
   // explicit bridge actions.
@@ -164,100 +122,8 @@ export function useLegacyBridge() {
 
   return {
     state: bridgedState,
-    actions,
+    actions: {},
   };
 }
 
-/**
- * Bridge data accessors that map to legacy functions
- */
-export function useLegacyDataAccessors() {
-  return {
-    getRuns: useCallback(() => {
-      // eslint-disable-next-line no-undef
-      return typeof getRuns === 'function' ? getRuns() : [];
-    }, []),
-    
-    getLatestRun: useCallback(() => {
-      // eslint-disable-next-line no-undef
-      return typeof getLatestRun === 'function' ? getLatestRun() : null;
-    }, []),
-    
-    findRun: useCallback((runId) => {
-      // eslint-disable-next-line no-undef
-      return typeof findRun === 'function' ? findRun(runId) : null;
-    }, []),
-    
-    getSelectedRuns: useCallback(() => {
-      // eslint-disable-next-line no-undef
-      return typeof getSelectedRuns === 'function' ? getSelectedRuns() : [];
-    }, []),
-    
-    getJobs: useCallback(() => {
-      // eslint-disable-next-line no-undef
-      return typeof getJobs === 'function' ? getJobs() : [];
-    }, []),
-    
-    getLatestFailedJob: useCallback(() => {
-      // eslint-disable-next-line no-undef
-      return typeof getLatestFailedJob === 'function' ? getLatestFailedJob() : null;
-    }, []),
-    
-    loadRunDetail: useCallback((runId) => {
-      // eslint-disable-next-line no-undef
-      return typeof loadRunDetail === 'function' ? loadRunDetail(runId) : Promise.resolve(null);
-    }, []),
-    
-    getRunRelatedJobs: useCallback((runId) => {
-      // eslint-disable-next-line no-undef
-      return typeof getRunRelatedJobs === 'function' ? getRunRelatedJobs(runId) : [];
-    }, []),
-    
-    getSweepDecisionEntriesForRun: useCallback((runId) => {
-      // eslint-disable-next-line no-undef
-      return typeof getSweepDecisionEntriesForRun === 'function' ? getSweepDecisionEntriesForRun(runId) : [];
-    }, []),
 
-    findSweepDecisionRow: useCallback((entryId) => {
-      // eslint-disable-next-line no-undef
-      return typeof findSweepDecisionRow === 'function' ? findSweepDecisionRow(entryId) : null;
-    }, []),
-  };
-}
-
-/**
- * Bridge decision logic that wraps legacy decision functions
- */
-export function useLegacyDecision() {
-  return {
-    isBaselineRun: useCallback((runId) => {
-      // eslint-disable-next-line no-undef
-      return typeof isBaselineRun === 'function' ? isBaselineRun(runId) : false;
-    }, []),
-    
-    isCandidateRun: useCallback((runId) => {
-      // eslint-disable-next-line no-undef
-      return typeof isCandidateRun === 'function' ? isCandidateRun(runId) : false;
-    }, []),
-    
-    isShortlistedRun: useCallback((runId) => {
-      // eslint-disable-next-line no-undef
-      return typeof isShortlistedRun === 'function' ? isShortlistedRun(runId) : false;
-    }, []),
-    
-    getCandidateEntry: useCallback((store, runId) => {
-      // eslint-disable-next-line no-undef
-      return typeof getCandidateEntry === 'function' ? getCandidateEntry(store, runId) : null;
-    }, []),
-    
-    summarizeCandidateState: useCallback((store, runId) => {
-      // eslint-disable-next-line no-undef
-      return typeof summarizeCandidateState === 'function' ? summarizeCandidateState(store, runId) : "unknown";
-    }, []),
-
-    getCandidateEntriesResolved: useCallback(() => {
-      // eslint-disable-next-line no-undef
-      return typeof getCandidateEntriesResolved === 'function' ? getCandidateEntriesResolved() : [];
-    }, []),
-  };
-}

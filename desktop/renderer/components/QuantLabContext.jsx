@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useMemo, useState, useEffect, useCallback } from 'react';
 import {
   useLegacyBridge,
-  useLegacyDataAccessors,
 } from '../hooks/useLegacyBridge';
 import { useCandidatesStore } from '../hooks/useCandidatesStore.js';
 import { useSnapshot } from '../hooks/useSnapshot.js';
@@ -57,8 +56,7 @@ export function useQuantLab() {
  * Use this in App.jsx to populate the QuantLabContext.Provider value.
  */
 export function useQuantLabContextValue() {
-  const { state: legacyState, actions: legacyActions } = useLegacyBridge();
-  const legacyDataAccessors = useLegacyDataAccessors();
+  const { state: legacyState } = useLegacyBridge();
 
   // Native registry: authoritative source of run data (#412 B.1)
   const registry = useRegistry();
@@ -378,7 +376,6 @@ export function useQuantLabContextValue() {
       },
       ...dataAccessors,
       decision,
-      ...legacyActions, // decision-related actions (setBaseline, etc.)
       setBaseline: candidates.setBaseline,
       toggleCandidate: candidates.toggleCandidate,
       toggleShortlist: candidates.toggleShortlist,
@@ -393,7 +390,7 @@ export function useQuantLabContextValue() {
       toggleRunSelection,
       updateTab,
     }),
-    [legacyState, effectiveSnapshot, tabs, activeTabId, selectedRunIds, candidates, sweepDecisions, isInitialized, registry.isLoading, registry.lastError, registry.refreshSnapshot, dataAccessors, decision, legacyActions, openTab, closeTab, setActiveTab, navigateToSurface, toggleRunSelection, updateTab]
+    [legacyState, effectiveSnapshot, tabs, activeTabId, selectedRunIds, candidates, sweepDecisions, isInitialized, registry.isLoading, registry.lastError, registry.refreshSnapshot, dataAccessors, decision, openTab, closeTab, setActiveTab, navigateToSurface, toggleRunSelection, updateTab]
   );
 
   return value;
