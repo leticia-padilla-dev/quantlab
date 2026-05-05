@@ -1,7 +1,5 @@
 import React, { createContext, useContext, useMemo, useState, useEffect, useCallback } from 'react';
-import {
-  useLegacyBridge,
-} from '../hooks/useLegacyBridge';
+
 import { useCandidatesStore } from '../hooks/useCandidatesStore.js';
 import { useSnapshot } from '../hooks/useSnapshot.js';
 import {
@@ -56,8 +54,6 @@ export function useQuantLab() {
  * Use this in App.jsx to populate the QuantLabContext.Provider value.
  */
 export function useQuantLabContextValue() {
-  const { state: legacyState } = useLegacyBridge();
-
   // Native registry: authoritative source of run data (#412 B.1)
   const registry = useRegistry();
 
@@ -71,13 +67,13 @@ export function useQuantLabContextValue() {
     registry.runs.find((r) => r.run_id === runId) || null
   ), [registry.runs]);
 
-  const candidates = useCandidatesStore(legacyState?.candidatesStore, findRun);
-  const sweepDecisions = useSweepDecisionStore(legacyState?.sweepDecisionStore);
+  const candidates = useCandidatesStore(null, findRun);
+  const sweepDecisions = useSweepDecisionStore(null);
 
-  // Native snapshot: fires only when Legacy has not populated state.snapshot (#524)
-  const serverUrl = legacyState?.workspace?.serverUrl ?? null;
-  const nativeSnapshot = useSnapshot(legacyState?.snapshot != null ? null : serverUrl);
-  const effectiveSnapshot = legacyState?.snapshot ?? nativeSnapshot.snapshot ?? null;
+  // Native snapshot
+  const serverUrl = registry.serverUrl ?? null;
+  const nativeSnapshot = useSnapshot(serverUrl);
+  const effectiveSnapshot = nativeSnapshot.snapshot ?? null;
 
   // Native job accessors — read from launchControl.jobs in snapshot (#524)
   const getJobs = useCallback(
@@ -353,7 +349,6 @@ export function useQuantLabContextValue() {
   const value = useMemo(
     () => ({
       state: {
-        ...(legacyState || {}), // Guard against null legacyState
         snapshot: effectiveSnapshot, // Native snapshot overrides legacy (#524)
         tabs,
         activeTabId,
@@ -390,7 +385,7 @@ export function useQuantLabContextValue() {
       toggleRunSelection,
       updateTab,
     }),
-    [legacyState, effectiveSnapshot, tabs, activeTabId, selectedRunIds, candidates, sweepDecisions, isInitialized, registry.isLoading, registry.lastError, registry.refreshSnapshot, dataAccessors, decision, openTab, closeTab, setActiveTab, navigateToSurface, toggleRunSelection, updateTab]
+    [effectiveSnapshot, tabs, activeTabId, selectedRunIds, candidates, sweepDecisions, isInitialized, registry.isLoading, registry.lastError, registry.refreshSnapshot, dataAccessors, decision, openTab, closeTab, setActiveTab, navigateToSurface, toggleRunSelection, updateTab]
   );
 
   return value;

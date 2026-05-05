@@ -12,8 +12,6 @@ const fs = require("fs");
  * }} options
  */
 function createMainWindow({ BrowserWindow, desktopRoot, isSmokeRun, onClosed }) {
-  // React is the default renderer. Set QUANTLAB_DESKTOP_RENDERER=legacy to opt back.
-  const useReactRenderer = process.env.QUANTLAB_DESKTOP_RENDERER !== "legacy";
   const mainWindow = new BrowserWindow({
     width: 1440,
     height: 960,
@@ -31,26 +29,19 @@ function createMainWindow({ BrowserWindow, desktopRoot, isSmokeRun, onClosed }) 
     },
   });
 
-  if (useReactRenderer && process.env.NODE_ENV === "development") {
+  if (process.env.NODE_ENV === "development") {
     mainWindow.loadURL("http://127.0.0.1:5173");
   } else {
     const distEntry = path.join(desktopRoot, "renderer", "dist", "index.html");
-    const legacyEntry = path.join(desktopRoot, "renderer", "legacy.html");
-
-    if (useReactRenderer && !fs.existsSync(distEntry)) {
-      // renderer/dist/ is empty — production React mode requires a prior build.
-      // Fall back to legacy and surface a visible warning instead of silently loading the wrong renderer.
-      console.error(
+    if (!fs.existsSync(distEntry)) {
+      throw new Error(
         "[quantlab-desktop] renderer/dist/index.html not found. " +
-        "React renderer requested but not built. Falling back to legacy. " +
-        "Run `npm run build` before starting in React release mode."
+        "Run `npm run build` before starting in release mode."
       );
-      mainWindow.loadFile(legacyEntry);
-    } else {
-      const entry = useReactRenderer ? distEntry : legacyEntry;
-      mainWindow.loadFile(entry);
     }
+    mainWindow.loadFile(distEntry);
   }
+
   if (!isSmokeRun) {
     mainWindow.once("ready-to-show", () => {
       if (!mainWindow || mainWindow.isDestroyed()) return;

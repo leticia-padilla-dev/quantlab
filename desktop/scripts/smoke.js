@@ -6,17 +6,6 @@ const { spawn } = require("child_process");
 /** @typedef {import("../shared/models/smoke").SmokeMode} SmokeMode */
 /** @typedef {import("../shared/models/smoke").SmokeResult} SmokeResult */
 
-function parseSmokeRenderer(argv) {
-  const rawRenderer = argv
-    .map((entry) => String(entry || "").trim())
-    .find((entry) => entry.startsWith("--renderer="))
-    ?.slice("--renderer=".length);
-  if (!rawRenderer || rawRenderer === "legacy" || rawRenderer === "react") {
-    return rawRenderer || "legacy";
-  }
-  throw new Error(`Unsupported desktop smoke renderer: ${rawRenderer}`);
-}
-
 function parseSmokeMode(argv) {
   const rawMode = argv
     .map((entry) => String(entry || "").trim())
@@ -31,7 +20,6 @@ function parseSmokeMode(argv) {
 async function main() {
   const argv = process.argv.slice(2);
   const mode = parseSmokeMode(argv);
-  const renderer = parseSmokeRenderer(argv);
   const desktopRoot = path.resolve(__dirname, "..");
   const electronBinary = require("electron");
   const electronArgs = process.platform === "linux" ? ["--no-sandbox", "."] : ["."];
@@ -174,7 +162,6 @@ async function main() {
         QUANTLAB_DESKTOP_SMOKE_MODE: mode,
         QUANTLAB_DESKTOP_SMOKE_OUTPUT: outputPath,
         QUANTLAB_DESKTOP_OUTPUTS_ROOT: desktopOutputsRoot,
-        QUANTLAB_DESKTOP_RENDERER: renderer,
         ...(mode === "fallback" ? { QUANTLAB_DESKTOP_DISABLE_SERVER_BOOT: "1" } : {}),
       },
     });
@@ -187,7 +174,7 @@ async function main() {
       stderr += String(chunk || "");
     });
 
-    const timeoutMs = renderer === "react" ? 90000 : 45000;
+    const timeoutMs = 90000;
     const timeout = setTimeout(() => {
       child.kill();
     }, timeoutMs);
@@ -229,14 +216,14 @@ async function main() {
           && result.domReady
           && result.workbenchReady
           && result.happyPathReady
-          && (renderer !== "react" || Boolean(
+          && Boolean(
             result.parityGatePassed
             && result.happyPathSystemReady
             && result.happyPathExperimentsReady
             && result.happyPathPaperOpsReady
             && result.happyPathAssistantReady
             && result.happyPathLaunchReady
-          ))
+          )
           && result.serverReady
           && result.apiReady
         )
@@ -246,9 +233,8 @@ async function main() {
           && result.domReady
           && result.workbenchReady
           && result.happyPathReady
-          && (renderer !== "react" || Boolean(result.parityGatePassed))
+          && Boolean(result.parityGatePassed)
           && result.shellReady
-          && result.rendererMode === renderer
         );
 
     if (!passed) {
@@ -289,22 +275,20 @@ async function main() {
             ? `Desktop smoke fallback passed via ${result.serverUrl}`
             : "Desktop smoke fallback passed via local runs fallback"),
     );
-    if (renderer === "react") {
-      console.log(
-        `React parity gate (${result.parityGateName || "react-parity-v1"}): `
-        + `runs=${Boolean(result.happyPathRunsReady)} `
-        + `runDetail=${Boolean(result.happyPathRunDetailReady)} `
-        + `artifacts=${Boolean(result.happyPathArtifactsReady)} `
-        + `candidates=${Boolean(result.happyPathCandidatesReady)} `
-        + `compare=${Boolean(result.happyPathCompareReady)} `
-        + `system=${Boolean(result.happyPathSystemReady)} `
-        + `experiments=${Boolean(result.happyPathExperimentsReady)} `
-        + `paperOps=${Boolean(result.happyPathPaperOpsReady)} `
-        + `assistant=${Boolean(result.happyPathAssistantReady)} `
-        + `launch=${Boolean(result.happyPathLaunchReady)} `
-        + `passed=${Boolean(result.parityGatePassed)}`,
-      );
-    }
+    console.log(
+      `React parity gate (${result.parityGateName || "react-parity-v1"}): `
+      + `runs=${Boolean(result.happyPathRunsReady)} `
+      + `runDetail=${Boolean(result.happyPathRunDetailReady)} `
+      + `artifacts=${Boolean(result.happyPathArtifactsReady)} `
+      + `candidates=${Boolean(result.happyPathCandidatesReady)} `
+      + `compare=${Boolean(result.happyPathCompareReady)} `
+      + `system=${Boolean(result.happyPathSystemReady)} `
+      + `experiments=${Boolean(result.happyPathExperimentsReady)} `
+      + `paperOps=${Boolean(result.happyPathPaperOpsReady)} `
+      + `assistant=${Boolean(result.happyPathAssistantReady)} `
+      + `launch=${Boolean(result.happyPathLaunchReady)} `
+      + `passed=${Boolean(result.parityGatePassed)}`,
+    );
   } finally {
     if (seededRunsIndex) {
       await fs.rm(smokeRunsIndexPath, { force: true }).catch(() => {});
