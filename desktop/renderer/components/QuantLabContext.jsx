@@ -4,6 +4,7 @@ import {
   useLegacyDataAccessors,
 } from '../hooks/useLegacyBridge';
 import { useCandidatesStore } from '../hooks/useCandidatesStore.js';
+import { useSnapshot } from '../hooks/useSnapshot.js';
 import {
   buildMissingCandidateEntry,
   getCandidateEntriesResolved,
@@ -64,6 +65,34 @@ export function useQuantLabContextValue() {
   ), [registry.runs]);
 
   const candidates = useCandidatesStore(legacyState?.candidatesStore, findRun);
+
+  // Native snapshot: fires only when Legacy has not populated state.snapshot (#524)
+  const serverUrl = legacyState?.workspace?.serverUrl ?? null;
+  const nativeSnapshot = useSnapshot(legacyState?.snapshot != null ? null : serverUrl);
+  const effectiveSnapshot = legacyState?.snapshot ?? nativeSnapshot.snapshot ?? null;
+
+  // Native job accessors — read from launchControl.jobs in snapshot (#524)
+  const getJobs = useCallback(
+    () => (Array.isArray(effectiveSnapshot?.launchControl?.jobs)
+      ? effectiveSnapshot.launchControl.jobs
+      : []),
+    [effectiveSnapshot]
+  );
+
+  const getLatestFailedJob = useCallback(
+    () => getJobs().find((j) => (j.status ?? '').toLowerCase().includes('failed')) ?? null,
+    [getJobs]
+  );
+
+  const getRunRelatedJobs = useCallback(
+    (runId) => getJobs().filter((j) => j.run_id === runId),
+    [getJobs]
+  );
+
+  const findJob = useCallback(
+    (requestId) => getJobs().find((j) => j.request_id === requestId) ?? null,
+    [getJobs]
+  );
 
   // 2. Initialize state from persistence layer on mount
   useEffect(() => {
@@ -240,21 +269,23 @@ export function useQuantLabContextValue() {
     );
   }, []);
 
-  // Native data accessors — read from RegistryContext, fall back to legacy globals
+  // Native data accessors — read from RegistryContext and native snapshot
   const dataAccessors = useMemo(() => ({
     getRuns: () => registry.runs,
     getLatestRun: () => registry.runs[registry.runs.length - 1] || null,
     findRun,
     getSelectedRuns: () =>
       registry.runs.filter((r) => selectedRunIds.includes(r.run_id)),
-    // These still delegate to legacy globals for now
-    getJobs: legacyDataAccessors.getJobs,
-    getLatestFailedJob: legacyDataAccessors.getLatestFailedJob,
+    // Native job accessors (replaced legacy delegation via #524)
+    getJobs,
+    getLatestFailedJob,
+    getRunRelatedJobs,
+    findJob,
+    // These still delegate to legacy globals
     loadRunDetail: legacyDataAccessors.loadRunDetail,
-    getRunRelatedJobs: legacyDataAccessors.getRunRelatedJobs,
     getSweepDecisionEntriesForRun: legacyDataAccessors.getSweepDecisionEntriesForRun,
     findSweepDecisionRow: legacyDataAccessors.findSweepDecisionRow,
-  }), [registry.runs, selectedRunIds, findRun, legacyDataAccessors]);
+  }), [registry.runs, selectedRunIds, findRun, getJobs, getLatestFailedJob, getRunRelatedJobs, findJob, legacyDataAccessors]);
 
   const decision = useMemo(() => {
     const store = candidates.store;
@@ -314,6 +345,7 @@ export function useQuantLabContextValue() {
     () => ({
       state: {
         ...(legacyState || {}), // Guard against null legacyState
+        snapshot: effectiveSnapshot, // Native snapshot overrides legacy (#524)
         tabs,
         activeTabId,
         selectedRunIds,
@@ -339,7 +371,7 @@ export function useQuantLabContextValue() {
       toggleRunSelection,
       updateTab,
     }),
-    [legacyState, tabs, activeTabId, selectedRunIds, candidates, isInitialized, registry.isLoading, registry.lastError, registry.refreshSnapshot, dataAccessors, decision, legacyActions, openTab, closeTab, setActiveTab, navigateToSurface, toggleRunSelection, updateTab]
+    [legacyState, effectiveSnapshot, tabs, activeTabId, selectedRunIds, candidates, isInitialized, registry.isLoading, registry.lastError, registry.refreshSnapshot, dataAccessors, decision, legacyActions, openTab, closeTab, setActiveTab, navigateToSurface, toggleRunSelection, updateTab]
   );
 
   return value;
