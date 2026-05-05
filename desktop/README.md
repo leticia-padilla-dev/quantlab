@@ -19,7 +19,7 @@ This is intentionally a first block, not the final product shell.
 Desktop v1 is a functional operator workstation with explicit transitional boundaries.
 
 - React is the default runtime for Desktop.
-- Legacy runtime stays available as controlled rollback (`npm run start:legacy` or `QUANTLAB_DESKTOP_RENDERER=legacy`).
+- React is the sole renderer. Legacy renderer (`app-legacy.js`, `legacy.html`) has been removed.
 - `npm start` starts Desktop in React mode.
 - `npm run start:legacy` starts Desktop in rollback mode.
 - `research_ui` remains a transitional API and reachability boundary; it is not the target shell or canonical workspace surface.
