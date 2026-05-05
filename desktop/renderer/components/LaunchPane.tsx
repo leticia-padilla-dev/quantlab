@@ -223,7 +223,7 @@ function QuickLaunchForm({ serverUrl, onRefresh }: { serverUrl: string | null; o
 
 export function LaunchPane({ tab: _tab }: { tab: LaunchTab }) {
   const ctx = useQuantLab();
-  const { state, getJobs, getLatestRun, getLatestFailedJob, openTab, refresh } = ctx;
+  const { state, getJobs, getLatestRun, getLatestFailedJob, openTab, refreshRegistry } = ctx;
 
   const snapshot = state.snapshot ?? {};
   const launchControl = (snapshot as any).launchControl ?? null;
@@ -345,7 +345,7 @@ export function LaunchPane({ tab: _tab }: { tab: LaunchTab }) {
           )}
         </section>
 
-        <QuickLaunchForm serverUrl={serverUrl} onRefresh={refresh} />
+        <QuickLaunchForm serverUrl={serverUrl} onRefresh={refreshRegistry} />
       </div>
     </div>
   );

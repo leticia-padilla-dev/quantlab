@@ -127,12 +127,7 @@ export function useLegacyBridge() {
       (runId) => callLegacyFunction('toggleShortlist', runId),
       [callLegacyFunction]
     ),
-    // Temporary legacy-backed refresh for ExperimentsPane until launch/sweep
-    // workspace ownership moves fully into React-native data hooks.
-    refresh: useCallback(
-      () => callLegacyFunction('refreshExperimentsWorkspace', { focusTab: false, silent: true }),
-      [callLegacyFunction]
-    ),
+
     toggleSweepEntry: useCallback(
       (entryOrId) => {
         if (entryOrId && typeof entryOrId === 'object') {

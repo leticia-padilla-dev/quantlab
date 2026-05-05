@@ -203,14 +203,11 @@ function SweepDecisionCard({
 
 export function ExperimentsPane({ tab }: { tab: ExperimentsTab }) {
   const ctx = useQuantLab();
-  const { state, refresh, toggleSweepEntry, toggleSweepShortlist, setSweepBaseline } = ctx;
+  const { state, toggleSweepEntry, toggleSweepShortlist, setSweepBaseline } = ctx;
 
-  const hasLegacyWorkspace = Boolean(state.experimentsWorkspace);
-  const native = useExperimentsWorkspace(!hasLegacyWorkspace);
-  const workspace = hasLegacyWorkspace
-    ? state.experimentsWorkspace
-    : (native.workspace ?? { status: 'idle', configs: [], sweeps: [], error: null });
-  const handleExperimentsRefresh = hasLegacyWorkspace ? () => refresh() : () => native.refresh();
+  const native = useExperimentsWorkspace(true);
+  const workspace = native.workspace ?? { status: 'idle', configs: [], sweeps: [], error: null };
+  const handleExperimentsRefresh = () => native.refresh();
 
   const configs: any[] = Array.isArray(workspace.configs) ? workspace.configs : [];
   const sweeps: any[] = Array.isArray(workspace.sweeps) ? workspace.sweeps : [];
