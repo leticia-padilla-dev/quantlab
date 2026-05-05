@@ -34,7 +34,7 @@ function createMainWindow({ BrowserWindow, desktopRoot, isSmokeRun, onClosed }) 
   } else {
     const distEntry = path.join(desktopRoot, "renderer", "dist", "index.html");
     if (!fs.existsSync(distEntry)) {
-      console.error(
+      throw new Error(
         "[quantlab-desktop] renderer/dist/index.html not found. " +
         "Run `npm run build` before starting in release mode."
       );

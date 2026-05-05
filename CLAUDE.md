@@ -13,7 +13,7 @@ quantlab/
 │       ├── components/    # React TSX/JSX surfaces
 │       ├── hooks/         # Native React hooks (no legacy dependency)
 │       ├── modules/       # utils.js, decision-store.js, etc.
-│       └── app-legacy.js  # Legacy renderer — behavioral reference, DO NOT MODIFY
+│       └── app-legacy.js  # REMOVED in #529 — legacy renderer has been deleted
 ├── test/                  # Python tests (pytest)
 ├── docs/                  # Runbooks and architecture docs
 └── main.py                # CLI entry point
@@ -31,8 +31,8 @@ PYTHONPATH=src pytest test/test_hyperliquid_broker_adapter.py -q   # broker only
 ```bash
 cd desktop && npm run typecheck   # TypeScript — must pass before any commit
 cd desktop && npm run build       # Vite build — must pass before any commit
-npm run smoke:react:fallback      # React fallback smoke
-npm run smoke:react:real-path     # React real-path smoke
+npm run smoke:fallback          # React fallback smoke (canonical)
+npm run smoke:real-path         # React real-path smoke
 ```
 
 ## Git workflow — non-negotiable rules
@@ -48,24 +48,15 @@ The direct-to-main exception that happened in Slice B (#410) must not be repeate
 
 ## Desktop renderer architecture
 
-### Two renderers — React is default, legacy is deprecated fallback
+### React is the sole renderer (Legacy removed in #529)
+
+The Legacy renderer (`app-legacy.js`, `legacy.html`, `start:legacy`) was removed in #529 after full native parity was confirmed. React is now the only renderer path.
 
 | Mode | Command | Status |
 |------|---------|--------|
-| React | `npm start` or `npm run start:react` | Default renderer |
-| Legacy | `npm run start:legacy` | Deprecated fallback / continuity path |
+| React | `npm start` | Sole renderer |
 
-**Legacy renderer is in `deprecated-fallback` mode as of 2026-05-05. It receives no new features.**
-`npm run start:legacy` remains available as an operator escape hatch until native parity is confirmed.
-
-**Do not retire legacy or remove rollback support yet. Final removal (#529) is blocked by remaining parity/contract decisions:**
-- #525 run-related jobs correlation (if still needed)
-- #526 backend/producer contract (if still needed)
-- #527 sweep decision accessors (if active)
-
-### Legacy is behavioral reference, not architectural truth
-
-When implementing native React hydration, mirror the *user-visible behavior* of the legacy equivalent. Do not copy legacy architecture, monolithic patterns, or global state design into React. Legacy must not be treated as architectural truth.
+**Legacy rollback** now requires reverting #529 or restoring removed files from Git history.
 
 *Note: Visible jobs accessors (Launch jobs, failed jobs) were migrated in #524/#530 to native React accessors.*
 
@@ -81,33 +72,27 @@ const effective = state.X ?? native.value ?? fallback;
 
 Established hooks and what they mirror:
 
-| Hook | Legacy mirror | Disable condition |
-|------|--------------|-------------------|
-| `useRunDetail(runId, run)` | `loadRunDetail()` | `tab.detail != null ? null : runId` |
-| `useSnapshot(serverUrl)` | `refreshSnapshot()` | `state.snapshot != null ? null : serverUrl` |
-| `useExperimentsWorkspace(enabled)` | `buildExperimentsWorkspace()` | `!Boolean(state.experimentsWorkspace)` |
+| Hook | Purpose |
+|------|---------|
+| `useRunDetail(runId, run)` | Loads run detail via IPC |
+| `useSnapshot(serverUrl)` | Polls native API snapshot |
+| `useExperimentsWorkspace(enabled)` | Loads experiments workspace natively |
 
 ### QuantLabContext state ownership
 
 | State | Owner | Notes |
 |-------|-------|-------|
-| `tabs`, `activeTabId`, `selectedRunIds` | QuantLabContext (React) | Persisted via bridge |
-| `candidatesStore` | Legacy global | Bridged read + write actions |
-| `sweepDecisionStore` | Legacy global | Bridged read; write actions partially bridged |
-| `snapshot`, `experimentsWorkspace` | Legacy global / native hook | Native fallback when legacy absent |
+| `tabs`, `activeTabId`, `selectedRunIds` | QuantLabContext (React) | Persisted via IPC bridge |
+| `candidatesStore` | `useCandidatesStore` (native) | Persisted locally |
+| `sweepDecisionStore` | `useSweepDecisionStore` (native) | Persisted locally |
+| `snapshot` | `useSnapshot` (native) | Polled from local API |
 
-### Bridged actions (available in `ctx`)
-
-**Candidates:** `setBaseline`, `toggleCandidate`, `toggleShortlist`
-**Decision read:** `decision.isBaselineRun`, `decision.isCandidateRun`, `decision.getCandidateEntriesResolved`, etc.
-
-**Not yet bridged (known gap):** `toggleSweepEntry`, `toggleSweepShortlist`, `setSweepBaseline`, `findSweepDecisionRow`, `refresh`
+**All legacy global state accessors have been removed.** The context is fully native.
 
 ## Files that are out of scope by default
 
 Unless a task explicitly targets one of these, never modify them:
 
-- `desktop/renderer/app-legacy.js` — legacy renderer, behavioral reference only
 - `desktop/main/*` — Electron main process and IPC channels
 - `desktop/shared/ipc/channels.ts` — IPC channel definitions
 - `desktop/main/smoke-service.js` — smoke test infrastructure

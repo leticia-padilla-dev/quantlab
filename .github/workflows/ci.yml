@@ -73,10 +73,10 @@ jobs:
         run: |
           npm ci
 
-      - name: Run desktop React real-path smoke
+      - name: Run desktop real-path smoke
         working-directory: desktop
         run: |
-          xvfb-run -a npm run smoke:react:real-path
+          xvfb-run -a npm run smoke:real-path
 
   desktop-react-fallback:
     runs-on: ubuntu-latest
@@ -94,6 +94,6 @@ jobs:
         working-directory: desktop
         run: npm ci
 
-      - name: Run desktop React fallback smoke
+      - name: Run desktop fallback smoke
         working-directory: desktop
-        run: xvfb-run -a npm run smoke:react:fallback
+        run: xvfb-run -a npm run smoke:fallback

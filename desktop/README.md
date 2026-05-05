@@ -20,8 +20,8 @@ Desktop v1 is a functional operator workstation with explicit transitional bound
 
 - React is the default runtime for Desktop.
 - React is the sole renderer. Legacy renderer (`app-legacy.js`, `legacy.html`) has been removed.
-- `npm start` starts Desktop in React mode.
-- `npm run start:legacy` starts Desktop in rollback mode.
+- Legacy rollback via `start:legacy` / `QUANTLAB_DESKTOP_RENDERER=legacy` has been removed. Rollback now requires reverting this PR or restoring the removed legacy renderer files from Git history.
+- `npm start` builds and starts Desktop with the React renderer.
 - `research_ui` remains a transitional API and reachability boundary; it is not the target shell or canonical workspace surface.
 
 This keeps Desktop v1 honest: the product can ship as a usable operator workstation while the React migration continues through narrow slices.
@@ -51,19 +51,12 @@ React parity gate (promotion proof):
 
 ```powershell
 cd desktop
-npm run smoke:react:fallback
+npm run smoke:fallback
 ```
 
 Gate definition: [`docs/desktop-react-parity-gate.md`](../docs/desktop-react-parity-gate.md)
 
-Renderer rollout + rollback smoke:
-
-```powershell
-cd desktop
-npm run smoke:renderer-rollout
-```
-
-Rollback policy: [`docs/desktop-renderer-rollback.md`](../docs/desktop-renderer-rollback.md)
+> **Note:** `smoke:react:fallback`, `smoke:legacy:*`, and `smoke:renderer-rollout` aliases have been removed. `npm run smoke` and `npm run smoke:fallback` are the canonical smoke commands.
 
 ## Cursor MCP
 
