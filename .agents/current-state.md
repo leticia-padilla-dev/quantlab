@@ -3,7 +3,7 @@
 ## Active Stage
 - **Stage**: Stage D.3 — Micro-Live Promotion Gate (hardening)
 - **Last Updated**: 2026-05-05
-- **Focus**: Desktop Legacy renderer migration is complete. React is now the sole renderer after Legacy removal in PR #539 / Issue #529. The operational frontier shifts fully to D.3 hardening: converting initial micro-live evidence into repeatable criteria, runbook updates, blocker analysis, alert confidence, reconciliation confidence, and operator stop-control confidence. D.2 residual hardening continues in parallel where it directly supports D.3 promotion readiness.
+- **Focus**: D.3 initial micro-live gate passed bounded validation (#413 closed). Legacy renderer retired (#539). Hardening criteria and Stage E promotion gate documented in `docs/d3-hardening-and-promotion-criteria.md` (#542/#543). Stage E remains explicitly blocked by design until the operator declares hardening complete. Current work is `post-D.3 initial validation hardening` — no new live execution, no Stage E issue open.
 
 ### Desktop Operator Workspace
 - **status**: react_only_renderer
@@ -55,17 +55,16 @@
 | O | Stepbit Automation Readiness (I/O & CLI Stability) | 🟨 In Progress |
 
 ## Active Work
-- **Stage Open**: Stage D.2 and Desktop v0.1 are now both at RC/closed-in-code status. D.2 remains the active execution-safety stage but has moved from broad ambiguity closure into residual hardening and monitoring. Desktop v0.1 is a Release Candidate on `main` as of 2026-04-19.
-- **Current Priority**: The next real frontier is Stage D.3 — first supervised Hyperliquid session with real (minimal) capital. Hold the D.3 gate explicit: checklist, preflight, account snapshot, submit, reconciliation, documented artifact trail.
-- **Parallel Track Note**: Desktop/UI migration to native surfaces continues as a parallel track (issues #409–#412). Desktop work should not open new scope before the migration slices land.
+- **Stage Open**: Stage D.3 initial micro-live gate passed bounded validation (2026-05-05). #413 closed as completed. Legacy renderer retired (#539). D.3 hardening criteria and Stage E promotion gate documented (#542/#543).
+- **Current Priority**: `post-D.3 initial validation hardening` — working through `docs/d3-hardening-and-promotion-criteria.md` criteria. Stage E remains explicitly blocked by operator design until hardening criteria are satisfied and a declaration is made. No new live execution until then.
+- **Parallel Track Note**: Desktop is React-only as of 2026-05-05 (#539 merged). No active desktop migration work — that track is complete. Future desktop work is normal polish and surface docs.
 - **Active Focus Areas**:
-  - keep broker execution auditable before any broader live routing or retry logic
-  - preserve paper-session discipline as a prerequisite, not the current bottleneck
-  - keep Hyperliquid as the active execution boundary while positioning Kraken as legacy compatibility and Hyperliquid as the first next venue intended for personal connection
-  - treat Bitget as a later optional comparison venue after Hyperliquid, not a current priority
+  - satisfy the 5 hardening dimensions in `docs/d3-hardening-and-promotion-criteria.md` before any Stage E consideration
+  - keep broker execution auditable; no automation or retry widening
+  - preserve paper-session discipline as the promotion floor
+  - keep Hyperliquid as the active execution boundary; Kraken remains legacy compatibility
+  - treat Bitget as a later optional venue after Hyperliquid, not a current priority
   - Quant Pulse intake is valid only when it improves research, validation, or product priorities
-  - review whether the current boundary can express Hyperliquid signer, wallet, routing, and websocket semantics without ad hoc adapter leaks
-  - keep the first Hyperliquid supervised submit path intentionally narrow and auditable before adding richer session, status, or websocket execution work
   - prefer operator-visible hardening and regression coverage over new execution breadth
 - **Implemented Direction**:
   - canonical run artifacts now center on `metadata.json`, `config.json`, `metrics.json`, and `report.json`
