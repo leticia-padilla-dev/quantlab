@@ -1,14 +1,19 @@
 # QuantLab Roadmap
 
-This roadmap updates the original QuantLab plan to reflect the current product and system direction plus the remaining stages needed to reach a broker-connected, automated, live-operating system without compromising QuantLab autonomy.
+This roadmap defines the strategic direction and stage semantics for QuantLab. It is not a sprint plan.
 
-Public product framing:
+> **Operational source of truth**: For the current executable priority, use `.agents/current-state.md`. This roadmap defines where the system is heading; `current-state.md` defines what the next concrete step is.
 
-- QuantLab should be read as a local-first quantitative research and supervised execution system
+QuantLab is evolving toward a broker-connected supervised execution system, with controlled automation only after safety, evidence, observability, and operator-control gates are proven. It is not moving into broad automation now. The current frontier is operational hardening: Desktop/Operator Workspace stabilization, Legacy retirement, D.2/D.3 evidence hardening, and controlled promotion discipline.
+
+Product framing:
+
+- QuantLab is a local-first quantitative research and supervised execution system
 - it may support modern execution venues, including web3-native venues, without becoming a crypto or AI marketing shell
-- the roadmap therefore prioritizes execution safety, signer correctness, evidence quality, and operator control before broader venue or automation power
+- the roadmap prioritizes execution safety, signer correctness, evidence quality, and operator control before broader venue or automation power
+- QuantLab should not be reframed as a crypto app, an AI trading platform, an automation-first system, or a generic broker dashboard
 
-QuantLab should continue to evolve in this order:
+Strategic evolution order:
 
 1. research reliability
 2. paper-trading discipline
@@ -134,6 +139,14 @@ Scope:
 - deterministic `--check` and `--version`
 - automatic refresh of `runs_index.*`
 
+Stepbit boundary rule:
+
+Stepbit integration should advance only when QuantLab exposes stable producer-side contracts. Stepbit must not compensate for missing QuantLab contracts with orchestration logic. This means:
+
+- no mocks to hide missing QuantLab contracts
+- no Stepbit-side workaround for missing evidence artifacts
+- no external orchestration absorbing QuantLab authority
+
 Exit condition:
 
 - external orchestration can invoke QuantLab as a reliable local execution engine without guessing at output structure
@@ -174,7 +187,7 @@ Exit condition:
 
 ## Transversal Capability Track - Desktop / Operator Workspace
 
-Status: in progress
+Status: in progress — active promotion-support path
 
 Goal:
 
@@ -189,11 +202,20 @@ Scope:
 
 Architectural rule:
 
+- Desktop is an operator workspace and review surface. It must not become a second product authority or execution authority.
 - Desktop/UI is a transversal capability track, not a primary linear stage
 - the engine, contracts, and canonical artifacts remain the authority
 - the workspace should reduce operator ambiguity, not introduce a second product authority
 - the accepted desktop target architecture now lives in [docs/desktop-target-architecture.md](./desktop-target-architecture.md)
 - `research_ui` should be treated as transitional continuity, not as the permanent shell target
+
+Current importance:
+
+Desktop is part of the active promotion-support path because it reduces ambiguity around evidence review, launch continuity, artifact inspection, paper ops, broker supervision, and Legacy fallback removal. Progress on Desktop directly enables the D.2/D.3 hardening frontier by providing the operator workspace needed to review evidence artifacts reliably.
+
+Legacy retirement note:
+
+Legacy retirement is not cosmetic cleanup. It supports operator confidence by removing fallback-dependent data paths after React-native parity is proven. The Legacy shell should be treated as a deprecated fallback and behavioral reference only, not as architectural truth. No new data paths should depend on Legacy state after native parity is established.
 
 Exit condition:
 
@@ -423,7 +445,7 @@ Minimum promotion signals:
 
 ## Stage D.3 - Micro-Live Promotion Gate
 
-Status: proposed
+Status: initial micro-live validation completed; promotion hardening still required
 
 Goal:
 
@@ -436,6 +458,13 @@ Scope:
 - canonical secret-boundary discipline for live credentials
 - canonical alert coverage for submit, reject, fill, and failure-critical states
 - immediate stop-on-ambiguity rule when reconciliation or operator visibility is unclear
+
+Current interpretation:
+
+- D.3 has demonstrated an initial supervised micro-live cycle under bounded exposure
+- this does not open Stage E automatically
+- the next work is to convert that evidence into repeatability criteria, runbook updates, blocker analysis, alert confidence, reconciliation confidence, and operator stop-control confidence
+- no Stage E until D.3 has repeatable evidence, clean alert artifacts, secret-boundary discipline, and operator stop-control confidence
 
 Exit condition:
 
@@ -510,11 +539,18 @@ Exit condition:
 
 ## Parallel Neural Research Track
 
-Status: proposed
+Status: proposed — not on the critical path
 
 This track does not replace the main execution and safety roadmap.
 
 It extends QuantLab from a laboratory of explicit strategies into a laboratory of explicit strategies and learned models.
+
+Critical path note:
+
+- Track N is not on the D.2 → D.3 → E critical path
+- Track N is a research-discipline expansion, not product repositioning
+- No Track N implementation should delay Desktop RC stabilization, D.3 hardening, or supervised execution evidence work
+- N.0 may open as documentation/contract work when operational bandwidth allows, but not before the current Desktop + D.3 hardening line is stable
 
 Strategic rule:
 
@@ -682,22 +718,19 @@ Exit condition:
 
 ## Recommended Execution Order
 
-From the current strategic position, the most rational order is:
+From the current operational hardening frontier, the priority order is:
 
-1. harden `Stage D.2` supervised broker corridors with real operator evidence, reconciliation discipline, and post-submit clarity
-2. continue `Stage C.1` paper-trading polish where it directly improves promotion discipline, runbooks, and paper-to-broker readiness
-3. continue the Desktop/UI operator workspace track where it reduces review ambiguity or improves promotion visibility across research, paper, and broker evidence
-4. continue `Stage O` producer-side stabilization only where real integration friction requires it
-5. open `Stage N.0` to define dataset, feature, model, and training-summary contracts for learned-model research
-6. implement `Stage N.1` so classical ML baselines exist before neural expansion
-7. implement `Stage N.2` for simple neural baselines only after N.0 and N.1
-8. harden `Stage N.3` before any learned-model promotion claims
-9. implement `Stage N.4` to make model outputs strategy-relevant and auditable
-10. implement `Stage N.5` before any learned model is allowed into serious paper evaluation
-11. continue `Stage O.1`, `Stage O.2`, and later `Stage N.6` only when real integration or orchestration value justifies them
-12. avoid reopening `Stage D.0` / `D.1` as primary stages unless a real hardening gap proves the current boundary insufficient
-13. pass an explicit `Stage D.3` micro-live promotion gate before opening `Stage E`
-14. only then move into `Stage F` controlled automation
+1. Stabilize Desktop / Operator Workspace where it directly supports evidence review, launch continuity, artifact inspection, and Legacy retirement. This is part of the active D.2/D.3 promotion-support path, not a cosmetic track.
+2. Harden D.2 / D.3 supervised broker corridors with repeatable evidence, reconciliation, alerts, stop-control, and post-submit clarity.
+3. Convert the initial D.3 micro-live evidence into runbook updates, blocker analysis, repeatability criteria, and operator stop-control confidence before any Stage E work.
+4. Continue C.1 paper-trading polish only where it strengthens promotion discipline or broker-readiness handoff.
+5. Continue Stage O only where real integration friction proves a missing producer-side contract. Stepbit must not compensate for missing QuantLab contracts.
+6. Keep Stepbit, Quant Pulse, broad Numba expansion, and Track N off the active execution-critical path until the current Desktop + D.3 hardening line is stable.
+7. Open N.0 only as a documentation/contract track, not implementation, when operational bandwidth allows.
+8. Do not open Stage E until D.3 has repeatable evidence, clean alert artifacts, secret-boundary discipline, and operator stop-control confidence.
+9. Only after Stage E proves repeated supervised live stability, consider Stage F controlled automation.
+10. Avoid reopening Stage D.0 / D.1 as primary stages unless a real hardening gap proves the current boundary insufficient.
+11. Continue Stage O.1, Stage O.2, and later Stage N.6 only when real integration or orchestration value justifies them.
 
 ## What Should Not Happen Early
 
