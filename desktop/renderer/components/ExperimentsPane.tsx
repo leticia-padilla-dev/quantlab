@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import type { ExperimentsTab } from '../../shared/models/tab';
 import {
   formatDateTime,
@@ -203,7 +203,7 @@ function SweepDecisionCard({
 
 export function ExperimentsPane({ tab }: { tab: ExperimentsTab }) {
   const ctx = useQuantLab();
-  const { state, refresh, toggleSweepEntry, toggleSweepShortlist, setSweepBaseline, findSweepDecisionRow } = ctx;
+  const { state, refresh, toggleSweepEntry, toggleSweepShortlist, setSweepBaseline } = ctx;
 
   const hasLegacyWorkspace = Boolean(state.experimentsWorkspace);
   const native = useExperimentsWorkspace(!hasLegacyWorkspace);
@@ -214,6 +214,16 @@ export function ExperimentsPane({ tab }: { tab: ExperimentsTab }) {
 
   const configs: any[] = Array.isArray(workspace.configs) ? workspace.configs : [];
   const sweeps: any[] = Array.isArray(workspace.sweeps) ? workspace.sweeps : [];
+
+  const findSweepDecisionRow = useCallback((entryId: string) => {
+    if (!sweeps || !sweeps.length) return null;
+    for (const sweep of sweeps) {
+      const rows = sweep.leaderboardRows || sweep.topResults || sweep.decisionRows || [];
+      const match = rows.find((r: any) => String(r.entry_id) === String(entryId));
+      if (match) return match;
+    }
+    return null;
+  }, [sweeps]);
   const sweepDecisionStore = state.sweepDecisionStore ?? {};
   const sweepDecision = state.sweepDecision ?? {};
 
