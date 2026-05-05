@@ -18,6 +18,15 @@ import {
 } from '../modules/decision-store.js';
 import { uniqueRunIds } from '../modules/utils.js';
 import { useRegistry } from './RegistryContext';
+import { useSweepDecisionStore } from '../hooks/useSweepDecisionStore.js';
+import {
+  isBaselineSweepEntry,
+  isShortlistedSweepEntry,
+  isTrackedSweepEntry,
+  summarizeSweepDecisionState,
+  getSweepDecisionEntriesResolved,
+  getSweepDecisionEntries,
+} from '../modules/sweep-decision-store.js';
 export { RegistryProvider } from './RegistryContext';
 
 const bridge = window.quantlabDesktop;
@@ -65,6 +74,7 @@ export function useQuantLabContextValue() {
   ), [registry.runs]);
 
   const candidates = useCandidatesStore(legacyState?.candidatesStore, findRun);
+  const sweepDecisions = useSweepDecisionStore(legacyState?.sweepDecisionStore);
 
   // Native snapshot: fires only when Legacy has not populated state.snapshot (#524)
   const serverUrl = legacyState?.workspace?.serverUrl ?? null;
@@ -283,9 +293,12 @@ export function useQuantLabContextValue() {
     findJob,
     // These still delegate to legacy globals
     loadRunDetail: legacyDataAccessors.loadRunDetail,
-    getSweepDecisionEntriesForRun: legacyDataAccessors.getSweepDecisionEntriesForRun,
-    findSweepDecisionRow: legacyDataAccessors.findSweepDecisionRow,
-  }), [registry.runs, selectedRunIds, findRun, getJobs, getLatestFailedJob, getRunRelatedJobs, findJob, legacyDataAccessors]);
+    getSweepDecisionEntriesForRun: (runId) => {
+      return getSweepDecisionEntries(sweepDecisions.store).filter(
+        (entry) => entry.sweep_run_id === runId
+      );
+    },
+  }), [registry.runs, selectedRunIds, findRun, getJobs, getLatestFailedJob, getRunRelatedJobs, findJob, legacyDataAccessors, sweepDecisions.store]);
 
   const decision = useMemo(() => {
     const store = candidates.store;
@@ -352,6 +365,14 @@ export function useQuantLabContextValue() {
         candidatesStore: candidates.store,
         candidatesStoreStatus: candidates.status,
         candidatesStoreError: candidates.error,
+        sweepDecisionStore: sweepDecisions.store,
+        sweepDecision: {
+          isBaseline: isBaselineSweepEntry,
+          isShortlisted: isShortlistedSweepEntry,
+          isTracked: isTrackedSweepEntry,
+          summarizeState: summarizeSweepDecisionState,
+          getEntriesResolved: getSweepDecisionEntriesResolved,
+        },
         isInitialized,
         // Surface registry health for Topbar / smoke diagnostics
         registryLoading: registry.isLoading,
@@ -363,6 +384,9 @@ export function useQuantLabContextValue() {
       setBaseline: candidates.setBaseline,
       toggleCandidate: candidates.toggleCandidate,
       toggleShortlist: candidates.toggleShortlist,
+      toggleSweepEntry: sweepDecisions.toggleSweepEntry,
+      toggleSweepShortlist: sweepDecisions.toggleSweepShortlist,
+      setSweepBaseline: sweepDecisions.setSweepBaseline,
       openTab,
       closeTab,
       setActiveTab,
@@ -371,7 +395,7 @@ export function useQuantLabContextValue() {
       toggleRunSelection,
       updateTab,
     }),
-    [legacyState, effectiveSnapshot, tabs, activeTabId, selectedRunIds, candidates, isInitialized, registry.isLoading, registry.lastError, registry.refreshSnapshot, dataAccessors, decision, legacyActions, openTab, closeTab, setActiveTab, navigateToSurface, toggleRunSelection, updateTab]
+    [legacyState, effectiveSnapshot, tabs, activeTabId, selectedRunIds, candidates, sweepDecisions, isInitialized, registry.isLoading, registry.lastError, registry.refreshSnapshot, dataAccessors, decision, legacyActions, openTab, closeTab, setActiveTab, navigateToSurface, toggleRunSelection, updateTab]
   );
 
   return value;
