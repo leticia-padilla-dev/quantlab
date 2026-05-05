@@ -156,7 +156,6 @@ revision:
   initial_cash: 10000
   window: 2023-07-01_to_2024-01-01
   operator_command_recorded: "python main.py --ticker ETH-USD --start 2023-07-01 --end 2024-01-01 --paper --report --initial_cash 10000"
-  artifact_reproduce_command: "python main.py --sweep inline_cli --sweep_outdir C:\\dev\\quantlab\\outputs\\paper_sessions"
   artifacts_generated:
     - outputs/paper_sessions/20260505_205127_paper_ddc7c3f/report.json
     - outputs/paper_sessions/20260505_205127_paper_ddc7c3f/run_report.md
