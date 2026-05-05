@@ -85,6 +85,111 @@ Stage E is explicitly blocked until all of the following are confirmed:
   `docs/supervised-broker-runbook.md` § 11 (already done)
 - [ ] The session directories exist locally and have not been modified after the cycle completed
 
+## 4.6 Current Checklist Validation Status
+
+This section classifies each hardening criterion (4.1–4.5) against the evidence produced by #446 and the gate rules documented in `docs/supervised-broker-runbook.md` § 11–12. The goal is to separate evidence that has been proven from gaps that require operator review and declaration. Stage E remains explicitly blocked pending operator declarations on all pending items.
+
+### 4.6.1 Runbook Completeness
+
+**Classification: `pending_operator_review`**
+
+**Evidence Satisfied:**
+- The supervised entry flow (runbook § 5) was executed end-to-end in #446 entry session: `outputs/hyperliquid_submits/20260502_230137_hyperliquid_submit_7209d49`
+  - Entry: 0.005 ETH buy, filled on first attempt, no retry
+  - Result: `filled` state with no ambiguity
+- The reduce-only close flow (runbook § 6.5) was executed in #446 close session: `outputs/hyperliquid_submits/20260502_232513_hyperliquid_submit_5d599f8`
+  - Close: 0.005 ETH sell with `reduce_only: true` flag set
+  - Result: `filled` state, position confirmed closed in Hyperliquid UI, no manual intervention
+
+**Remaining Gap:**
+- The completion of #446 proves the flow is *possible*, but does not prove that the operator can reconstruct it using *only* the runbook without consulting session history or prior execution context.
+- Operator must confirm: "I can reconstruct the entry and close flows using only the runbook as a guide, without referencing the #446 session artifacts."
+
+**Stage E Impact:** ⚠ Blocked. Cannot proceed until operator confirms runbook is sufficient for next iteration.
+
+### 4.6.2 Alert Confidence
+
+**Classification: `pending_operator_review`**
+
+**Evidence Satisfied:**
+- The runbook § 11 explains the distinction: global submit health aggregates historical rejected sessions as evidence of learning, not as proof of failure
+- The #446 entry and close sessions both show `alert_status: ok` at the session level
+- The health distinction between root-level aggregate and session-level state is fully documented
+
+**Remaining Gap:**
+- Operator must explicitly confirm understanding:
+  1. They have read the alert distinction (global vs session-level) in runbook § 11
+  2. They understand that `critical` at root level is expected and correct after multiple rejection sessions as historical evidence
+  3. They know to assess the *latest session state*, not the root aggregate, when evaluating cycle success
+
+**Stage E Impact:** ⚠ Blocked. Cannot proceed until operator declares understanding.
+
+### 4.6.3 Reconciliation Confidence
+
+**Classification: `pending_operator_review`**
+
+**Evidence Satisfied:**
+- The #446 entry session artifact is preserved at `outputs/hyperliquid_submits/20260502_230137_hyperliquid_submit_7209d49` with full reconciliation history
+- The artifact shows the expected reconciliation path: `submitted_remote` → `filled` (no intermediate `reconciliation_required` because order ID was present)
+- The runbook § 12 documents the stop condition explicitly: if `reconciliation_state` remains unclear, do not open a second session
+- State transitions were deterministic; no manual interpretation was required
+
+**Remaining Gap:**
+- The criterion requires the operator to "describe what each `reconciliation_state` transition means"
+- Operator must confirm: "I understand the reconciliation state machine transitions and can explain the difference between `submitted_remote`, `reconciliation_required`, and `filled` states, with specific reference to the #446 artifact."
+
+**Stage E Impact:** ⚠ Blocked. Cannot proceed until operator confirms understanding of reconciliation state transitions.
+
+### 4.6.4 Operator Stop-Control Confidence
+
+**Classification: `pending_operator_review`**
+
+**Evidence Satisfied:**
+- The reduce-only close was executed successfully in #446: `outputs/hyperliquid_submits/20260502_232513_hyperliquid_submit_5d599f8`
+- The close side (sell) was opposite to the entry side (buy)
+- No manual Hyperliquid UI close was performed; the supervised close artifact was used instead
+- No extra submit was performed
+
+**Remaining Gap:**
+- The criterion requires the operator to confirm:
+  1. They have reviewed the cancel flow (§ 6) and understand when it is and is not appropriate
+  2. They understand that reduce-only close is the correct mechanism for a filled perp position, not Hyperliquid UI close
+  3. They know that emergency UI close is the fallback of last resort only when QuantLab artifacts are unavailable or ambiguous
+
+**Stage E Impact:** ⚠ Blocked. Cannot proceed until operator confirms cancel vs reduce-only rules and emergency fallback.
+
+### 4.6.5 Evidence Trail Durability
+
+**Classification: `pending_operator_review`**
+
+**Evidence Satisfied:**
+- Both #446 session paths are recorded in runbook § 11 with exact directory names:
+  - Entry: `outputs/hyperliquid_submits/20260502_230137_hyperliquid_submit_7209d49`
+  - Close: `outputs/hyperliquid_submits/20260502_232513_hyperliquid_submit_5d599f8`
+- Both directories contain full artifact packs (metadata, status, reconciliation, health)
+
+**Remaining Gap:**
+- The criterion requires confirmation that "the session directories exist locally and have not been modified after the cycle completed"
+- Operator/local check must confirm: directories still exist on disk, are readable, and have not been modified or deleted since completion
+
+**Stage E Impact:** ⚠ Blocked. Cannot proceed until operator confirms local session directories are intact and unmodified.
+
+### 4.6.6 Stage E Gate Status
+
+**Summary:**
+
+| Criterion | Status | Operator Declaration Required |
+|-----------|--------|------------------------------|
+| Runbook Completeness | pending_operator_review | Can I reconstruct using only the runbook? |
+| Alert Confidence | pending_operator_review | Do I understand the alert aggregation model? |
+| Reconciliation Confidence | pending_operator_review | Can I explain each reconciliation state transition? |
+| Operator Stop-Control | pending_operator_review | Do I understand cancel vs reduce-only rules? |
+| Evidence Trail Durability | pending_operator_review | Are session directories intact and unmodified? |
+
+**Decision:**
+
+Stage E is explicitly blocked until the operator provides written confirmation on all five items above. Each confirmation should reference the specific section and artifact involved. When all five are confirmed, a new Stage E issue will be created with explicit scope, not implied from closure of this audit issue.
+
 ## 5. Stage E Gate
 
 Stage E opens only when:
