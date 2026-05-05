@@ -143,3 +143,66 @@ revision:
 ```
 
 Revision 1 does not open Stage E, does not authorize broker submission, and does not authorize automation. The only approved next step is paper validation under the existing QuantLab decision workflow.
+
+## Revision 2 — Paper validation review
+
+```yaml
+revision:
+  date: 2026-05-05
+  reason: "First controlled paper validation for ETH momentum continuation."
+  paper_session_id: 20260505_205127_paper_ddc7c3f
+  paper_session_path: outputs/paper_sessions/20260505_205127_paper_ddc7c3f
+  validation_mode: paper_only
+  initial_cash: 10000
+  window: 2023-07-01_to_2024-01-01
+  operator_command_recorded: "python main.py --ticker ETH-USD --start 2023-07-01 --end 2024-01-01 --paper --report --initial_cash 10000"
+  artifacts_generated:
+    - outputs/paper_sessions/20260505_205127_paper_ddc7c3f/report.json
+    - outputs/paper_sessions/20260505_205127_paper_ddc7c3f/run_report.md
+    - outputs/paper_sessions/20260505_205127_paper_ddc7c3f/metrics.json
+    - outputs/paper_sessions/20260505_205127_paper_ddc7c3f/session_status.json
+    - outputs/paper_sessions/20260505_205127_paper_ddc7c3f/trades.csv
+    - outputs/paper_sessions/20260505_205127_paper_ddc7c3f/artifacts/equity.png
+  paper_metrics:
+    total_return: 0.1176463283
+    total_return_pct: 11.76
+    max_drawdown: -0.0236252740
+    max_drawdown_pct: -2.36
+    sharpe_simple: 2.6292727151
+    win_rate_trades: 0.5
+    profit_factor: 5.3609753994
+    expectancy_net: 588.3034439039
+    exposure: 0.1940298507
+    avg_holding_days: 6.5
+    days: 85
+    trades: 4
+    trade_trades: 2
+  paper_health:
+    state: success
+    status_reason: completed
+    terminal: true
+    duration_seconds: 1.319843
+    alert_status: not_recorded_in_paper_artifacts
+  evidence_summary:
+    result: "Paper validation completed successfully with positive return, controlled drawdown, and complete core paper artifacts."
+    strengths:
+      - "Paper session completed successfully."
+      - "Return was positive at approximately 11.76%."
+      - "Max drawdown remained limited at approximately -2.36%."
+      - "Sharpe remained positive at approximately 2.63."
+      - "The session generated canonical paper artifacts including report, metrics, status, and trades."
+    weaknesses:
+      - "The validation uses a historical OOS window, not live forward time."
+      - "The run is still paper-only and does not authorize live execution."
+      - "Only 2 round-trip trades were present, so live-review confidence remains limited."
+      - "Further forward/paper validation is needed before any supervised-live candidate review."
+    uncertainty:
+      - "Results may remain regime-specific to the 2023 ETH window."
+      - "No real-time market execution behavior has been tested."
+      - "Stage E remains blocked."
+  previous_verdict: paper_only
+  verdict_after_paper: paper_only
+  decision_reason: "Keep as paper_only because the controlled paper validation is positive, but it is still not enough to justify supervised-live review."
+```
+
+Revision 2 does not open Stage E, does not authorize broker submission, and does not authorize automation. The setup remains paper-only pending further forward/paper validation.
