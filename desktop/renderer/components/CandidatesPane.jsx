@@ -23,6 +23,7 @@ export function CandidatesPane({ tab }) {
     toggleCandidate,
     setBaseline,
     toggleShortlist,
+    openTab,
   } = useQuantLab();
 
   const filter = tab.filter || 'all';
@@ -77,9 +78,23 @@ export function CandidatesPane({ tab }) {
           </div>
         </div>
         <div className="artifact-actions">
-          <button className="ghost-btn">Open shortlist compare</button>
+          <button
+            className="ghost-btn"
+            disabled={!compareReady}
+            onClick={() => {
+              const runIds = decision.getDecisionCompareRunIds();
+              if (runIds.length >= 2) openTab({ kind: 'compare', runIds });
+            }}
+          >
+            Open shortlist compare
+          </button>
           {candidatesStore.baseline_run_id && (
-            <button className="ghost-btn">Open baseline</button>
+            <button
+              className="ghost-btn"
+              onClick={() => openTab({ kind: 'run', runId: candidatesStore.baseline_run_id })}
+            >
+              Open baseline
+            </button>
           )}
         </div>
       </div>
