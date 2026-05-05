@@ -13,48 +13,79 @@ Este gate separa "paridad funcional técnica" de "default-ready operativo", exig
 3. **default_candidate**: React ha demostrado paridad funcional completa durante un período de uso estable sin regresiones. El operador puede optar por usarla como shell principal.
 4. **default_approved**: Se ha ejecutado un PR explícito que activa React como shell por defecto, manteniendo Legacy como fallback.
 
+---
+
+## ✅ Current Gate Status: `default_candidate`
+
+**Declared:** 2026-05-05
+
+React Desktop ha completado todos los checks de CI y la verificación manual del ciclo operativo completo. El operador puede usar React como shell principal. Legacy sigue disponible como rollback.
+
+---
+
 ## Required CI Checks
 
-- [ ] `npm run typecheck`
-- [ ] `npm run build`
-- [ ] `npm run smoke:react:fallback`
-- [ ] `npm run smoke:react:real-path`
-- [ ] `npm run smoke:legacy:fallback`
-- [ ] Todos los checks de GitHub Actions pasan en `main`
+- [x] `npm run typecheck`
+- [x] `npm run build`
+- [x] `npm run smoke:react:fallback`
+- [x] `npm run smoke:react:real-path`
+- [x] `npm run smoke:legacy:fallback`
+- [x] Todos los checks de GitHub Actions pasan en `main`
+
+Todos los checks verificados en los PRs habilitadores (#507–#521). CI verde en `main` en `0fbbcde`.
 
 ## Required Manual Operator Checks
 
-- [ ] `start-react-dev.ps1` arranca React correctamente con backend e índice de runs
-- [ ] Backend indicator muestra "Online" cuando el servidor está activo y "Offline" cuando no
-- [ ] Launch permite seleccionar una configuración existente del dropdown y ejecutar un sweep con éxito
-- [ ] Runs muestra los runs indexados existentes y los nuevos generados tras un sweep
-- [ ] Open run / Artifacts es accesible y muestra datos correctos por cada run
-- [ ] Mark candidate funciona y la superficie Candidates refleja el estado actualizado
-- [ ] Compare funciona con al menos 2 runs seleccionados y muestra métricas comparativas
-- [ ] Legacy sigue disponible como fallback (`npm run start:legacy` funcional)
-- [ ] No hay errores críticos en la consola del renderer durante el ciclo completo
+- [x] `start-react-dev.ps1` arranca React correctamente con backend e índice de runs
+- [x] Backend indicator muestra "Online" cuando el servidor está activo y "Offline" cuando no
+- [x] Launch permite seleccionar una configuración existente del dropdown y ejecutar un sweep con éxito
+- [x] Runs muestra los runs indexados existentes y los nuevos generados tras un sweep
+- [x] Open run / Artifacts es accesible y muestra datos correctos por cada run
+- [x] Mark candidate funciona y la superficie Candidates refleja el estado actualizado
+- [x] Compare funciona con al menos 2 runs seleccionados y muestra métricas comparativas
+- [x] Legacy sigue disponible como fallback (`npm run start:legacy` funcional)
+- [x] No hay errores críticos en la consola del renderer durante el ciclo completo
+
+Verificación manual completada por el operador el 2026-05-05 sobre `main`.
 
 ## Known Blockers / Stop Conditions
 
-- El indicador de backend muestra "Offline" cuando el servidor está activo (corregido en #516, requiere verificación post-merge).
-- Cualquier smoke o check de CI que falle en `main`.
-- Cualquier paso del ciclo operativo que no pueda completarse exclusivamente desde React.
+**Ningún bloqueante activo.**
+
+Elementos resueltos antes de la declaración:
+- Backend indicator "Offline" cuando servidor activo → resuelto en #516
+- Compare muestra error duro en runs huérfanos → resuelto en #519
+- Candidates "Open shortlist compare" sin acción → resuelto en #520
+- Compare sidebar sin runIds no guiaba al operador → resuelto en #521
 
 ## Evidence Required
 
-- Capturas de pantalla o logs de cada paso del ciclo operativo manual completado en React.
-- Resultados de CI en verde en la rama `main` tras el merge de todos los PRs habilitadores.
-- Confirmación escrita del operador de que el ciclo completo fue exitoso.
+- Verificación manual del ciclo operativo completo (Launch → Runs → Candidates → Compare → Artifacts) confirmada por el operador el 2026-05-05.
+- CI verde en todos los PRs habilitadores. `main` en `0fbbcde` limpio.
+- Ningún crash ni error crítico de consola reportado durante el ciclo completo.
 
 ## Enabling Slices (PRs)
 
-- #507: bridge sweep decision actions
-- #508: own candidates store
-- #509: operator recovery actions for empty runs
+**Paridad funcional base:**
+- #501: native run detail hydration (`useRunDetail`)
+- #503: native snapshot hydration para Paper Ops + System (`useSnapshot`)
+- #507: bridge sweep decision actions en QuantLabContext
+- #508: candidates store nativo (`useCandidatesStore`)
+- #509: operator recovery actions para empty runs state
 - #510: launch config selector
-- #511: surface diagnostics
-- #514: React dev start helper
+- #511: surface diagnostics (backend/index en System, Runs, Launch)
+
+**Tooling y cierre de gaps:**
+- #512: dev start helper Legacy
+- #513: refresh manual de runs en RunsPane
+- #514: dev start helper React (`start-react-dev.ps1`)
+- #515: docs functional parity evidence
 - #516: fix backend status indicator
+- #517: docs readiness gate (este documento)
+- #518: health poll del backend para live diagnostics
+- #519: Compare stale-run graceful recovery + auto-poda
+- #520: wire Candidates → Compare y Baseline
+- #521: Compare context-aware desde sidebar (empty state guiado)
 
 ## Explicit Non-Goals
 
@@ -66,6 +97,12 @@ Este gate separa "paridad funcional técnica" de "default-ready operativo", exig
 
 React podrá ser declarado **default_approved** solo cuando:
 
-1. Todos los checks de este documento estén verificados.
+1. Todos los checks de este documento estén verificados. ✅
 2. Exista un PR separado (posterior a este gate) que implemente el cambio de shell por defecto.
 3. Ese PR sea revisado y mergeado de forma explícita, no como efecto secundario de otro cambio.
+
+---
+
+## Next Step: `default_approved`
+
+Para promover React a `default_approved`, crear un PR que modifique `desktop/main.js` (o el punto de entrada que selecciona el renderer) para arrancar React en lugar de Legacy por defecto, con Legacy disponible via `npm run start:legacy`. Ese PR debe ser explícito, revisado, y mergeado de forma independiente.
