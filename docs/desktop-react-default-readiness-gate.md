@@ -50,13 +50,22 @@ Verificación manual completada por el operador el 2026-05-05 sobre `main`.
 
 ## Known Blockers / Stop Conditions
 
-**Ningún bloqueante activo.**
+**Ningún bloqueante activo para el uso de React como default.**
 
-Elementos resueltos antes de la declaración:
+Elementos resueltos antes de la declaración de default_candidate:
 - Backend indicator "Offline" cuando servidor activo → resuelto en #516
 - Compare muestra error duro en runs huérfanos → resuelto en #519
 - Candidates "Open shortlist compare" sin acción → resuelto en #520
 - Compare sidebar sin runIds no guiaba al operador → resuelto en #521
+
+**Legacy Status Update (2026-05-05):**
+Legacy renderer está oficialmente en modo `deprecated_fallback`. Las funciones de acceso a jobs visibles (Launch jobs, failed jobs) ya fueron migradas a accesos nativos React en #524/#530. Legacy no debe tratarse como verdad arquitectónica.
+
+**Bloqueantes restantes para la eliminación final de Legacy (#529):**
+La eliminación final de Legacy solo ocurrirá tras confirmar paridad/contratos nativos:
+- Decisión de correlación de run-related jobs (#525), si aún aplica.
+- Decisión de necesidad de contrato de backend/producer (#526), si aún aplica.
+- Migración de los accesos a sweep decision (#527), si la función sigue activa.
 
 ## Evidence Required
 

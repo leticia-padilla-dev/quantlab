@@ -48,18 +48,26 @@ The direct-to-main exception that happened in Slice B (#410) must not be repeate
 
 ## Desktop renderer architecture
 
-### Two renderers — React is default, legacy is rollback
+### Two renderers — React is default, legacy is deprecated fallback
 
 | Mode | Command | Status |
 |------|---------|--------|
 | React | `npm start` or `npm run start:react` | Default renderer |
-| Legacy | `npm run start:legacy` | Rollback / continuity path |
+| Legacy | `npm run start:legacy` | Deprecated fallback / continuity path |
 
-**Do not retire legacy or remove rollback support unless a slice explicitly owns that retirement boundary.**
+**Legacy renderer is in `deprecated-fallback` mode as of 2026-05-05. It receives no new features.**
+`npm run start:legacy` remains available as an operator escape hatch until native parity is confirmed.
+
+**Do not retire legacy or remove rollback support yet. Final removal (#529) is blocked by remaining parity/contract decisions:**
+- #525 run-related jobs correlation (if still needed)
+- #526 backend/producer contract (if still needed)
+- #527 sweep decision accessors (if active)
 
 ### Legacy is behavioral reference, not architectural truth
 
-When implementing native React hydration, mirror the *user-visible behavior* of the legacy equivalent. Do not copy legacy architecture, monolithic patterns, or global state design into React.
+When implementing native React hydration, mirror the *user-visible behavior* of the legacy equivalent. Do not copy legacy architecture, monolithic patterns, or global state design into React. Legacy must not be treated as architectural truth.
+
+*Note: Visible jobs accessors (Launch jobs, failed jobs) were migrated in #524/#530 to native React accessors.*
 
 ### Native hook wiring pattern
 
