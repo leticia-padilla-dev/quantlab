@@ -20,6 +20,103 @@ function launchSignal(status: string | undefined): Signal {
   return { label: titleCase(status ?? ''), tone: 'tone-warning' };
 }
 
+// ── Guided builder contract ───────────────────────────────────────────────────
+//
+// Precedence rule (enforced by mergeTemplateWithOverrides):
+//
+//   template fields → operator overrides → merged state → builderStateToConfig()
+//
+// The merge ALWAYS happens before serialization.
+// builderStateToConfig() receives ONE already-merged state object.
+// Preview and submit BOTH call builderStateToConfig() on the same merged state.
+
+type GuidedBuilderState = {
+  command: 'run' | 'sweep';
+  asset: string;
+  quote: string;
+  timeframe: string;
+  periodPreset: '30d' | '90d' | '1y' | 'custom';
+  startDate: string;
+  endDate: string;
+  validationMode: 'backtest' | 'walkforward';
+  runName: string;
+  notes: string;
+  feesEnabled: boolean;
+  slippageEnabled: boolean;
+};
+
+// Subset populated from a filesystem template (#567). Empty in this slice.
+type TemplateConfig = Partial<Omit<GuidedBuilderState, 'runName' | 'notes'>>;
+
+// The single type received by builderStateToConfig().
+type MergedLaunchState = GuidedBuilderState;
+
+// The exact payload shape sent to /api/launch-control.
+type LaunchConfigPayload = {
+  command: 'run' | 'sweep';
+  params: Record<string, string | boolean>;
+};
+
+const DEFAULT_GUIDED_STATE: GuidedBuilderState = {
+  command: 'run',
+  asset: 'ETH',
+  quote: 'USDT',
+  timeframe: '1h',
+  periodPreset: '30d',
+  startDate: '',
+  endDate: '',
+  validationMode: 'backtest',
+  runName: '',
+  notes: '',
+  feesEnabled: true,
+  slippageEnabled: true,
+};
+
+/**
+ * Apply template defaults first, then operator overrides on top.
+ * The resulting MergedLaunchState is the single input to builderStateToConfig().
+ */
+function mergeTemplateWithOverrides(
+  template: TemplateConfig,
+  overrides: GuidedBuilderState,
+): MergedLaunchState {
+  return { ...template, ...overrides } as MergedLaunchState;
+}
+
+/**
+ * Serialize a merged builder state into the exact payload submitted to Core.
+ * This is the ONLY serialization path — used for both preview and submit.
+ * Do not call with un-merged (template + overrides) state.
+ */
+function builderStateToConfig(merged: MergedLaunchState): LaunchConfigPayload {
+  const params: Record<string, string | boolean> = {
+    asset: merged.asset,
+    quote: merged.quote,
+    timeframe: merged.timeframe,
+    validation_mode: merged.validationMode,
+    fees_enabled: merged.feesEnabled,
+    slippage_enabled: merged.slippageEnabled,
+  };
+
+  if (merged.periodPreset === 'custom') {
+    if (merged.startDate) params.start_date = merged.startDate;
+    if (merged.endDate) params.end_date = merged.endDate;
+  } else {
+    params.period_preset = merged.periodPreset;
+  }
+
+  if (merged.runName.trim()) params.run_name = merged.runName.trim();
+  if (merged.notes.trim()) params.notes = merged.notes.trim();
+
+  return { command: merged.command, params };
+}
+
+function isGuidedStateValid(state: GuidedBuilderState): boolean {
+  if (!state.asset.trim() || !state.quote.trim() || !state.timeframe.trim()) return false;
+  if (state.periodPreset === 'custom' && !state.startDate && !state.endDate) return false;
+  return true;
+}
+
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function SummaryCard({ label, value, tone = '' }: { label: string; value: string; tone?: string }) {
@@ -49,7 +146,295 @@ function JobCard({ job, onOpen }: { job: any; onOpen: () => void }) {
   );
 }
 
-// ── Quick-launch form ─────────────────────────────────────────────────────────
+// ── Guided builder tab ────────────────────────────────────────────────────────
+
+// No filesystem template yet — that is wired in #567.
+const CURRENT_TEMPLATE: TemplateConfig = {};
+
+function GuidedBuilderTab({ serverUrl, onRefresh }: { serverUrl: string | null; onRefresh: () => void }) {
+  const [builderState, setBuilderState] = useState<GuidedBuilderState>(DEFAULT_GUIDED_STATE);
+  const [status, setStatus] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+
+  // Merge and serialize — both preview and submit use this path.
+  const mergedState = mergeTemplateWithOverrides(CURRENT_TEMPLATE, builderState);
+  const payload = builderStateToConfig(mergedState);
+  const previewText = JSON.stringify(payload, null, 2);
+  const valid = isGuidedStateValid(builderState);
+
+  function set<K extends keyof GuidedBuilderState>(key: K, value: GuidedBuilderState[K]) {
+    setBuilderState((prev) => ({ ...prev, [key]: value }));
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (busy || !valid) return;
+    setBusy(true);
+    setStatus('Submitting…');
+    try {
+      const result = await window.quantlabDesktop.postJson('/api/launch-control', payload) as any;
+      setStatus(result?.message ?? 'Launch accepted.');
+      await onRefresh();
+    } catch (err: any) {
+      setStatus(`Error: ${err?.message ?? 'Launch failed.'}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="artifact-panel">
+      <div className="section-label">Guided</div>
+      <h3>Build a research run</h3>
+      <p className="artifact-meta" style={{ marginBottom: '14px' }}>
+        Configure a run from fields. Desktop generates the exact payload sent to QuantLab Core —
+        preview it before submitting. Config templates from the filesystem are added in a follow-up slice.
+      </p>
+      <div className={`ops-callout ${serverUrl ? 'tone-positive' : 'tone-warning'}`} style={{ marginBottom: '12px' }}>
+        {serverUrl ? 'Backend: Online — ready to submit' : 'Backend: Offline — submit may be unavailable'}
+      </div>
+
+      <form className="launch-form" onSubmit={handleSubmit}>
+        {/* Command */}
+        <div className="launch-form-row">
+          <label className="launch-label">Mode</label>
+          <div className="workflow-actions">
+            {(['run', 'sweep'] as const).map((cmd) => (
+              <button
+                key={cmd}
+                type="button"
+                className={`ghost-btn ${builderState.command === cmd ? 'is-selected' : ''}`}
+                onClick={() => set('command', cmd)}
+                disabled={busy}
+              >
+                {cmd === 'run' ? 'Run' : 'Sweep'}
+              </button>
+            ))}
+          </div>
+          <div className="artifact-meta" style={{ marginTop: '4px' }}>
+            {builderState.command === 'run'
+              ? 'Execute a single configuration once.'
+              : 'Execute a parameter grid to compare combinations.'}
+          </div>
+        </div>
+
+        {/* Asset / quote */}
+        <div className="launch-form-row">
+          <label className="launch-label" htmlFor="guided-asset">Asset</label>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <input
+              id="guided-asset"
+              className="launch-input"
+              type="text"
+              placeholder="ETH"
+              value={builderState.asset}
+              onChange={(e) => set('asset', e.target.value.toUpperCase())}
+              disabled={busy}
+              style={{ flex: '1' }}
+            />
+            <input
+              id="guided-quote"
+              className="launch-input"
+              type="text"
+              placeholder="USDT"
+              value={builderState.quote}
+              onChange={(e) => set('quote', e.target.value.toUpperCase())}
+              disabled={busy}
+              style={{ flex: '1' }}
+            />
+          </div>
+        </div>
+
+        {/* Timeframe */}
+        <div className="launch-form-row">
+          <label className="launch-label">Timeframe</label>
+          <div className="workflow-actions">
+            {['1h', '4h', '1d'].map((tf) => (
+              <button
+                key={tf}
+                type="button"
+                className={`ghost-btn ${builderState.timeframe === tf ? 'is-selected' : ''}`}
+                onClick={() => set('timeframe', tf)}
+                disabled={busy}
+              >
+                {tf}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Period */}
+        <div className="launch-form-row">
+          <label className="launch-label">Period</label>
+          <div className="workflow-actions">
+            {(['30d', '90d', '1y', 'custom'] as const).map((p) => (
+              <button
+                key={p}
+                type="button"
+                className={`ghost-btn ${builderState.periodPreset === p ? 'is-selected' : ''}`}
+                onClick={() => set('periodPreset', p)}
+                disabled={busy}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+          {builderState.periodPreset === 'custom' && (
+            <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+              <input
+                className="launch-input"
+                type="date"
+                placeholder="Start"
+                value={builderState.startDate}
+                onChange={(e) => set('startDate', e.target.value)}
+                disabled={busy}
+                style={{ flex: '1' }}
+              />
+              <input
+                className="launch-input"
+                type="date"
+                placeholder="End"
+                value={builderState.endDate}
+                onChange={(e) => set('endDate', e.target.value)}
+                disabled={busy}
+                style={{ flex: '1' }}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Validation mode */}
+        <div className="launch-form-row">
+          <label className="launch-label">Validation</label>
+          <div className="workflow-actions">
+            {(['backtest', 'walkforward'] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                className={`ghost-btn ${builderState.validationMode === m ? 'is-selected' : ''}`}
+                onClick={() => set('validationMode', m)}
+                disabled={busy}
+              >
+                {m === 'backtest' ? 'Backtest' : 'Walk-forward'}
+              </button>
+            ))}
+          </div>
+          <div className="artifact-meta" style={{ marginTop: '4px' }}>
+            {builderState.validationMode === 'walkforward'
+              ? 'Evaluates temporal robustness by dividing history into rolling windows.'
+              : 'Single in-sample evaluation over the full selected period.'}
+          </div>
+        </div>
+
+        {/* Costs */}
+        <div className="launch-form-row">
+          <label className="launch-label">Costs</label>
+          <div className="workflow-actions">
+            <button
+              type="button"
+              className={`ghost-btn ${builderState.feesEnabled ? 'is-selected' : ''}`}
+              onClick={() => set('feesEnabled', !builderState.feesEnabled)}
+              disabled={busy}
+            >
+              {builderState.feesEnabled ? 'Fees on' : 'Fees off'}
+            </button>
+            <button
+              type="button"
+              className={`ghost-btn ${builderState.slippageEnabled ? 'is-selected' : ''}`}
+              onClick={() => set('slippageEnabled', !builderState.slippageEnabled)}
+              disabled={busy}
+            >
+              {builderState.slippageEnabled ? 'Slippage on' : 'Slippage off'}
+            </button>
+          </div>
+        </div>
+
+        {/* Run name / notes */}
+        <div className="launch-form-row">
+          <label className="launch-label" htmlFor="guided-run-name">Run name</label>
+          <input
+            id="guided-run-name"
+            className="launch-input"
+            type="text"
+            placeholder="Optional — defaults to generated ID"
+            value={builderState.runName}
+            onChange={(e) => set('runName', e.target.value)}
+            disabled={busy}
+          />
+        </div>
+        <div className="launch-form-row">
+          <label className="launch-label" htmlFor="guided-notes">Notes</label>
+          <input
+            id="guided-notes"
+            className="launch-input"
+            type="text"
+            placeholder="Optional"
+            value={builderState.notes}
+            onChange={(e) => set('notes', e.target.value)}
+            disabled={busy}
+          />
+        </div>
+
+        {/* Preview — generated by the same builderStateToConfig() used for submit */}
+        <div className="launch-form-row">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+            <span className="launch-label">Payload preview</span>
+            <button
+              type="button"
+              className="ghost-btn mini"
+              onClick={() => setShowPreview((v) => !v)}
+            >
+              {showPreview ? 'Hide' : 'Show'}
+            </button>
+          </div>
+          {showPreview && (
+            <pre className="artifact-meta" style={{
+              background: 'var(--bg-soft)',
+              border: '1px solid var(--border)',
+              borderRadius: '6px',
+              padding: '10px 12px',
+              fontSize: '11px',
+              lineHeight: '1.6',
+              overflowX: 'auto',
+              margin: '0',
+            }}>
+              {previewText}
+            </pre>
+          )}
+          <div className="artifact-meta" style={{ marginTop: '4px' }}>
+            Preview and submit use the same serialization path.
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="workflow-actions" style={{ marginTop: '12px' }}>
+          <button
+            className="ghost-btn"
+            type="submit"
+            disabled={busy || !valid}
+            title={valid ? undefined : 'Asset, quote, and timeframe are required.'}
+          >
+            {busy ? 'Submitting…' : 'Submit run'}
+          </button>
+        </div>
+
+        {!valid && (
+          <div className="artifact-meta" style={{ marginTop: '6px' }}>
+            Asset, quote, and timeframe are required. Custom period requires at least one date.
+          </div>
+        )}
+        {status && (
+          <div className={`ops-callout ${status.startsWith('Error') ? 'tone-negative' : 'tone-positive'}`} style={{ marginTop: '10px' }}>
+            {status}
+          </div>
+        )}
+      </form>
+    </section>
+  );
+}
+
+// ── Direct YAML tab (existing Quick Launch form, preserved unchanged) ──────────
 
 const EXPERIMENTS_CONFIG_DIR = 'configs/experiments';
 const CUSTOM_CONFIG_VALUE = '__custom__';
@@ -59,7 +444,7 @@ type ConfigOption = {
   path: string;
 };
 
-function QuickLaunchForm({ serverUrl, onRefresh }: { serverUrl: string | null; onRefresh: () => void }) {
+function DirectYamlTab({ serverUrl, onRefresh }: { serverUrl: string | null; onRefresh: () => void }) {
   const [command, setCommand] = useState<'run' | 'sweep'>('sweep');
   const [configPath, setConfigPath] = useState('');
   const [configOptions, setConfigOptions] = useState<ConfigOption[]>([]);
@@ -121,8 +506,12 @@ function QuickLaunchForm({ serverUrl, onRefresh }: { serverUrl: string | null; o
 
   return (
     <section className="artifact-panel">
-      <div className="section-label">Quick launch</div>
-      <h3>Submit a new job</h3>
+      <div className="section-label">Direct YAML</div>
+      <h3>Submit from config file</h3>
+      <p className="artifact-meta" style={{ marginBottom: '14px' }}>
+        Select or enter an existing config path and submit directly.
+        Direct YAML file preview is added in a follow-up slice.
+      </p>
       <div className={`ops-callout ${serverUrl ? 'tone-positive' : 'tone-warning'}`}>
         {serverUrl
           ? 'Backend: Online - ready to submit jobs'
@@ -221,6 +610,8 @@ function QuickLaunchForm({ serverUrl, onRefresh }: { serverUrl: string | null; o
 
 // ── Main component ────────────────────────────────────────────────────────────
 
+type LaunchBuilderTab = 'guided' | 'direct-yaml';
+
 export function LaunchPane({ tab: _tab }: { tab: LaunchTab }) {
   const ctx = useQuantLab();
   const { state, getJobs, getLatestRun, getLatestFailedJob, openTab, refreshRegistry } = ctx;
@@ -239,6 +630,8 @@ export function LaunchPane({ tab: _tab }: { tab: LaunchTab }) {
     const s = (j.status ?? '').toLowerCase();
     return s.includes('running') || s.includes('queued') || s.includes('pending');
   }).length;
+
+  const [activeBuilderTab, setActiveBuilderTab] = useState<LaunchBuilderTab>('guided');
 
   const openExternal = (path: string) => {
     const base = serverUrl ? serverUrl.replace(/\/$/, '') : '';
@@ -323,7 +716,7 @@ export function LaunchPane({ tab: _tab }: { tab: LaunchTab }) {
         </div>
       )}
 
-      {/* Launch queue + quick-launch form */}
+      {/* Launch queue + builder */}
       <div className="artifact-grid">
         <section className="artifact-panel">
           <div className="section-label">Launch queue</div>
@@ -345,7 +738,32 @@ export function LaunchPane({ tab: _tab }: { tab: LaunchTab }) {
           )}
         </section>
 
-        <QuickLaunchForm serverUrl={serverUrl} onRefresh={refreshRegistry} />
+        {/* Builder panel with Guided / Direct YAML tabs */}
+        <div>
+          <div className="tab-pills" style={{ marginBottom: '12px' }}>
+            <button
+              className={`tab-pill ${activeBuilderTab === 'guided' ? 'is-active' : ''}`}
+              type="button"
+              onClick={() => setActiveBuilderTab('guided')}
+            >
+              Guided
+            </button>
+            <button
+              className={`tab-pill ${activeBuilderTab === 'direct-yaml' ? 'is-active' : ''}`}
+              type="button"
+              onClick={() => setActiveBuilderTab('direct-yaml')}
+            >
+              Direct YAML
+            </button>
+          </div>
+
+          {activeBuilderTab === 'guided' && (
+            <GuidedBuilderTab serverUrl={serverUrl} onRefresh={refreshRegistry} />
+          )}
+          {activeBuilderTab === 'direct-yaml' && (
+            <DirectYamlTab serverUrl={serverUrl} onRefresh={refreshRegistry} />
+          )}
+        </div>
       </div>
     </div>
   );
