@@ -1,5 +1,17 @@
 import React from 'react';
+import {
+  Activity,
+  FlaskConical,
+  Rocket,
+  BarChart2,
+  Star,
+  GitCompare,
+  ClipboardCheck,
+  MessageSquare,
+} from 'lucide-react';
 import { useQuantLab } from './QuantLabContext';
+
+const NAV_ICON_SIZE = 16;
 
 /**
  * Sidebar - Left navigation sidebar with:
@@ -7,21 +19,21 @@ import { useQuantLab } from './QuantLabContext';
  * - Navigation items (System, Experiments, Launch, Runs, etc.)
  * - Current principle panel
  * - Runtime status
- * 
+ *
  * Maps navigation actions to surface routing.
  */
 export default function Sidebar({ currentSurface, isCollapsed }) {
   const { navigateToSurface } = useQuantLab();
 
   const navItems = [
-    { id: 'system', label: 'System', icon: 'settings' },
-    { id: 'experiments', label: 'Experiments', icon: 'beaker' },
-    { id: 'launch', label: 'Launch', icon: 'play' },
-    { id: 'runs', label: 'Runs', icon: 'list' },
-    { id: 'candidates', label: 'Candidates', icon: 'trophy' },
-    { id: 'compare', label: 'Compare', icon: 'scale' },
-    { id: 'paper-ops', label: 'Paper Ops', icon: 'document' },
-    { id: 'assistant', label: 'Assistant', icon: 'sparkles' },
+    { id: 'system',      label: 'System',      Icon: Activity       },
+    { id: 'experiments', label: 'Experiments', Icon: FlaskConical   },
+    { id: 'launch',      label: 'Launch',      Icon: Rocket         },
+    { id: 'runs',        label: 'Runs',        Icon: BarChart2      },
+    { id: 'candidates',  label: 'Candidates',  Icon: Star           },
+    { id: 'compare',     label: 'Compare',     Icon: GitCompare     },
+    { id: 'paper-ops',   label: 'Paper Ops',   Icon: ClipboardCheck },
+    { id: 'assistant',   label: 'Assistant',   Icon: MessageSquare  },
   ];
 
   return (
@@ -49,16 +61,18 @@ export default function Sidebar({ currentSurface, isCollapsed }) {
 
           {/* Navigation */}
           <nav className="sidebar-nav">
-            {navItems.map((item) => (
+            {navItems.map(({ id, label, Icon }) => (
               <button
-                key={item.id}
-                className={`nav-item ${currentSurface === item.id ? 'is-active' : ''}`}
-                onClick={() => navigateToSurface(item.id)}
-                title={item.label}
-                data-action={`open-${item.id}`}
+                key={id}
+                className={`nav-item ${currentSurface === id ? 'is-active' : ''}`}
+                onClick={() => navigateToSurface(id)}
+                title={label}
+                data-action={`open-${id}`}
               >
-                <span className="nav-icon">{item.label.charAt(0)}</span>
-                <span className="nav-label">{item.label}</span>
+                <span className="nav-icon" aria-hidden="true">
+                  <Icon size={NAV_ICON_SIZE} strokeWidth={1.75} />
+                </span>
+                <span className="nav-label">{label}</span>
               </button>
             ))}
           </nav>
