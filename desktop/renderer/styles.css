@@ -14,6 +14,20 @@
     --danger: #e85d75;
     --success: #39d98a;
     --shadow: 0 24px 50px rgba(0, 0, 0, 0.32);
+    /* Blue scale */
+    --blue-dim:   #1e3a5f;
+    --blue-mid:   #2d6dbb;
+    --accent-pop: #7ec8ff;
+    --accent-rgb: 90, 169, 255;
+    /* Surface scale — named layering aliases */
+    --surface-base:     var(--bg);
+    --surface-panel:    var(--bg-panel);
+    --surface-card:     var(--bg-soft);
+    --surface-elevated: var(--bg-hover);
+    /* Status background tokens */
+    --status-success-bg: rgba(57, 217, 138, 0.10);
+    --status-warning-bg: rgba(242, 185, 75,  0.10);
+    --status-danger-bg:  rgba(232, 93,  117, 0.10);
     font-family: "Inter", sans-serif;
 }
 
@@ -434,7 +448,12 @@ button:disabled {
     font-weight: 500;
 }
 
-.tab-pill.is-active { color: var(--accent); border-color: rgba(90, 169, 255, 0.4); }
+.tab-pill.is-active {
+    color: var(--accent);
+    border-color: rgba(var(--accent-rgb), 0.55);
+    background: rgba(var(--accent-rgb), 0.08);
+    font-weight: 600;
+}
 .tab-close { border: none; background: transparent; color: inherit; cursor: pointer; }
 .tab-content { margin-top: 16px; min-height: 0; overflow: hidden; }
 
@@ -1817,8 +1836,9 @@ button:disabled {
 #react-root:not([hidden]) .nav-item {
     background: none;
     border: none;
+    border-left: 3px solid transparent;
     color: var(--muted);
-    padding: 10px 12px;
+    padding: 10px 12px 10px 9px;
     text-align: left;
     cursor: pointer;
     border-radius: 6px;
@@ -1827,7 +1847,7 @@ button:disabled {
     display: flex;
     align-items: center;
     gap: 10px;
-    transition: background 0.2s, color 0.2s;
+    transition: background 0.2s, color 0.2s, border-color 0.15s;
 }
 
 #react-root:not([hidden]) .nav-item:hover {
@@ -1836,8 +1856,9 @@ button:disabled {
 }
 
 #react-root:not([hidden]) .nav-item.is-active {
-    background: var(--bg-panel);
+    background: rgba(var(--accent-rgb), 0.08);
     color: var(--accent);
+    border-left-color: var(--accent);
 }
 
 #react-root:not([hidden]) .nav-icon {
@@ -1857,6 +1878,8 @@ button:disabled {
     flex-direction: column;
     gap: 12px;
     margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
 }
 
 #react-root:not([hidden]) .sidebar-panel {
