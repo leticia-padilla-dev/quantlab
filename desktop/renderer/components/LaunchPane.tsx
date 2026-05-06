@@ -20,6 +20,111 @@ function launchSignal(status: string | undefined): Signal {
   return { label: titleCase(status ?? ''), tone: 'tone-warning' };
 }
 
+// ── Guided builder contract ───────────────────────────────────────────────────
+//
+// Precedence rule (enforced by mergeTemplateWithOverrides):
+//
+//   template fields → operator overrides → merged state → builderStateToConfig()
+//
+// The merge ALWAYS happens before serialization.
+// builderStateToConfig() receives ONE already-merged state object.
+// Preview and submit BOTH call builderStateToConfig() on the same merged state.
+
+type GuidedBuilderState = {
+  command: 'run' | 'sweep';
+  asset: string;
+  quote: string;
+  timeframe: string;
+  periodPreset: '30d' | '90d' | '1y' | 'custom';
+  startDate: string;
+  endDate: string;
+  validationMode: 'backtest' | 'walkforward';
+  runName: string;
+  notes: string;
+  feesEnabled: boolean;
+  slippageEnabled: boolean;
+};
+
+// Subset populated from a filesystem template (#567). Empty in this slice.
+type TemplateConfig = Partial<Omit<GuidedBuilderState, 'runName' | 'notes'>>;
+
+// What the operator has explicitly set. Unset keys fall back to DEFAULT_GUIDED_STATE,
+// then template values. This is the type passed to mergeTemplateWithOverrides().
+type GuidedBuilderOverrides = Partial<GuidedBuilderState>;
+
+// The single type received by builderStateToConfig() — always fully resolved.
+type MergedLaunchState = GuidedBuilderState;
+
+// The exact payload shape sent to /api/launch-control.
+type LaunchConfigPayload = {
+  command: 'run' | 'sweep';
+  params: Record<string, string | boolean>;
+};
+
+const DEFAULT_GUIDED_STATE: GuidedBuilderState = {
+  command: 'run',
+  asset: 'ETH',
+  quote: 'USDT',
+  timeframe: '1h',
+  periodPreset: '30d',
+  startDate: '',
+  endDate: '',
+  validationMode: 'backtest',
+  runName: '',
+  notes: '',
+  feesEnabled: true,
+  slippageEnabled: true,
+};
+
+/**
+ * Resolve a fully merged state from three layers in priority order:
+ *   DEFAULT_GUIDED_STATE → template fields → operator overrides
+ *
+ * This ensures template values override defaults without being silently stomped
+ * by un-touched default fields, and operator overrides always win over both.
+ * The resulting MergedLaunchState is the single input to builderStateToConfig().
+ */
+function mergeTemplateWithOverrides(
+  template: TemplateConfig,
+  overrides: GuidedBuilderOverrides,
+): MergedLaunchState {
+  return { ...DEFAULT_GUIDED_STATE, ...template, ...overrides } as MergedLaunchState;
+}
+
+/**
+ * Serialize a merged builder state into the exact payload submitted to Core.
+ * This is the ONLY serialization path — used for both preview and submit.
+ * Do not call with un-merged (template + overrides) state.
+ */
+function builderStateToConfig(merged: MergedLaunchState): LaunchConfigPayload {
+  const params: Record<string, string | boolean> = {
+    asset: merged.asset,
+    quote: merged.quote,
+    timeframe: merged.timeframe,
+    validation_mode: merged.validationMode,
+    fees_enabled: merged.feesEnabled,
+    slippage_enabled: merged.slippageEnabled,
+  };
+
+  if (merged.periodPreset === 'custom') {
+    if (merged.startDate) params.start_date = merged.startDate;
+    if (merged.endDate) params.end_date = merged.endDate;
+  } else {
+    params.period_preset = merged.periodPreset;
+  }
+
+  if (merged.runName.trim()) params.run_name = merged.runName.trim();
+  if (merged.notes.trim()) params.notes = merged.notes.trim();
+
+  return { command: merged.command, params };
+}
+
+function isGuidedStateValid(state: MergedLaunchState): boolean {
+  if (!state.asset.trim() || !state.quote.trim() || !state.timeframe.trim()) return false;
+  if (state.periodPreset === 'custom' && !state.startDate && !state.endDate) return false;
+  return true;
+}
+
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function SummaryCard({ label, value, tone = '' }: { label: string; value: string; tone?: string }) {
@@ -49,7 +154,250 @@ function JobCard({ job, onOpen }: { job: any; onOpen: () => void }) {
   );
 }
 
-// ── Quick-launch form ─────────────────────────────────────────────────────────
+// ── Guided builder tab ────────────────────────────────────────────────────────
+
+// No filesystem template yet — that is wired in #567.
+const CURRENT_TEMPLATE: TemplateConfig = {};
+
+function GuidedBuilderTab({ serverUrl }: { serverUrl: string | null }) {
+  // Tracks only what the operator has explicitly changed.
+  // Unset keys resolve through: DEFAULT_GUIDED_STATE → template → overrides.
+  const [overrides, setOverrides] = useState<GuidedBuilderOverrides>({});
+  const [showPreview, setShowPreview] = useState(false);
+
+  // Resolved display values — form fields read from here, not from overrides directly.
+  const mergedState = mergeTemplateWithOverrides(CURRENT_TEMPLATE, overrides);
+  // builderStateToConfig() is the single serialization path for both preview and submit.
+  const payload = builderStateToConfig(mergedState);
+  const previewText = JSON.stringify(payload, null, 2);
+  const valid = isGuidedStateValid(mergedState);
+
+  function set<K extends keyof GuidedBuilderState>(key: K, value: GuidedBuilderState[K]) {
+    setOverrides((prev) => ({ ...prev, [key]: value }));
+  }
+
+  return (
+    <section className="artifact-panel">
+      <div className="section-label">Guided</div>
+      <h3>Build a research run</h3>
+      <p className="artifact-meta" style={{ marginBottom: '14px' }}>
+        Configure a run from fields and preview the exact payload before submitting.
+        Submit from Guided is enabled after template-backed payload wiring in a follow-up slice.
+      </p>
+
+      <form className="launch-form" onSubmit={(e) => e.preventDefault()}>
+        {/* Command */}
+        <div className="launch-form-row">
+          <label className="launch-label">Mode</label>
+          <div className="workflow-actions">
+            {(['run', 'sweep'] as const).map((cmd) => (
+              <button
+                key={cmd}
+                type="button"
+                className={`ghost-btn ${mergedState.command === cmd ? 'is-selected' : ''}`}
+                onClick={() => set('command', cmd)}
+              >
+                {cmd === 'run' ? 'Run' : 'Sweep'}
+              </button>
+            ))}
+          </div>
+          <div className="artifact-meta" style={{ marginTop: '4px' }}>
+            {mergedState.command === 'run'
+              ? 'Execute a single configuration once.'
+              : 'Execute a parameter grid to compare combinations.'}
+          </div>
+        </div>
+
+        {/* Asset / quote */}
+        <div className="launch-form-row">
+          <label className="launch-label" htmlFor="guided-asset">Asset</label>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <input
+              id="guided-asset"
+              className="launch-input"
+              type="text"
+              placeholder="ETH"
+              value={mergedState.asset}
+              onChange={(e) => set('asset', e.target.value.toUpperCase())}
+              style={{ flex: '1' }}
+            />
+            <input
+              id="guided-quote"
+              className="launch-input"
+              type="text"
+              placeholder="USDT"
+              value={mergedState.quote}
+              onChange={(e) => set('quote', e.target.value.toUpperCase())}
+              style={{ flex: '1' }}
+            />
+          </div>
+        </div>
+
+        {/* Timeframe */}
+        <div className="launch-form-row">
+          <label className="launch-label">Timeframe</label>
+          <div className="workflow-actions">
+            {['1h', '4h', '1d'].map((tf) => (
+              <button
+                key={tf}
+                type="button"
+                className={`ghost-btn ${mergedState.timeframe === tf ? 'is-selected' : ''}`}
+                onClick={() => set('timeframe', tf)}
+              >
+                {tf}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Period */}
+        <div className="launch-form-row">
+          <label className="launch-label">Period</label>
+          <div className="workflow-actions">
+            {(['30d', '90d', '1y', 'custom'] as const).map((p) => (
+              <button
+                key={p}
+                type="button"
+                className={`ghost-btn ${mergedState.periodPreset === p ? 'is-selected' : ''}`}
+                onClick={() => set('periodPreset', p)}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+          {mergedState.periodPreset === 'custom' && (
+            <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+              <input
+                className="launch-input"
+                type="date"
+                placeholder="Start"
+                value={mergedState.startDate}
+                onChange={(e) => set('startDate', e.target.value)}
+                style={{ flex: '1' }}
+              />
+              <input
+                className="launch-input"
+                type="date"
+                placeholder="End"
+                value={mergedState.endDate}
+                onChange={(e) => set('endDate', e.target.value)}
+                style={{ flex: '1' }}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Validation mode */}
+        <div className="launch-form-row">
+          <label className="launch-label">Validation</label>
+          <div className="workflow-actions">
+            {(['backtest', 'walkforward'] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                className={`ghost-btn ${mergedState.validationMode === m ? 'is-selected' : ''}`}
+                onClick={() => set('validationMode', m)}
+              >
+                {m === 'backtest' ? 'Backtest' : 'Walk-forward'}
+              </button>
+            ))}
+          </div>
+          <div className="artifact-meta" style={{ marginTop: '4px' }}>
+            {mergedState.validationMode === 'walkforward'
+              ? 'Evaluates temporal robustness by dividing history into rolling windows.'
+              : 'Single in-sample evaluation over the full selected period.'}
+          </div>
+        </div>
+
+        {/* Costs */}
+        <div className="launch-form-row">
+          <label className="launch-label">Costs</label>
+          <div className="workflow-actions">
+            <button
+              type="button"
+              className={`ghost-btn ${mergedState.feesEnabled ? 'is-selected' : ''}`}
+              onClick={() => set('feesEnabled', !mergedState.feesEnabled)}
+            >
+              {mergedState.feesEnabled ? 'Fees on' : 'Fees off'}
+            </button>
+            <button
+              type="button"
+              className={`ghost-btn ${mergedState.slippageEnabled ? 'is-selected' : ''}`}
+              onClick={() => set('slippageEnabled', !mergedState.slippageEnabled)}
+            >
+              {mergedState.slippageEnabled ? 'Slippage on' : 'Slippage off'}
+            </button>
+          </div>
+        </div>
+
+        {/* Run name / notes */}
+        <div className="launch-form-row">
+          <label className="launch-label" htmlFor="guided-run-name">Run name</label>
+          <input
+            id="guided-run-name"
+            className="launch-input"
+            type="text"
+            placeholder="Optional — defaults to generated ID"
+            value={mergedState.runName}
+            onChange={(e) => set('runName', e.target.value)}
+          />
+        </div>
+        <div className="launch-form-row">
+          <label className="launch-label" htmlFor="guided-notes">Notes</label>
+          <input
+            id="guided-notes"
+            className="launch-input"
+            type="text"
+            placeholder="Optional"
+            value={mergedState.notes}
+            onChange={(e) => set('notes', e.target.value)}
+          />
+        </div>
+
+        {/* Preview — generated by builderStateToConfig(), same function used for submit */}
+        <div className="launch-form-row">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+            <span className="launch-label">Payload preview</span>
+            <button
+              type="button"
+              className="ghost-btn mini"
+              onClick={() => setShowPreview((v) => !v)}
+            >
+              {showPreview ? 'Hide' : 'Show'}
+            </button>
+          </div>
+          {showPreview && (
+            <pre className="artifact-meta" style={{
+              background: 'var(--bg-soft)',
+              border: '1px solid var(--border)',
+              borderRadius: '6px',
+              padding: '10px 12px',
+              fontSize: '11px',
+              lineHeight: '1.6',
+              overflowX: 'auto',
+              margin: '0',
+            }}>
+              {previewText}
+            </pre>
+          )}
+          {!valid && (
+            <div className="artifact-meta" style={{ marginTop: '4px' }}>
+              Asset, quote, and timeframe are required. Custom period requires at least one date.
+            </div>
+          )}
+        </div>
+
+        {/* Submit disabled — Guided submit is enabled in #567 once template-backed payload is wired */}
+        <div className="ops-callout tone-warning" style={{ marginTop: '12px' }}>
+          Guided submit is not active in this slice. Use <strong>Direct YAML</strong> to submit jobs now.
+          Guided submit will be enabled after filesystem template wiring in the next slice.
+        </div>
+      </form>
+    </section>
+  );
+}
+
+// ── Direct YAML tab (existing Quick Launch form, preserved unchanged) ──────────
 
 const EXPERIMENTS_CONFIG_DIR = 'configs/experiments';
 const CUSTOM_CONFIG_VALUE = '__custom__';
@@ -59,7 +407,7 @@ type ConfigOption = {
   path: string;
 };
 
-function QuickLaunchForm({ serverUrl, onRefresh }: { serverUrl: string | null; onRefresh: () => void }) {
+function DirectYamlTab({ serverUrl, onRefresh }: { serverUrl: string | null; onRefresh: () => void }) {
   const [command, setCommand] = useState<'run' | 'sweep'>('sweep');
   const [configPath, setConfigPath] = useState('');
   const [configOptions, setConfigOptions] = useState<ConfigOption[]>([]);
@@ -121,8 +469,12 @@ function QuickLaunchForm({ serverUrl, onRefresh }: { serverUrl: string | null; o
 
   return (
     <section className="artifact-panel">
-      <div className="section-label">Quick launch</div>
-      <h3>Submit a new job</h3>
+      <div className="section-label">Direct YAML</div>
+      <h3>Submit from config file</h3>
+      <p className="artifact-meta" style={{ marginBottom: '14px' }}>
+        Select or enter an existing config path and submit directly.
+        Direct YAML file preview is added in a follow-up slice.
+      </p>
       <div className={`ops-callout ${serverUrl ? 'tone-positive' : 'tone-warning'}`}>
         {serverUrl
           ? 'Backend: Online - ready to submit jobs'
@@ -221,6 +573,8 @@ function QuickLaunchForm({ serverUrl, onRefresh }: { serverUrl: string | null; o
 
 // ── Main component ────────────────────────────────────────────────────────────
 
+type LaunchBuilderTab = 'guided' | 'direct-yaml';
+
 export function LaunchPane({ tab: _tab }: { tab: LaunchTab }) {
   const ctx = useQuantLab();
   const { state, getJobs, getLatestRun, getLatestFailedJob, openTab, refreshRegistry } = ctx;
@@ -239,6 +593,8 @@ export function LaunchPane({ tab: _tab }: { tab: LaunchTab }) {
     const s = (j.status ?? '').toLowerCase();
     return s.includes('running') || s.includes('queued') || s.includes('pending');
   }).length;
+
+  const [activeBuilderTab, setActiveBuilderTab] = useState<LaunchBuilderTab>('guided');
 
   const openExternal = (path: string) => {
     const base = serverUrl ? serverUrl.replace(/\/$/, '') : '';
@@ -323,7 +679,7 @@ export function LaunchPane({ tab: _tab }: { tab: LaunchTab }) {
         </div>
       )}
 
-      {/* Launch queue + quick-launch form */}
+      {/* Launch queue + builder */}
       <div className="artifact-grid">
         <section className="artifact-panel">
           <div className="section-label">Launch queue</div>
@@ -345,7 +701,32 @@ export function LaunchPane({ tab: _tab }: { tab: LaunchTab }) {
           )}
         </section>
 
-        <QuickLaunchForm serverUrl={serverUrl} onRefresh={refreshRegistry} />
+        {/* Builder panel with Guided / Direct YAML tabs */}
+        <div>
+          <div className="tab-pills" style={{ marginBottom: '12px' }}>
+            <button
+              className={`tab-pill ${activeBuilderTab === 'guided' ? 'is-active' : ''}`}
+              type="button"
+              onClick={() => setActiveBuilderTab('guided')}
+            >
+              Guided
+            </button>
+            <button
+              className={`tab-pill ${activeBuilderTab === 'direct-yaml' ? 'is-active' : ''}`}
+              type="button"
+              onClick={() => setActiveBuilderTab('direct-yaml')}
+            >
+              Direct YAML
+            </button>
+          </div>
+
+          {activeBuilderTab === 'guided' && (
+            <GuidedBuilderTab serverUrl={serverUrl} />
+          )}
+          {activeBuilderTab === 'direct-yaml' && (
+            <DirectYamlTab serverUrl={serverUrl} onRefresh={refreshRegistry} />
+          )}
+        </div>
       </div>
     </div>
   );
