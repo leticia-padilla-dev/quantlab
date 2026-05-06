@@ -574,7 +574,7 @@ function GuidedBuilderTab({ serverUrl, configOptions, configLoadStatus }: {
         {/* Submit disabled — enabled in a follow-up slice after template-backed payload is wired */}
         <div className="ops-callout tone-warning" style={{ marginTop: '12px' }}>
           Guided submit is not active in this slice. Use <strong>Direct YAML</strong> to submit jobs now.
-          Guided submit will be enabled after filesystem template wiring in the next slice.
+          Guided submit will be enabled after the submit contract is finalized.
         </div>
       </form>
     </section>
