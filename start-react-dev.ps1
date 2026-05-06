@@ -86,11 +86,11 @@ if (-not (Wait-ResearchUiHealth)) {
 $desktopCommand = @"
 `$env:QUANTLAB_LOCAL_API_TOKEN='$Token'
 Set-Location '$DesktopRoot'
-npm run start:react
+npm run dev
 "@
 
 Start-Process powershell -ArgumentList "-NoExit", "-Command", $desktopCommand -WorkingDirectory $DesktopRoot
 
 Write-Host "QuantLab React Desktop starting."
 Write-Host "Backend health: $HealthUrl"
-Write-Host "Renderer: React via npm run start:react"
+Write-Host "Renderer: React via npm run dev"
