@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import type { LaunchTab } from '../../shared/models/tab';
+import type { SnapshotStatus } from '../../shared/models/snapshot';
+import { useSnapshot } from '../hooks/useSnapshot.js';
 import { formatDateTime, formatCount, titleCase } from '../modules/utils';
 import { useQuantLab as _useQuantLab } from './QuantLabContext';
 
@@ -18,6 +20,110 @@ function launchSignal(status: string | undefined): Signal {
   if (v.includes('failed')) return { label: 'Failed', tone: 'tone-negative' };
   if (v.includes('running') || v.includes('queued') || v.includes('pending')) return { label: 'In flight', tone: 'tone-warning' };
   return { label: titleCase(status ?? ''), tone: 'tone-warning' };
+}
+
+// ── Backend diagnostic classification ────────────────────────────────────────
+//
+// Uses live snapshot status and endpointErrors from a useSnapshot hook call
+// inside LaunchPane. LaunchPane calls useSnapshot unconditionally so diagnostics
+// work even when SystemPane is not mounted.
+//
+// Token detection: the IPC bridge throws "Local API token is not configured."
+// before any network request when QUANTLAB_LOCAL_API_TOKEN is empty. This error
+// propagates into endpointErrors and snapshotStatus.error — safely detectable.
+//
+// Direct submit blocking:
+//   token_missing  → block (IPC always throws before network)
+//   api_unreachable → warn only (snapshot may be stale; let user try)
+//   api_degraded   → warn only (launch-control might still work)
+
+const DEFAULT_RESEARCH_UI_SERVER_URL = 'http://127.0.0.1:8000';
+
+type LaunchBackendState = 'online' | 'connecting' | 'token_missing' | 'api_unreachable' | 'api_degraded';
+
+type LaunchBackendDiagnostic = {
+  state: LaunchBackendState;
+  label: string;
+  tone: 'tone-positive' | 'tone-warning' | 'tone-negative';
+  explanation: string;
+  action: string | null;
+  failedEndpoints: string[];
+  blocksDirectSubmit: boolean;
+};
+
+function hasTokenError(endpointErrors: Record<string, string>, snapshotError: string | null | undefined): boolean {
+  const needle = 'token is not configured';
+  if (snapshotError?.toLowerCase().includes(needle)) return true;
+  return Object.values(endpointErrors).some((msg) => msg?.toLowerCase().includes(needle));
+}
+
+function classifyLaunchBackendDiagnostic(
+  snapshotStatus: Partial<SnapshotStatus>,
+  endpointErrors: Record<string, string>,
+  serverUrl: string | null,
+): LaunchBackendDiagnostic {
+  const failedEndpoints = Object.keys(endpointErrors);
+
+  if (hasTokenError(endpointErrors, snapshotStatus.error)) {
+    return {
+      state: 'token_missing',
+      label: 'Auth token not configured',
+      tone: 'tone-negative',
+      explanation: 'The local API token is missing. The desktop cannot authenticate with the backend.',
+      action: 'Set QUANTLAB_LOCAL_API_TOKEN in your environment before starting the desktop.',
+      failedEndpoints,
+      blocksDirectSubmit: true,
+    };
+  }
+
+  if (snapshotStatus.status === 'ok') {
+    return {
+      state: 'online',
+      label: 'Backend online',
+      tone: 'tone-positive',
+      explanation: serverUrl ? `Connected at ${serverUrl}.` : `Connected at ${DEFAULT_RESEARCH_UI_SERVER_URL}.`,
+      action: null,
+      failedEndpoints: [],
+      blocksDirectSubmit: false,
+    };
+  }
+
+  if (snapshotStatus.status === 'degraded') {
+    return {
+      state: 'api_degraded',
+      label: 'Backend partially available',
+      tone: 'tone-warning',
+      explanation: snapshotStatus.error
+        ? `Some endpoints are failing: ${snapshotStatus.error}`
+        : 'Some required API endpoints are not responding.',
+      action: 'Check backend logs. Some features may be limited.',
+      failedEndpoints,
+      blocksDirectSubmit: false,
+    };
+  }
+
+  if (snapshotStatus.status === 'error') {
+    return {
+      state: 'api_unreachable',
+      label: 'Backend not running',
+      tone: 'tone-negative',
+      explanation: 'The research backend is not responding to API requests.',
+      action: 'Start it from the repo root: python research_ui/server.py',
+      failedEndpoints,
+      blocksDirectSubmit: false,
+    };
+  }
+
+  // idle — not yet polled or URL resolved
+  return {
+    state: 'connecting',
+    label: 'Connecting…',
+    tone: 'tone-warning',
+    explanation: 'Waiting for the first backend response.',
+    action: null,
+    failedEndpoints: [],
+    blocksDirectSubmit: false,
+  };
 }
 
 // ── Guided builder contract ───────────────────────────────────────────────────
@@ -265,12 +371,33 @@ function FilePreview({ content, error, loading }: { content: string | null; erro
   );
 }
 
+// ── Backend diagnostic panel ──────────────────────────────────────────────────
+
+function BackendDiagnosticPanel({ diagnostic }: { diagnostic: LaunchBackendDiagnostic }) {
+  return (
+    <div className={`ops-callout ${diagnostic.tone}`} style={{ marginBottom: '12px' }}>
+      <strong>{diagnostic.label}</strong>
+      {' — '}{diagnostic.explanation}
+      {diagnostic.action && (
+        <div className="artifact-meta" style={{ marginTop: '4px' }}>
+          {diagnostic.action}
+        </div>
+      )}
+      {diagnostic.failedEndpoints.length > 0 && (
+        <div className="artifact-meta" style={{ marginTop: '4px' }}>
+          Failed endpoints: {diagnostic.failedEndpoints.join(', ')}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Guided builder tab ────────────────────────────────────────────────────────
 
-function GuidedBuilderTab({ serverUrl, configOptions, configLoadStatus }: {
-  serverUrl: string | null;
+function GuidedBuilderTab({ configOptions, configLoadStatus, diagnostic }: {
   configOptions: ConfigOption[];
   configLoadStatus: ConfigLoadStatus;
+  diagnostic: LaunchBackendDiagnostic;
 }) {
   // Tracks only what the operator has explicitly changed.
   const [overrides, setOverrides] = useState<GuidedBuilderOverrides>({});
@@ -323,8 +450,10 @@ function GuidedBuilderTab({ serverUrl, configOptions, configLoadStatus }: {
       <h3>Build a research run</h3>
       <p className="artifact-meta" style={{ marginBottom: '14px' }}>
         Configure a run from fields and preview the exact payload before submitting.
-        Submit from Guided is enabled after template-backed payload wiring in a follow-up slice.
+        Submit from Guided is enabled after the submit contract is finalized.
       </p>
+
+      <BackendDiagnosticPanel diagnostic={diagnostic} />
 
       <form className="launch-form" onSubmit={(e) => e.preventDefault()}>
 
@@ -583,11 +712,11 @@ function GuidedBuilderTab({ serverUrl, configOptions, configLoadStatus }: {
 
 // ── Direct YAML tab ───────────────────────────────────────────────────────────
 
-function DirectYamlTab({ serverUrl, onRefresh, configOptions, configLoadStatus }: {
-  serverUrl: string | null;
+function DirectYamlTab({ onRefresh, configOptions, configLoadStatus, diagnostic }: {
   onRefresh: () => void;
   configOptions: ConfigOption[];
   configLoadStatus: ConfigLoadStatus;
+  diagnostic: LaunchBackendDiagnostic;
 }) {
   const [command, setCommand] = useState<'run' | 'sweep'>('sweep');
   const [configPath, setConfigPath] = useState('');
@@ -654,6 +783,7 @@ function DirectYamlTab({ serverUrl, onRefresh, configOptions, configLoadStatus }
   };
 
   const hasPreviewable = configSelection !== CUSTOM_CONFIG_VALUE && configSelection;
+  const submitBlocked = busy || diagnostic.blocksDirectSubmit || (command === 'sweep' && !configPath.trim());
 
   return (
     <section className="artifact-panel">
@@ -662,11 +792,7 @@ function DirectYamlTab({ serverUrl, onRefresh, configOptions, configLoadStatus }
       <p className="artifact-meta" style={{ marginBottom: '14px' }}>
         Select or enter an existing config path and submit directly.
       </p>
-      <div className={`ops-callout ${serverUrl ? 'tone-positive' : 'tone-warning'}`}>
-        {serverUrl
-          ? 'Backend: Online - ready to submit jobs'
-          : 'Backend: Offline - job submission may be unavailable'}
-      </div>
+      <BackendDiagnosticPanel diagnostic={diagnostic} />
       <form className="launch-form" onSubmit={handleSubmit}>
         <div className="launch-form-row">
           <label className="launch-label">Command</label>
@@ -753,26 +879,18 @@ function DirectYamlTab({ serverUrl, onRefresh, configOptions, configLoadStatus }
           </div>
         )}
         <div className="workflow-actions" style={{ marginTop: '12px' }}>
-          <button className="ghost-btn" type="submit" disabled={busy || (command === 'sweep' && !configPath.trim())}>
+          <button
+            className="ghost-btn"
+            type="submit"
+            disabled={submitBlocked}
+            title={diagnostic.blocksDirectSubmit ? diagnostic.action ?? diagnostic.label : undefined}
+          >
             {busy ? 'Submitting…' : 'Submit'}
           </button>
-          {serverUrl && (
-            <button
-              className="ghost-btn"
-              type="button"
-              onClick={() => {
-                if (typeof window.quantlabDesktop?.openExternal === 'function') {
-                  window.quantlabDesktop.openExternal(`${serverUrl.replace(/\/$/, '')}/research_ui/index.html#/launch`);
-                }
-              }}
-            >
-              Full browser form
-            </button>
-          )}
         </div>
-        {!serverUrl && (
-          <div className="artifact-meta" style={{ marginTop: '10px' }}>
-            Submit remains available, but the backend may need to be started manually before the job can be accepted.
+        {diagnostic.blocksDirectSubmit && (
+          <div className="artifact-meta" style={{ marginTop: '6px' }}>
+            Submit blocked: {diagnostic.label.toLowerCase()}.
           </div>
         )}
         {status && <div className={`ops-callout ${status.startsWith('Error') ? 'tone-negative' : 'tone-positive'}`} style={{ marginTop: '10px' }}>{status}</div>}
@@ -792,6 +910,18 @@ export function LaunchPane({ tab: _tab }: { tab: LaunchTab }) {
   const snapshot = state.snapshot ?? {};
   const launchControl = (snapshot as any).launchControl ?? null;
   const serverUrl: string | null = state.workspace?.serverUrl ?? null;
+
+  // Backend diagnostics — unconditional useSnapshot call so Launch has live
+  // connectivity state even when SystemPane is not mounted.
+  const workspace = state.workspace ?? {};
+  const workspaceServerUrl = typeof workspace.serverUrl === 'string' ? workspace.serverUrl.trim() : '';
+  const researchUiServerUrl = workspaceServerUrl || DEFAULT_RESEARCH_UI_SERVER_URL;
+  const nativeDiag = useSnapshot(researchUiServerUrl);
+  // useSnapshot is a JS hook — cast to avoid string/SnapshotStatusValue mismatch.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const diagSnapshotStatus: Partial<SnapshotStatus> = (nativeDiag.snapshotStatus ?? {}) as any;
+  const diagEndpointErrors: Record<string, string> = nativeDiag.endpointErrors ?? {};
+  const diagnostic = classifyLaunchBackendDiagnostic(diagSnapshotStatus, diagEndpointErrors, serverUrl);
 
   const allJobs: any[] = getJobs();
   const recentJobs: any[] = allJobs.slice(0, 10);
@@ -915,17 +1045,17 @@ export function LaunchPane({ tab: _tab }: { tab: LaunchTab }) {
 
           {activeBuilderTab === 'guided' && (
             <GuidedBuilderTab
-              serverUrl={serverUrl}
               configOptions={configOptions}
               configLoadStatus={configLoadStatus}
+              diagnostic={diagnostic}
             />
           )}
           {activeBuilderTab === 'direct-yaml' && (
             <DirectYamlTab
-              serverUrl={serverUrl}
               onRefresh={refreshRegistry}
               configOptions={configOptions}
               configLoadStatus={configLoadStatus}
+              diagnostic={diagnostic}
             />
           )}
         </div>
