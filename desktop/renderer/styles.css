@@ -299,16 +299,19 @@ button:disabled {
 .topbar-status-chip.up {
     border-color: rgba(57, 217, 138, 0.32);
     color: var(--success);
+    background: var(--status-success-bg);
 }
 
 .topbar-status-chip.warn {
     border-color: rgba(242, 185, 75, 0.3);
     color: var(--warning);
+    background: var(--status-warning-bg);
 }
 
 .topbar-status-chip.down {
     border-color: rgba(232, 93, 117, 0.3);
     color: var(--danger);
+    background: var(--status-danger-bg);
 }
 
 .command-bar {
@@ -762,9 +765,9 @@ button:disabled {
     background: rgba(12, 19, 29, 0.92);
 }
 
-.runtime-chip.up { color: var(--success); border-color: rgba(118, 211, 156, 0.32); }
-.runtime-chip.warn { color: var(--warning); border-color: rgba(240, 179, 93, 0.32); }
-.runtime-chip.down { color: var(--danger); border-color: rgba(242, 125, 136, 0.32); }
+.runtime-chip.up   { color: var(--success); border-color: rgba(118, 211, 156, 0.32); background: var(--status-success-bg); }
+.runtime-chip.warn { color: var(--warning); border-color: rgba(240, 179, 93,  0.32); background: var(--status-warning-bg); }
+.runtime-chip.down { color: var(--danger);  border-color: rgba(242, 125, 136, 0.32); background: var(--status-danger-bg);  }
 
 .workflow-panel {
     display: grid;
@@ -1519,18 +1522,21 @@ button:disabled {
 .ops-watch-item.tone-positive,
 .ops-callout.tone-positive {
     border-color: rgba(118, 211, 156, 0.3);
+    background: var(--status-success-bg);
 }
 
 .ops-state-card.tone-warning,
 .ops-watch-item.tone-warning,
 .ops-callout.tone-warning {
     border-color: rgba(240, 179, 93, 0.32);
+    background: var(--status-warning-bg);
 }
 
 .ops-state-card.tone-negative,
 .ops-watch-item.tone-negative,
 .ops-callout.tone-negative {
     border-color: rgba(242, 125, 136, 0.32);
+    background: var(--status-danger-bg);
 }
 
 .ops-next-panel {
@@ -1794,7 +1800,7 @@ button:disabled {
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: var(--success);
+    background: var(--muted);
 }
 
 #react-root:not([hidden]) .indicator-dot.online {
@@ -1802,9 +1808,34 @@ button:disabled {
     box-shadow: 0 0 8px rgba(57, 217, 138, 0.4);
 }
 
+#react-root:not([hidden]) .indicator-dot.offline {
+    background: var(--danger);
+    box-shadow: 0 0 6px rgba(232, 93, 117, 0.35);
+}
+
+#react-root:not([hidden]) .indicator-dot.warn {
+    background: var(--warning);
+    box-shadow: 0 0 6px rgba(242, 185, 75, 0.35);
+}
+
+@keyframes status-pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.5; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    #react-root:not([hidden]) .indicator-dot.online {
+        animation: status-pulse 2.4s ease-in-out infinite;
+    }
+}
+
 #react-root:not([hidden]) .indicator-label {
     color: var(--muted);
 }
+
+#react-root:not([hidden]) .indicator-dot.online  ~ .indicator-label { color: var(--success); }
+#react-root:not([hidden]) .indicator-dot.offline ~ .indicator-label { color: var(--danger); }
+#react-root:not([hidden]) .indicator-dot.warn    ~ .indicator-label { color: var(--warning); }
 
 #react-root:not([hidden]) .app-main-area {
     grid-column: 1 / -1;
