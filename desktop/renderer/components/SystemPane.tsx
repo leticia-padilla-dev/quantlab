@@ -93,12 +93,17 @@ function WatchItem({ tone, label, body }: { tone: string; label: string; body: s
 
 // ── Main component ────────────────────────────────────────────────────────────
 
+const DEFAULT_RESEARCH_UI_SERVER_URL = 'http://127.0.0.1:8000';
+
 export function SystemPane({ tab: _tab }: { tab: SystemTab }) {
   const ctx = useQuantLab();
   const { state, getRuns, getLatestRun, getLatestFailedJob, findJob, decision, openTab, refreshRegistry } = ctx;
 
   const workspace: Partial<WorkspaceState> = state.workspace ?? {};
-  const native = useSnapshot(state.snapshot != null ? null : workspace.serverUrl ?? null);
+  const workspaceServerUrl =
+    typeof workspace.serverUrl === 'string' ? workspace.serverUrl.trim() : '';
+  const researchUiServerUrl = workspaceServerUrl || DEFAULT_RESEARCH_UI_SERVER_URL;
+  const native = useSnapshot(state.snapshot != null ? null : researchUiServerUrl);
   const snapshotStatus: Partial<SnapshotStatus> = state.snapshotStatus ?? native.snapshotStatus ?? {};
   const snapshot = state.snapshot ?? native.snapshot ?? {};
   const launchControl = (snapshot as any).launchControl ?? null;
@@ -119,13 +124,13 @@ export function SystemPane({ tab: _tab }: { tab: SystemTab }) {
   const wsSig = workspaceSignal(workspace);
   const ssSig = snapshotSignal(snapshotStatus);
   const backendOnline =
-    Boolean(workspace.serverUrl) ||
+    Boolean(workspaceServerUrl) ||
     snapshotStatus.status === 'ok' ||
     launchControl?.status === 'ok';
   const backendDiagnostic = workspace.error
     ? `Research backend: Error - ${workspace.error}`
     : backendOnline
-      ? `Research backend: Online${workspace.serverUrl ? ` at ${workspace.serverUrl}` : ' through native API refresh'}`
+      ? `Research backend: Online at ${workspaceServerUrl || researchUiServerUrl}`
       : 'Research backend: Not reachable. Start it manually from the repo root with `python research_ui/server.py`.';
   const backendTone = workspace.error
     ? 'tone-negative'
