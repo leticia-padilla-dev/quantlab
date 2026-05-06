@@ -118,12 +118,15 @@ export function SystemPane({ tab: _tab }: { tab: SystemTab }) {
 
   const wsSig = workspaceSignal(workspace);
   const ssSig = snapshotSignal(snapshotStatus);
-  const backendOnline = Boolean(workspace.serverUrl);
+  const backendOnline =
+    Boolean(workspace.serverUrl) ||
+    snapshotStatus.status === 'ok' ||
+    launchControl?.status === 'ok';
   const backendDiagnostic = workspace.error
     ? `Research backend: Error - ${workspace.error}`
     : backendOnline
-      ? `Research backend: Online at ${workspace.serverUrl}`
-      : "Research backend: Not reachable. Start it manually with 'quantlab research-ui start'.";
+      ? `Research backend: Online${workspace.serverUrl ? ` at ${workspace.serverUrl}` : ' through native API refresh'}`
+      : 'Research backend: Not reachable. Start it manually from the repo root with `python research_ui/server.py`.';
   const backendTone = workspace.error
     ? 'tone-negative'
     : backendOnline
