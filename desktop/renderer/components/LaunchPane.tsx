@@ -884,10 +884,8 @@ type LaunchBuilderTab = 'guided' | 'direct-yaml';
 
 export function LaunchPane({ tab: _tab }: { tab: LaunchTab }) {
   const ctx = useQuantLab();
-  const { state, getJobs, getLatestRun, getLatestFailedJob, openTab, refreshRegistry } = ctx;
+  const { state, getJobs, getLatestRun, openTab, refreshRegistry } = ctx;
 
-  const snapshot = state.snapshot ?? {};
-  const launchControl = (snapshot as any).launchControl ?? null;
   const serverUrl: string | null = state.workspace?.serverUrl ?? null;
 
   // Backend diagnostics — unconditional useSnapshot call so Launch has live
@@ -902,11 +900,13 @@ export function LaunchPane({ tab: _tab }: { tab: LaunchTab }) {
   const diagEndpointErrors: Record<string, string> = nativeDiag.endpointErrors ?? {};
   const diagnostic = classifyLaunchBackendDiagnostic(diagSnapshotStatus, diagEndpointErrors, serverUrl);
 
-  const allJobs: any[] = getJobs();
+  const contextJobs: any[] = getJobs();
+  const liveLaunchJobs = (nativeDiag.snapshot as any)?.launchControl?.jobs;
+  const allJobs: any[] = Array.isArray(liveLaunchJobs) ? liveLaunchJobs : contextJobs;
   const recentJobs: any[] = allJobs.slice(0, 10);
   const latestRun = getLatestRun();
-  const latestFailedJob = getLatestFailedJob();
-  const totalJobs: number = Array.isArray(launchControl?.jobs) ? launchControl.jobs.length : 0;
+  const latestFailedJob = allJobs.find((j: any) => (j.status ?? '').toLowerCase().includes('failed')) ?? null;
+  const totalJobs: number = allJobs.length;
   const failedCount = allJobs.filter((j: any) => (j.status ?? '').toLowerCase().includes('failed')).length;
   const inFlightCount = allJobs.filter((j: any) => {
     const s = (j.status ?? '').toLowerCase();
