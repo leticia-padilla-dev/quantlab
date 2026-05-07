@@ -61,6 +61,20 @@ function openReportTarget(reportPath, reportUrl) {
   }
 }
 
+function robustnessTone(status) {
+  const normalized = String(status || "").toLowerCase();
+  if (normalized === "pass") return "tone-positive";
+  if (normalized === "fail") return "tone-negative";
+  if (normalized === "review") return "tone-warning";
+  return "tone-neutral";
+}
+
+function shouldShowMissingRobustness(run, report) {
+  const mode = String(run?.mode || report?.mode || report?.metadata?.mode || "").toLowerCase();
+  const runId = String(run?.run_id || "").toLowerCase();
+  return mode.includes("walkforward") || mode.includes("walk-forward") || runId.includes("walkforward");
+}
+
 export function RunDetailPane({ tab }) {
   const {
     state,
@@ -96,6 +110,7 @@ export function RunDetailPane({ tab }) {
   const detail = (tab.detail != null ? tab.detail : native.detail) || {};
   const reportPath = detail.reportPath || localProjectPathFromHref(detail.reportUrl);
   const report = detail.report;
+  const robustnessVerdict = detail.robustnessVerdict || null;
   const primaryResult = selectPrimaryResult(run, report);
   const configEntries = summarizeObjectEntries(report?.config_resolved);
   const fileEntries = Array.isArray(detail.directoryEntries) ? detail.directoryEntries : [];
@@ -345,6 +360,11 @@ export function RunDetailPane({ tab }) {
         </div>
 
         <aside className="run-detail-side run-evidence-rail stack">
+          <RobustnessVerdictCard
+            verdict={robustnessVerdict}
+            showMissing={shouldShowMissingRobustness(run, report)}
+          />
+
           <section className="artifact-panel run-rail-card">
             <div className="section-label">Decision / validation</div>
             <h3>What should happen next</h3>
@@ -408,6 +428,58 @@ export function RunDetailPane({ tab }) {
         </aside>
       </div>
     </div>
+  );
+}
+
+function RobustnessVerdictCard({ verdict, showMissing }) {
+  if (!verdict) {
+    if (!showMissing) return null;
+    return (
+      <section className="artifact-panel run-rail-card robustness-card">
+        <div className="section-label">Robustness verdict</div>
+        <h3>No robustness verdict available</h3>
+        <p className="robustness-copy">
+          This walk-forward run has no Core-generated robustness verdict artifact yet.
+        </p>
+      </section>
+    );
+  }
+
+  const tone = robustnessTone(verdict.status);
+  const status = String(verdict.status || "review").toUpperCase();
+  const grade = titleCase(verdict.grade || "unknown");
+  const reasons = Array.isArray(verdict.reasons) ? verdict.reasons.filter(Boolean).slice(0, 4) : [];
+
+  return (
+    <section className={`artifact-panel run-rail-card robustness-card ${tone}`}>
+      <div className="section-label">Robustness verdict</div>
+      <div className="robustness-heading">
+        <h3>{status}</h3>
+        <span className={`badge ${tone}`}>{grade}</span>
+      </div>
+      <dl className="metric-list compact robustness-metrics">
+        <dt>OOS splits</dt>
+        <dd>{formatCount(verdict.positive_oos_splits)} / {formatCount(verdict.total_splits)} positive</dd>
+        <dt>Positive ratio</dt>
+        <dd>{formatPercent(verdict.positive_oos_ratio)}</dd>
+        <dt>Worst split</dt>
+        <dd className={toneClass(verdict.worst_oos_split_return, false)}>
+          {formatPercent(verdict.worst_oos_split_return)}
+        </dd>
+        <dt>OOS trades</dt>
+        <dd>{formatCount(verdict.total_oos_trades)}</dd>
+      </dl>
+      {reasons.length > 0 && (
+        <ul className="robustness-reasons">
+          {reasons.map((reason, index) => (
+            <li key={index}>{reason}</li>
+          ))}
+        </ul>
+      )}
+      {verdict.recommendation && (
+        <p className="robustness-recommendation">{verdict.recommendation}</p>
+      )}
+    </section>
   );
 }
 

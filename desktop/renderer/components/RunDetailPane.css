@@ -141,3 +141,63 @@
   flex-shrink: 0;
   margin-left: 12px;
 }
+
+.robustness-card {
+  border-style: solid;
+}
+
+.robustness-card.tone-positive {
+  border-color: rgba(49, 211, 134, 0.42);
+  background: rgba(8, 43, 29, 0.36);
+}
+
+.robustness-card.tone-warning {
+  border-color: rgba(255, 190, 92, 0.42);
+  background: rgba(52, 36, 10, 0.28);
+}
+
+.robustness-card.tone-negative {
+  border-color: rgba(255, 104, 104, 0.42);
+  background: rgba(55, 16, 18, 0.28);
+}
+
+.robustness-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.robustness-heading h3 {
+  margin: 0;
+}
+
+.robustness-heading .badge {
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.robustness-metrics dd {
+  white-space: normal;
+}
+
+.robustness-copy,
+.robustness-recommendation {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.robustness-reasons {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
