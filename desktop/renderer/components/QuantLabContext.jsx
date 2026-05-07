@@ -192,6 +192,7 @@ export function useQuantLabContextValue() {
 
       const newTab = { id: nextId, kind, title: tabTitle };
       if (kind === 'job' && requestId) newTab.requestId = requestId;
+      if (kind === 'job' && normalized?.job) newTab.job = normalized.job;
       if ((kind === 'run' || kind === 'artifacts') && runId) newTab.runId = runId;
       if (kind === 'compare' && runIds.length) newTab.runIds = runIds;
       if (subview) newTab.subview = subview;
