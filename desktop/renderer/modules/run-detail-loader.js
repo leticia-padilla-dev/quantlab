@@ -20,6 +20,7 @@ export async function loadRunDetailNative(run) {
 
   let detail = {
     report: null,
+    reportPath: null,
     reportUrl: null,
     directoryEntries: [],
     directoryTruncated: false,
@@ -30,7 +31,7 @@ export async function loadRunDetailNative(run) {
     const href = buildRunArtifactHref(run.path, artifact);
     try {
       const report = await window.quantlabDesktop.readProjectJson(localPath);
-      detail = { ...detail, report, reportUrl: href || localPath };
+      detail = { ...detail, report, reportPath: localPath, reportUrl: href || localPath };
       break;
     } catch (_localErr) {
       if (!href) continue;

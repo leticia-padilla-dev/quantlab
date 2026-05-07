@@ -40,6 +40,27 @@ function resolveLaunchSignal(value, options = {}) {
   return { label: titleCase(String(value)), tone: "tone-warning" };
 }
 
+function localProjectPathFromHref(href) {
+  const value = String(href || "");
+  if (/^\/outputs\//i.test(value)) return value.replace(/^\/+/, "");
+  return "";
+}
+
+function openReportTarget(reportPath, reportUrl) {
+  const localPath = reportPath || localProjectPathFromHref(reportUrl);
+  // eslint-disable-next-line no-undef
+  if (localPath && typeof window.quantlabDesktop?.openPath === 'function') {
+    // eslint-disable-next-line no-undef
+    window.quantlabDesktop.openPath(localPath);
+    return;
+  }
+  // eslint-disable-next-line no-undef
+  if (reportUrl && typeof window.quantlabDesktop?.openExternal === 'function') {
+    // eslint-disable-next-line no-undef
+    window.quantlabDesktop.openExternal(reportUrl);
+  }
+}
+
 export function RunDetailPane({ tab }) {
   const {
     state,
@@ -73,6 +94,7 @@ export function RunDetailPane({ tab }) {
   }
 
   const detail = (tab.detail != null ? tab.detail : native.detail) || {};
+  const reportPath = detail.reportPath || localProjectPathFromHref(detail.reportUrl);
   const report = detail.report;
   const primaryResult = selectPrimaryResult(run, report);
   const configEntries = summarizeObjectEntries(report?.config_resolved);
@@ -132,13 +154,7 @@ export function RunDetailPane({ tab }) {
               {isBaseline ? 'Clear baseline' : 'Set as baseline'}
             </button>
             {detail.reportUrl && (
-              <button className="ghost-btn" onClick={() => {
-                // eslint-disable-next-line no-undef
-                if (typeof window.quantlabDesktop?.openExternal === 'function') {
-                  // eslint-disable-next-line no-undef
-                  window.quantlabDesktop.openExternal(detail.reportUrl);
-                }
-              }}>
+              <button className="ghost-btn" onClick={() => openReportTarget(reportPath, detail.reportUrl)}>
                 Raw report
               </button>
             )}
@@ -360,13 +376,7 @@ export function RunDetailPane({ tab }) {
                 </button>
               )}
               {detail.reportUrl && (
-                <button className="ghost-btn" onClick={() => {
-                  // eslint-disable-next-line no-undef
-                  if (typeof window.quantlabDesktop?.openExternal === 'function') {
-                    // eslint-disable-next-line no-undef
-                    window.quantlabDesktop.openExternal(detail.reportUrl);
-                  }
-                }}>
+                <button className="ghost-btn" onClick={() => openReportTarget(reportPath, detail.reportUrl)}>
                   Open report.json
                 </button>
               )}
