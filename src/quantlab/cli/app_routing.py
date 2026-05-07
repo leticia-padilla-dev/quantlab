@@ -80,6 +80,8 @@ def determine_session_mode(args: argparse.Namespace, json_command: str | None) -
         return "sweep"
     if args.forward_eval or args.resume_forward:
         return "forward"
+    if getattr(args, "evaluate_walkforward_run", None):
+        return "evaluation"
     if args.portfolio_report or args.portfolio_compare:
         return "portfolio"
     if args.paper:
@@ -196,6 +198,7 @@ def dispatch_standard_commands(
     handle_hyperliquid_submit_sessions_commands,
     handle_broker_evidence_readiness_commands,
     handle_pretrade_handoff_commands,
+    handle_evaluation_commands,
     handle_paper_session_commands,
     handle_runs_commands,
     handle_report_commands,
@@ -228,6 +231,8 @@ def dispatch_standard_commands(
         result_ctx = handle_broker_evidence_readiness_commands(args)
     if result_ctx in (None, False):
         result_ctx = handle_pretrade_handoff_commands(args)
+    if result_ctx in (None, False):
+        result_ctx = handle_evaluation_commands(args)
     if result_ctx in (None, False):
         result_ctx = handle_paper_session_commands(args)
     if result_ctx in (None, False):
