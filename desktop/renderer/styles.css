@@ -823,15 +823,22 @@ button:disabled {
 }
 
 .check-field {
-    grid-template-columns: auto 1fr;
+    display: flex;
+    flex-direction: row;
     align-items: center;
+    gap: 10px;
 }
 
 .workflow-actions {
     display: flex;
+    flex-direction: row;
     flex-wrap: wrap;
     gap: 10px;
     align-items: center;
+}
+
+.workflow-actions > * {
+    flex: 0 0 auto;
 }
 
 .workflow-feedback {
@@ -2108,7 +2115,8 @@ button:disabled {
 }
 
 .launch-scenario-form {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    display: flex;
+    flex-wrap: wrap;
     gap: 18px 20px;
 }
 
@@ -2126,8 +2134,9 @@ button:disabled {
 }
 
 .launch-scenario-form .launch-form-row {
-    display: grid;
-    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 min(360px, calc(50% - 10px));
     gap: 7px;
     padding: 0;
     border-bottom: none;
@@ -2136,7 +2145,7 @@ button:disabled {
 
 .launch-scenario-form .launch-form-row-wide,
 .launch-scenario-form > .ops-callout {
-    grid-column: 1 / -1;
+    flex-basis: 100%;
 }
 
 .launch-scenario-form .launch-label {
@@ -2255,19 +2264,21 @@ input[type="date"].launch-input {
 }
 
 @media (max-width: 980px) {
-    .launch-scenario-form {
-        grid-template-columns: 1fr;
+    .launch-scenario-form .launch-form-row {
+        flex-basis: 100%;
     }
 }
 
 .launch-config-stack {
-    display: grid;
+    display: flex;
+    flex-direction: column;
     gap: 8px;
     min-width: 0;
 }
 
 .launch-file-preview {
-    display: grid;
+    display: flex;
+    flex-direction: column;
     gap: 6px;
     width: 100%;
     min-width: 0;
