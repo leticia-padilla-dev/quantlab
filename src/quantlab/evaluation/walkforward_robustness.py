@@ -114,8 +114,9 @@ def evaluate_walkforward_robustness(run_dir: str | Path) -> dict[str, Any]:
         reasons.extend(diagnostics)
         reasons.extend(review_reasons)
         recommendation = (
-            "Do not mark as baseline or promote to paper trading. "
-            "Treat as regime-specific or insufficiently robust evidence."
+            "Do not promote to baseline, paper trading, broker execution, "
+            "live execution, or capital deployment. Treat as regime-specific "
+            "or insufficiently robust research evidence."
         )
     elif review_reasons or diagnostics:
         status = "review"
@@ -124,7 +125,8 @@ def evaluate_walkforward_robustness(run_dir: str | Path) -> dict[str, Any]:
         reasons.extend(review_reasons)
         recommendation = (
             "Do not promote automatically. Review the walk-forward evidence "
-            "and collect stronger OOS evidence before promotion."
+            "and collect stronger OOS evidence before any baseline, paper, "
+            "broker, live, or capital-deployment promotion."
         )
     else:
         status = "pass"
@@ -270,4 +272,3 @@ def _format_percent(value: Any) -> str:
 def _format_number(value: Any) -> str:
     number = _safe_float(value)
     return "unavailable" if number is None else f"{number:.4f}"
-
