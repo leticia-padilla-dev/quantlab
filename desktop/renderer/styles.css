@@ -2158,6 +2158,10 @@ input[type="date"].launch-input {
     color-scheme: dark;
 }
 
+.launch-compact-select {
+    max-width: 220px;
+}
+
 .ghost-btn.mini {
     padding: 5px 9px;
     font-size: 0.78rem;
@@ -2185,3 +2189,40 @@ input[type="date"].launch-input {
     flex: 1;
 }
 
+.launch-config-stack {
+    display: grid;
+    gap: 8px;
+    min-width: 0;
+}
+
+.launch-file-preview {
+    display: grid;
+    gap: 6px;
+    width: 100%;
+    min-width: 0;
+}
+
+.launch-file-preview-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.launch-file-preview-head .launch-label {
+    padding-top: 0;
+}
+
+.launch-file-preview-pre {
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 0.76rem;
+    line-height: 1.55;
+    margin: 0;
+    width: 100%;
+    max-height: min(60vh, 560px);
+    overflow: auto;
+    white-space: pre;
+    word-break: normal;
+}
