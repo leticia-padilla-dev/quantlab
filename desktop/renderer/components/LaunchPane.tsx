@@ -141,7 +141,7 @@ type GuidedBuilderState = {
   asset: string;
   quote: string;
   timeframe: string;
-  periodPreset: '30d' | '90d' | '1y' | 'custom';
+  periodPreset: PeriodPreset;
   startDate: string;
   endDate: string;
   validationMode: 'backtest' | 'walkforward';
@@ -166,6 +166,11 @@ type LaunchConfigPayload = {
   command: 'run' | 'sweep';
   params: Record<string, string | boolean>;
 };
+
+type PeriodPreset = '30d' | '90d' | '1y' | 'custom';
+
+const SAFE_TIMEFRAME_OPTIONS = ['1m', '5m', '15m', '30m', '1h', '4h', '1d', '1w'];
+const PERIOD_OPTIONS: PeriodPreset[] = ['30d', '90d', '1y', 'custom'];
 
 const DEFAULT_GUIDED_STATE: GuidedBuilderState = {
   command: 'run',
@@ -354,18 +359,7 @@ function FilePreview({ content, error, loading }: { content: string | null; erro
   if (error)   return <div className="artifact-meta" style={{ color: 'var(--danger)' }}>{error}</div>;
   if (!content) return null;
   return (
-    <pre className="artifact-meta" style={{
-      background: 'var(--bg-soft)',
-      border: '1px solid var(--border)',
-      borderRadius: '6px',
-      padding: '10px 12px',
-      fontSize: '11px',
-      lineHeight: '1.6',
-      overflowX: 'auto',
-      margin: '0',
-      whiteSpace: 'pre-wrap',
-      wordBreak: 'break-all',
-    }}>
+    <pre className="artifact-meta launch-file-preview-pre">
       {content}
     </pre>
   );
@@ -437,6 +431,9 @@ function GuidedBuilderTab({ configOptions, configLoadStatus, diagnostic }: {
   const payload = builderStateToConfig(mergedState);
   const previewText = JSON.stringify(payload, null, 2);
   const valid = isGuidedStateValid(mergedState);
+  const timeframeOptions = SAFE_TIMEFRAME_OPTIONS.includes(mergedState.timeframe)
+    ? SAFE_TIMEFRAME_OPTIONS
+    : [mergedState.timeframe, ...SAFE_TIMEFRAME_OPTIONS].filter(Boolean);
 
   function set<K extends keyof GuidedBuilderState>(key: K, value: GuidedBuilderState[K]) {
     setOverrides((prev) => ({ ...prev, [key]: value }));
@@ -532,37 +529,40 @@ function GuidedBuilderTab({ configOptions, configLoadStatus, diagnostic }: {
 
         {/* Timeframe */}
         <div className="launch-form-row">
-          <label className="launch-label">Timeframe</label>
-          <div className="workflow-actions">
-            {['1h', '4h', '1d'].map((tf) => (
-              <button
-                key={tf}
-                type="button"
-                className={`ghost-btn ${mergedState.timeframe === tf ? 'is-selected' : ''}`}
-                onClick={() => set('timeframe', tf)}
-              >
-                {tf}
-              </button>
-            ))}
+          <label className="launch-label" htmlFor="guided-timeframe">Timeframe</label>
+          <div>
+            <select
+              id="guided-timeframe"
+              className="launch-input launch-compact-select"
+              value={mergedState.timeframe}
+              onChange={(e) => set('timeframe', e.target.value)}
+            >
+              {timeframeOptions.map((tf) => (
+                <option key={tf} value={tf}>
+                  {SAFE_TIMEFRAME_OPTIONS.includes(tf) ? tf : `${tf} (from template)`}
+                </option>
+              ))}
+            </select>
+            <div className="launch-hint">
+              UI options are safe defaults; dataset support is still determined by the selected config/data source.
+            </div>
           </div>
         </div>
 
         {/* Period */}
         <div className="launch-form-row">
-          <label className="launch-label">Period</label>
+          <label className="launch-label" htmlFor="guided-period">Period</label>
           <div>
-            <div className="workflow-actions">
-              {(['30d', '90d', '1y', 'custom'] as const).map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  className={`ghost-btn ${mergedState.periodPreset === p ? 'is-selected' : ''}`}
-                  onClick={() => set('periodPreset', p)}
-                >
-                  {p}
-                </button>
+            <select
+              id="guided-period"
+              className="launch-input launch-compact-select"
+              value={mergedState.periodPreset}
+              onChange={(e) => set('periodPreset', e.target.value as PeriodPreset)}
+            >
+              {PERIOD_OPTIONS.map((p) => (
+                <option key={p} value={p}>{p}</option>
               ))}
-            </div>
+            </select>
             {mergedState.periodPreset === 'custom' && (
               <div className="launch-date-pair">
                 <input
@@ -797,64 +797,66 @@ function DirectYamlTab({ onRefresh, configOptions, configLoadStatus, diagnostic 
             <label className="launch-label" htmlFor={configOptions.length ? 'launch-config-select' : 'launch-config-path'}>
               Config path
             </label>
-            {configOptions.length ? (
-              <select
-                id="launch-config-select"
-                className="launch-input"
-                value={configSelection}
-                onChange={(e) => {
-                  const next = e.target.value;
-                  setConfigSelection(next);
-                  setConfigPath(next === CUSTOM_CONFIG_VALUE ? '' : next);
-                }}
-                disabled={busy}
-              >
-                {configOptions.map((o) => (
-                  <option key={o.path} value={o.path}>{o.path}</option>
-                ))}
-                <option value={CUSTOM_CONFIG_VALUE}>Custom path…</option>
-              </select>
-            ) : (
-              <div className="artifact-meta">
-                {configLoadStatus === 'loading'
-                  ? 'Reading configs/experiments/...'
-                  : 'No config files found in configs/experiments.'}
-              </div>
-            )}
-            {(!configOptions.length || configSelection === CUSTOM_CONFIG_VALUE) && (
-              <input
-                id="launch-config-path"
-                className="launch-input"
-                type="text"
-                placeholder="configs/experiments/my_config.yaml"
-                value={configPath}
-                onChange={(e) => setConfigPath(e.target.value)}
-                disabled={busy}
-              />
-            )}
-
-            {/* File preview */}
-            {hasPreviewable && (
-              <div style={{ marginTop: '8px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                  <span className="launch-label">File preview</span>
-                  <button
-                    type="button"
-                    className="ghost-btn mini"
-                    onClick={() => setShowPreview((v) => !v)}
-                  >
-                    {showPreview ? 'Hide' : 'Show'}
-                  </button>
+            <div className="launch-config-stack">
+              {configOptions.length ? (
+                <select
+                  id="launch-config-select"
+                  className="launch-input"
+                  value={configSelection}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setConfigSelection(next);
+                    setConfigPath(next === CUSTOM_CONFIG_VALUE ? '' : next);
+                  }}
+                  disabled={busy}
+                >
+                  {configOptions.map((o) => (
+                    <option key={o.path} value={o.path}>{o.path}</option>
+                  ))}
+                  <option value={CUSTOM_CONFIG_VALUE}>Custom path…</option>
+                </select>
+              ) : (
+                <div className="artifact-meta">
+                  {configLoadStatus === 'loading'
+                    ? 'Reading configs/experiments/...'
+                    : 'No config files found in configs/experiments.'}
                 </div>
-                {showPreview && (
-                  <FilePreview
-                    content={previewContent}
-                    error={previewError}
-                    loading={previewLoading}
-                  />
-                )}
-              </div>
-            )}
+              )}
+              {(!configOptions.length || configSelection === CUSTOM_CONFIG_VALUE) && (
+                <input
+                  id="launch-config-path"
+                  className="launch-input"
+                  type="text"
+                  placeholder="configs/experiments/my_config.yaml"
+                  value={configPath}
+                  onChange={(e) => setConfigPath(e.target.value)}
+                  disabled={busy}
+                />
+              )}
+
+              {/* File preview */}
+              {hasPreviewable && (
+                <div className="launch-file-preview">
+                  <div className="launch-file-preview-head">
+                    <span className="launch-label">File preview</span>
+                    <button
+                      type="button"
+                      className="ghost-btn mini"
+                      onClick={() => setShowPreview((v) => !v)}
+                    >
+                      {showPreview ? 'Hide' : 'Show'}
+                    </button>
+                  </div>
+                  {showPreview && (
+                    <FilePreview
+                      content={previewContent}
+                      error={previewError}
+                      loading={previewLoading}
+                    />
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         )}
         <div className="workflow-actions" style={{ marginTop: '12px' }}>
