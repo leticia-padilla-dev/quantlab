@@ -105,3 +105,12 @@ def test_determine_session_mode_for_broker_evidence_readiness():
     mode = app._determine_session_mode(args, json_command=None)
 
     assert mode == "broker_evidence_readiness"
+
+
+def test_determine_session_mode_for_walkforward_evaluation():
+    parser = app._build_argument_parser()
+    args = parser.parse_args(["--evaluate-walkforward-run", "outputs/runs/demo"])
+
+    mode = app._determine_session_mode(args, json_command=None)
+
+    assert mode == "evaluation"

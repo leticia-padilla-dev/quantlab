@@ -558,6 +558,12 @@ def build_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument("--forward-end", metavar="YYYY-MM-DD", default=None)
     parser.add_argument("--forward-outdir", metavar="DIR", default=None)
     parser.add_argument("--forward-metric", default="sharpe_simple")
+    parser.add_argument(
+        "--evaluate-walkforward-run",
+        metavar="RUN_DIR",
+        default=None,
+        help="Backfill walk-forward robustness verdict artifacts for an existing run directory.",
+    )
     parser.add_argument("--resume-forward", metavar="SESSION_DIR", default=None)
     parser.add_argument("--portfolio-report", metavar="ROOT_DIR", default=None)
     parser.add_argument(

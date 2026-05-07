@@ -46,6 +46,7 @@ handle_broker_order_validations_commands = None
 handle_hyperliquid_submit_sessions_commands = None
 handle_broker_evidence_readiness_commands = None
 handle_pretrade_handoff_commands = None
+handle_evaluation_commands = None
 run_sweep = None
 write_run_report = None
 write_advanced_report = None
@@ -149,6 +150,7 @@ def _load_runtime_dependencies() -> None:
     global handle_hyperliquid_submit_sessions_commands
     global handle_broker_evidence_readiness_commands
     global handle_pretrade_handoff_commands
+    global handle_evaluation_commands
     global run_sweep
     global write_run_report
     global write_advanced_report
@@ -236,6 +238,12 @@ def _load_runtime_dependencies() -> None:
         )
 
         handle_pretrade_handoff_commands = _handle_pretrade_handoff_commands
+    if handle_evaluation_commands is None:
+        from quantlab.cli.evaluation import (
+            handle_evaluation_commands as _handle_evaluation_commands,
+        )
+
+        handle_evaluation_commands = _handle_evaluation_commands
     if run_sweep is None:
         from quantlab.experiments import run_sweep as _run_sweep
 
@@ -256,8 +264,10 @@ def _load_runtime_dependencies() -> None:
             build_runs_index as _build_runs_index,
         )
 
-        write_runs_index = _write_runs_index
-        build_runs_index = _build_runs_index
+        if write_runs_index is None:
+            write_runs_index = _write_runs_index
+        if build_runs_index is None:
+            build_runs_index = _build_runs_index
     if write_comparison is None:
         from quantlab.reporting.compare_runs import write_comparison as _write_comparison
 
@@ -342,6 +352,7 @@ def _dispatch_standard_commands(args: argparse.Namespace, initial_result: object
             project_root=PROJECT_ROOT,
         ),
         handle_pretrade_handoff_commands=handle_pretrade_handoff_commands,
+        handle_evaluation_commands=handle_evaluation_commands or (lambda args: None),
         handle_paper_session_commands=handle_paper_session_commands,
         handle_runs_commands=handle_runs_commands,
         handle_report_commands=handle_report_commands,
