@@ -1,6 +1,7 @@
 import { buildRunArtifactHref } from "./utils.js";
 
 const DETAIL_ARTIFACTS = ["report.json", "run_report.json"];
+const ROBUSTNESS_VERDICT_ARTIFACT = "robustness_verdict.json";
 
 function joinPath(base, leaf) {
   return `${String(base || "").replace(/[\\/]+$/, "")}/${leaf}`;
@@ -22,6 +23,7 @@ export async function loadRunDetailNative(run) {
     report: null,
     reportPath: null,
     reportUrl: null,
+    robustnessVerdict: null,
     directoryEntries: [],
     directoryTruncated: false,
   };
@@ -43,6 +45,14 @@ export async function loadRunDetailNative(run) {
         // Try next artifact name.
       }
     }
+  }
+
+  try {
+    detail.robustnessVerdict = await window.quantlabDesktop.readProjectJson(
+      joinPath(run.path, ROBUSTNESS_VERDICT_ARTIFACT),
+    );
+  } catch (_) {
+    // Robustness verdicts are optional and only emitted for walk-forward runs.
   }
 
   try {
