@@ -2091,6 +2091,27 @@ button:disabled {
     margin-top: 10px;
 }
 
+.launch-scenario-card {
+    padding: 24px;
+}
+
+.launch-scenario-head {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 18px;
+}
+
+.launch-scenario-head h3 {
+    margin: 6px 0 4px;
+}
+
+.launch-scenario-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px 20px;
+}
+
 .launch-form-row {
     display: grid;
     grid-template-columns: 120px 1fr;
@@ -2102,6 +2123,46 @@ button:disabled {
 
 .launch-form-row.no-border {
     border-bottom: none;
+}
+
+.launch-scenario-form .launch-form-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 7px;
+    padding: 0;
+    border-bottom: none;
+    min-width: 0;
+}
+
+.launch-scenario-form .launch-form-row-wide,
+.launch-scenario-form > .ops-callout {
+    grid-column: 1 / -1;
+}
+
+.launch-scenario-form .launch-label {
+    padding-top: 0;
+    margin-bottom: 0;
+}
+
+.launch-scenario-form .launch-input {
+    min-height: 46px;
+    padding: 10px 13px;
+}
+
+.launch-scenario-form .launch-compact-select {
+    max-width: none;
+}
+
+.launch-scenario-form .workflow-actions {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+.launch-scenario-form .workflow-actions .ghost-btn {
+    min-height: 46px;
 }
 
 .launch-label {
@@ -2179,6 +2240,10 @@ input[type="date"].launch-input {
     flex: 1;
 }
 
+.launch-scenario-form .launch-market-pair .launch-input {
+    max-width: none;
+}
+
 .launch-date-pair {
     display: flex;
     gap: 8px;
@@ -2187,6 +2252,12 @@ input[type="date"].launch-input {
 
 .launch-date-pair .launch-input {
     flex: 1;
+}
+
+@media (max-width: 980px) {
+    .launch-scenario-form {
+        grid-template-columns: 1fr;
+    }
 }
 
 .launch-config-stack {
