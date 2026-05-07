@@ -13,7 +13,6 @@ import {
   selectPrimaryResult,
   selectTopResults,
   summarizeObjectEntries,
-  buildRunArtifactHref,
 } from '../modules/utils';
 import './RunDetailPane.css';
 
@@ -240,7 +239,7 @@ export function RunDetailPane({ tab }) {
               {artifacts.length ? (
                 <div className="artifact-list">
                   {artifacts.map((artifact, i) => {
-                    const href = buildRunArtifactHref(run.path, artifact.file_name);
+                    const artifactPath = `${String(run.path || "").replace(/[\\/]+$/, "")}/${artifact.file_name}`;
                     return (
                       <button 
                         key={i}
@@ -249,9 +248,9 @@ export function RunDetailPane({ tab }) {
                         title={`Open ${artifact.file_name}`}
                         onClick={() => {
                           // eslint-disable-next-line no-undef
-                          if (typeof window.quantlabDesktop?.openExternal === 'function') {
+                          if (typeof window.quantlabDesktop?.openPath === 'function') {
                             // eslint-disable-next-line no-undef
-                            window.quantlabDesktop.openExternal(href);
+                            window.quantlabDesktop.openPath(artifactPath);
                           }
                         }}>
                         <span className="artifact-name-wrap">
