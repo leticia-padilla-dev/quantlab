@@ -951,7 +951,7 @@ export function LaunchPane({ tab: _tab }: { tab: LaunchTab }) {
             </button>
           )}
           {recentJobs[0]?.request_id && (
-            <button className="ghost-btn" type="button" onClick={() => openTab({ kind: 'job', requestId: recentJobs[0].request_id })}>
+            <button className="ghost-btn" type="button" onClick={() => openTab({ kind: 'job', requestId: recentJobs[0].request_id, job: recentJobs[0] })}>
               Latest job
             </button>
           )}
@@ -976,7 +976,7 @@ export function LaunchPane({ tab: _tab }: { tab: LaunchTab }) {
             className="ghost-btn mini"
             type="button"
             style={{ marginLeft: '12px' }}
-            onClick={() => openTab({ kind: 'job', requestId: latestFailedJob.request_id })}
+            onClick={() => openTab({ kind: 'job', requestId: latestFailedJob.request_id, job: latestFailedJob })}
           >
             Review
           </button>
@@ -994,7 +994,7 @@ export function LaunchPane({ tab: _tab }: { tab: LaunchTab }) {
                 <JobCard
                   key={job.request_id}
                   job={job}
-                  onOpen={() => openTab({ kind: 'job', requestId: job.request_id })}
+                  onOpen={() => openTab({ kind: 'job', requestId: job.request_id, job })}
                 />
               ))}
             </div>
