@@ -447,11 +447,6 @@ function GuidedBuilderTab({ configOptions, configLoadStatus, diagnostic }: {
   return (
     <section className="artifact-panel">
       <div className="section-label">Guided</div>
-      <h3>Build a research run</h3>
-      <p className="artifact-meta" style={{ marginBottom: '14px' }}>
-        Configure a run from fields and preview the exact payload before submitting.
-        Submit from Guided is enabled after the submit contract is finalized.
-      </p>
 
       <BackendDiagnosticPanel diagnostic={diagnostic} />
 
@@ -459,49 +454,43 @@ function GuidedBuilderTab({ configOptions, configLoadStatus, diagnostic }: {
 
         {/* Template base selector */}
         <div className="launch-form-row">
-          <label className="launch-label" htmlFor="guided-template-select">Base config template</label>
-          {configLoadStatus === 'loading' ? (
-            <div className="artifact-meta">Reading configs/experiments/…</div>
-          ) : configOptions.length ? (
-            <select
-              id="guided-template-select"
-              className="launch-input"
-              value={selectedTemplatePath}
-              onChange={(e) => {
-                setSelectedTemplatePath(e.target.value);
-                // Reset overrides when switching templates so operator sees clean template defaults.
-                setOverrides({});
-              }}
-            >
-              <option value={CUSTOM_CONFIG_VALUE}>No template — use defaults</option>
-              {configOptions.map((o) => (
-                <option key={o.path} value={o.path}>{o.path}</option>
-              ))}
-            </select>
-          ) : (
-            <div className="artifact-meta">No config files found in configs/experiments.</div>
-          )}
-          {templateLoadStatus === 'loading' && (
-            <div className="artifact-meta" style={{ marginTop: '4px' }}>Reading template…</div>
-          )}
-          {templateLoadStatus === 'error' && (
-            <div className="artifact-meta" style={{ marginTop: '4px', color: 'var(--danger)' }}>
-              Could not read template file.
-            </div>
-          )}
-          {templateLoadStatus === 'ready' && templateFields.length > 0 && (
-            <div className="artifact-meta" style={{ marginTop: '4px' }}>
-              Template applied: {templateFields.join(', ')}
-            </div>
-          )}
-          {templateLoadStatus === 'ready' && templateFields.length === 0 && (
-            <div className="artifact-meta" style={{ marginTop: '4px' }}>
-              Template loaded — no extractable fields found. Defaults apply.
-            </div>
-          )}
+          <label className="launch-label" htmlFor="guided-template-select">Base config</label>
+          <div>
+            {configLoadStatus === 'loading' ? (
+              <div className="launch-hint">Reading configs/experiments/…</div>
+            ) : configOptions.length ? (
+              <select
+                id="guided-template-select"
+                className="launch-input"
+                value={selectedTemplatePath}
+                onChange={(e) => {
+                  setSelectedTemplatePath(e.target.value);
+                  // Reset overrides when switching templates so operator sees clean template defaults.
+                  setOverrides({});
+                }}
+              >
+                <option value={CUSTOM_CONFIG_VALUE}>No template — use defaults</option>
+                {configOptions.map((o) => (
+                  <option key={o.path} value={o.path}>{o.path}</option>
+                ))}
+              </select>
+            ) : (
+              <div className="launch-hint">No config files found in configs/experiments.</div>
+            )}
+            {templateLoadStatus === 'loading' && <div className="launch-hint">Reading template…</div>}
+            {templateLoadStatus === 'error' && (
+              <div className="launch-hint" style={{ color: 'var(--danger)' }}>Could not read template file.</div>
+            )}
+            {templateLoadStatus === 'ready' && templateFields.length > 0 && (
+              <div className="launch-hint">Applied: {templateFields.join(', ')}</div>
+            )}
+            {templateLoadStatus === 'ready' && templateFields.length === 0 && (
+              <div className="launch-hint">No extractable fields — defaults apply.</div>
+            )}
+          </div>
         </div>
 
-        {/* Command */}
+        {/* Mode */}
         <div className="launch-form-row">
           <label className="launch-label">Mode</label>
           <div className="workflow-actions">
@@ -516,17 +505,12 @@ function GuidedBuilderTab({ configOptions, configLoadStatus, diagnostic }: {
               </button>
             ))}
           </div>
-          <div className="artifact-meta" style={{ marginTop: '4px' }}>
-            {mergedState.command === 'run'
-              ? 'Execute a single configuration once.'
-              : 'Execute a parameter grid to compare combinations.'}
-          </div>
         </div>
 
-        {/* Asset / quote */}
+        {/* Market (asset + quote on one row) */}
         <div className="launch-form-row">
-          <label className="launch-label" htmlFor="guided-asset">Asset</label>
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <label className="launch-label" htmlFor="guided-asset">Market</label>
+          <div className="launch-market-pair">
             <input
               id="guided-asset"
               className="launch-input"
@@ -534,7 +518,6 @@ function GuidedBuilderTab({ configOptions, configLoadStatus, diagnostic }: {
               placeholder="ETH"
               value={mergedState.asset}
               onChange={(e) => set('asset', e.target.value.toUpperCase())}
-              style={{ flex: '1' }}
             />
             <input
               id="guided-quote"
@@ -543,7 +526,6 @@ function GuidedBuilderTab({ configOptions, configLoadStatus, diagnostic }: {
               placeholder="USDT"
               value={mergedState.quote}
               onChange={(e) => set('quote', e.target.value.toUpperCase())}
-              style={{ flex: '1' }}
             />
           </div>
         </div>
@@ -568,39 +550,39 @@ function GuidedBuilderTab({ configOptions, configLoadStatus, diagnostic }: {
         {/* Period */}
         <div className="launch-form-row">
           <label className="launch-label">Period</label>
-          <div className="workflow-actions">
-            {(['30d', '90d', '1y', 'custom'] as const).map((p) => (
-              <button
-                key={p}
-                type="button"
-                className={`ghost-btn ${mergedState.periodPreset === p ? 'is-selected' : ''}`}
-                onClick={() => set('periodPreset', p)}
-              >
-                {p}
-              </button>
-            ))}
-          </div>
-          {mergedState.periodPreset === 'custom' && (
-            <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-              <input
-                className="launch-input"
-                type="date"
-                value={mergedState.startDate}
-                onChange={(e) => set('startDate', e.target.value)}
-                style={{ flex: '1' }}
-              />
-              <input
-                className="launch-input"
-                type="date"
-                value={mergedState.endDate}
-                onChange={(e) => set('endDate', e.target.value)}
-                style={{ flex: '1' }}
-              />
+          <div>
+            <div className="workflow-actions">
+              {(['30d', '90d', '1y', 'custom'] as const).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  className={`ghost-btn ${mergedState.periodPreset === p ? 'is-selected' : ''}`}
+                  onClick={() => set('periodPreset', p)}
+                >
+                  {p}
+                </button>
+              ))}
             </div>
-          )}
+            {mergedState.periodPreset === 'custom' && (
+              <div className="launch-date-pair">
+                <input
+                  className="launch-input"
+                  type="date"
+                  value={mergedState.startDate}
+                  onChange={(e) => set('startDate', e.target.value)}
+                />
+                <input
+                  className="launch-input"
+                  type="date"
+                  value={mergedState.endDate}
+                  onChange={(e) => set('endDate', e.target.value)}
+                />
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Validation mode */}
+        {/* Validation */}
         <div className="launch-form-row">
           <label className="launch-label">Validation</label>
           <div className="workflow-actions">
@@ -614,11 +596,6 @@ function GuidedBuilderTab({ configOptions, configLoadStatus, diagnostic }: {
                 {m === 'backtest' ? 'Backtest' : 'Walk-forward'}
               </button>
             ))}
-          </div>
-          <div className="artifact-meta" style={{ marginTop: '4px' }}>
-            {mergedState.validationMode === 'walkforward'
-              ? 'Evaluates temporal robustness by dividing history into rolling windows.'
-              : 'Single in-sample evaluation over the full selected period.'}
           </div>
         </div>
 
@@ -643,18 +620,20 @@ function GuidedBuilderTab({ configOptions, configLoadStatus, diagnostic }: {
           </div>
         </div>
 
-        {/* Run name / notes */}
+        {/* Run name */}
         <div className="launch-form-row">
           <label className="launch-label" htmlFor="guided-run-name">Run name</label>
           <input
             id="guided-run-name"
             className="launch-input"
             type="text"
-            placeholder="Optional — defaults to generated ID"
+            placeholder="Optional…"
             value={mergedState.runName}
             onChange={(e) => set('runName', e.target.value)}
           />
         </div>
+
+        {/* Notes */}
         <div className="launch-form-row">
           <label className="launch-label" htmlFor="guided-notes">Notes</label>
           <input
@@ -668,9 +647,9 @@ function GuidedBuilderTab({ configOptions, configLoadStatus, diagnostic }: {
         </div>
 
         {/* Payload preview — generated by builderStateToConfig(), same path used for submit */}
-        <div className="launch-form-row">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-            <span className="launch-label">Payload preview</span>
+        <div className="launch-form-row no-border">
+          <label className="launch-label" style={{ paddingTop: '5px' }}>Preview</label>
+          <div>
             <button
               type="button"
               className="ghost-btn mini"
@@ -678,30 +657,30 @@ function GuidedBuilderTab({ configOptions, configLoadStatus, diagnostic }: {
             >
               {showPreview ? 'Hide' : 'Show'}
             </button>
+            {showPreview && (
+              <pre className="artifact-meta" style={{
+                background: 'var(--bg-soft)',
+                border: '1px solid var(--border)',
+                borderRadius: '6px',
+                padding: '10px 12px',
+                fontSize: '11px',
+                lineHeight: '1.6',
+                overflowX: 'auto',
+                margin: '6px 0 0',
+              }}>
+                {previewText}
+              </pre>
+            )}
+            {!valid && (
+              <div className="launch-hint" style={{ marginTop: '4px' }}>
+                Asset, quote, and timeframe required. Custom period needs at least one date.
+              </div>
+            )}
           </div>
-          {showPreview && (
-            <pre className="artifact-meta" style={{
-              background: 'var(--bg-soft)',
-              border: '1px solid var(--border)',
-              borderRadius: '6px',
-              padding: '10px 12px',
-              fontSize: '11px',
-              lineHeight: '1.6',
-              overflowX: 'auto',
-              margin: '0',
-            }}>
-              {previewText}
-            </pre>
-          )}
-          {!valid && (
-            <div className="artifact-meta" style={{ marginTop: '4px' }}>
-              Asset, quote, and timeframe are required. Custom period requires at least one date.
-            </div>
-          )}
         </div>
 
-        {/* Submit disabled — enabled in a follow-up slice after template-backed payload is wired */}
-        <div className="ops-callout tone-warning" style={{ marginTop: '12px' }}>
+        {/* Submit disabled — enabled in a follow-up slice after submit contract is finalized */}
+        <div className="ops-callout tone-warning" style={{ marginTop: '10px' }}>
           Guided submit is not active in this slice. Use <strong>Direct YAML</strong> to submit jobs now.
           Guided submit will be enabled after the submit contract is finalized.
         </div>
