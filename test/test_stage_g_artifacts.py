@@ -78,6 +78,8 @@ def test_grid_artifacts(tmp_path):
     assert (run_dir / "metrics.json").exists()
     assert (run_dir / "report.json").exists()
     assert (run_dir / "config_resolved.yaml").exists()
+    assert not (run_dir / "robustness_verdict.json").exists()
+    assert not (run_dir / "robustness_verdict.md").exists()
     
     with open(run_dir / "metadata.json", "r") as f:
         meta = json.load(f)
@@ -160,6 +162,19 @@ def test_walkforward_artifacts(tmp_path):
     assert (run_dir / "metrics.json").exists()
     assert (run_dir / "report.json").exists()
     assert (run_dir / "config_resolved.yaml").exists()
+    assert (run_dir / "robustness_verdict.json").exists()
+    assert (run_dir / "robustness_verdict.md").exists()
+
+    with open(run_dir / "robustness_verdict.json", "r") as f:
+        verdict = json.load(f)
+        assert verdict["artifact_type"] == "quantlab.walkforward_robustness_verdict"
+        assert verdict["status"] in {"pass", "fail", "review"}
+
+    with open(run_dir / "report.json", "r") as f:
+        report = json.load(f)
+        artifact_names = {artifact["file_name"] for artifact in report["artifacts"]}
+        assert "robustness_verdict.json" in artifact_names
+        assert "robustness_verdict.md" in artifact_names
     
     with open(run_dir / "metadata.json", "r") as f:
         meta = json.load(f)
@@ -168,3 +183,53 @@ def test_walkforward_artifacts(tmp_path):
         assert "n_train_runs" in meta
         assert "n_selected" in meta
         assert "n_test_runs" in meta
+
+
+def test_walkforward_fails_if_robustness_verdict_generation_fails(tmp_path, monkeypatch):
+    config = {
+        "ticker": "ETH-USD",
+        "start": "2023-01-01",
+        "end": "2023-01-31",
+        "interval": "1d",
+        "splits": [
+            {
+                "name": "split1",
+                "train": {"start": "2023-01-01", "end": "2023-01-10"},
+                "test": {"start": "2023-01-11", "end": "2023-01-15"},
+            }
+        ],
+        "param_grid": {"rsi_buy_max": [60]},
+        "selection": {"top_k": 1},
+    }
+    config_path = tmp_path / "wf_config.yaml"
+    with open(config_path, "w") as f:
+        yaml.dump(config, f)
+
+    out_dir = tmp_path / "run_wf"
+
+    def fail_verdict(_run_dir):
+        raise RuntimeError("verdict generation failed")
+
+    monkeypatch.setattr(
+        "quantlab.experiments.runner.write_walkforward_robustness_verdict",
+        fail_verdict,
+    )
+
+    with patch("quantlab.experiments.runner.fetch_ohlc_cached") as mock_fetch, \
+         patch("quantlab.experiments.runner.add_indicators") as mock_ind, \
+         patch("quantlab.experiments.runner.run_backtest") as mock_bt, \
+         patch("quantlab.experiments.runner.run_paper_broker") as mock_paper:
+
+        df = pd.DataFrame({"close": [1, 2, 3]}, index=pd.date_range("2023-01-01", periods=3))
+        mock_fetch.return_value = df
+        mock_ind.return_value = df.assign(ma20=1, rsi=50)
+        mock_bt.return_value = pd.DataFrame({
+            "equity": [1000, 1010],
+            "position": [0, 1],
+            "trade": [0, 1],
+            "strategy_ret_net": [0, 0.01],
+        }, index=df.index[:2])
+        mock_paper.return_value = pd.DataFrame()
+
+        with pytest.raises(RuntimeError, match="verdict generation failed"):
+            run_sweep(str(config_path), out_dir=str(out_dir))

@@ -17,6 +17,7 @@ from quantlab.strategies.rsi_ma_atr import RsiMaAtrStrategy
 from quantlab.backtest.engine import run_backtest
 from quantlab.backtest.metrics import compute_metrics
 from quantlab.execution.paper import run_paper_broker
+from quantlab.evaluation.walkforward_robustness import write_walkforward_robustness_verdict
 from quantlab.reporting.trade_analytics import compute_round_trips, aggregate_trade_metrics
 from quantlab.reporting.run_report import write_report as write_run_report
 from quantlab.reporting.report_summary import build_standard_summary
@@ -677,6 +678,8 @@ def run_walkforward(
         oos_lb = test_results.sort_values(sort_cols, ascending=[False] * len(sort_cols)) if sort_cols else test_results
         oos_lb.to_csv(oos_lb_csv, index=False)
         print(f"OOS Leaderboard saved to: {oos_lb_csv}")
+
+    write_walkforward_robustness_verdict(out_dir_path)
 
     # Repro pack
     lb_summary = oos_lb.head(10).to_dict(orient="records") if not oos_lb.empty else []
