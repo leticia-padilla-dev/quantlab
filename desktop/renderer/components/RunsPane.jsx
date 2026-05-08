@@ -305,26 +305,28 @@ function RunRow({ run, isSelected, isCandidate }) {
         )}
       </td>
       <td className="col-actions">
-        <button
-          className="ghost-btn mini"
-          onClick={() => openTab({ kind: 'run', runId: run.run_id })}
-          data-open-run={run.run_id}
-        >
-          Open
-        </button>
-        <button
-          className="ghost-btn mini"
-          onClick={() => openTab({ kind: 'artifacts', runId: run.run_id, title: `${run.run_id} artifacts`, subview: 'artifacts' })}
-          data-open-artifacts={run.run_id}
-        >
-          Explore
-        </button>
-        <button
-          className="ghost-btn mini"
-          onClick={() => toggleCandidate(run.run_id)}
-        >
-          {isCandidate ? 'Unmark' : 'Mark'} candidate
-        </button>
+        <div className="run-row-actions">
+          <button
+            className="ghost-btn mini"
+            onClick={() => openTab({ kind: 'run', runId: run.run_id })}
+            data-open-run={run.run_id}
+          >
+            Open
+          </button>
+          <button
+            className="ghost-btn mini"
+            onClick={() => openTab({ kind: 'artifacts', runId: run.run_id, title: `${run.run_id} artifacts`, subview: 'artifacts' })}
+            data-open-artifacts={run.run_id}
+          >
+            Explore
+          </button>
+          <button
+            className="ghost-btn mini"
+            onClick={() => toggleCandidate(run.run_id)}
+          >
+            {isCandidate ? 'Unmark' : 'Mark'}
+          </button>
+        </div>
       </td>
     </tr>
   );
