@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   Activity,
+  ShieldCheck,
   FlaskConical,
   Rocket,
   BarChart2,
@@ -41,6 +42,7 @@ export default function Sidebar({ currentSurface, isCollapsed, onToggle }) {
 
   const navItems = [
     { id: 'system',      label: 'System',      Icon: Activity       },
+    { id: 'execution',   label: 'Execution',   Icon: ShieldCheck    },
     { id: 'experiments', label: 'Experiments', Icon: FlaskConical   },
     { id: 'launch',      label: 'Launch',      Icon: Rocket         },
     { id: 'runs',        label: 'Runs',        Icon: BarChart2      },
@@ -225,6 +227,7 @@ function ContextPanel({ surface, runs, latestRun, shortlistCount, baselineId, pa
       );
 
     case 'system':
+    case 'execution':
       return (
         <section className="sidebar-panel">
           <div className="panel-label">At a glance</div>

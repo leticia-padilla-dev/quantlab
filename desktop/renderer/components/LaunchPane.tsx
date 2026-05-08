@@ -339,7 +339,7 @@ function SummaryCard({ label, value, tone = '' }: { label: string; value: string
 function JobCard({ job, onOpen }: { job: any; onOpen: () => void }) {
   const sig = launchSignal(job.status);
   return (
-    <button className="system-job-item" type="button" onClick={onOpen}>
+    <button className="system-job-item launch-job-item" type="button" onClick={onOpen}>
       <div className="system-job-top">
         <strong>{titleCase(job.command ?? 'unknown')}</strong>
         <span className={sig.tone}>{sig.label}</span>
@@ -991,29 +991,8 @@ export function LaunchPane({ tab: _tab }: { tab: LaunchTab }) {
         </div>
       )}
 
-      {/* Launch queue + builder */}
-      <div className="artifact-grid">
-        <section className="artifact-panel">
-          <div className="section-label">Launch queue</div>
-          <h3>Recent jobs</h3>
-          {recentJobs.length ? (
-            <div className="system-job-list">
-              {recentJobs.map((job: any) => (
-                <JobCard
-                  key={job.request_id}
-                  job={job}
-                  onOpen={() => openTab({ kind: 'job', requestId: job.request_id, job })}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="empty-state">
-              No launch jobs are visible yet. Submit a run or sweep to get started.
-            </div>
-          )}
-        </section>
-
-        {/* Builder panel with Guided / Direct YAML tabs */}
+      {/* Builder panel with Guided / Direct YAML tabs */}
+      <div className="launch-builder-stack">
         <div>
           <div className="tab-pills" style={{ marginBottom: '12px' }}>
             <button
@@ -1048,6 +1027,26 @@ export function LaunchPane({ tab: _tab }: { tab: LaunchTab }) {
             />
           )}
         </div>
+
+        <section className="artifact-panel launch-queue-panel">
+          <div className="section-label">Launch queue</div>
+          <h3>Recent jobs</h3>
+          {recentJobs.length ? (
+            <div className="system-job-list launch-job-list">
+              {recentJobs.map((job: any) => (
+                <JobCard
+                  key={job.request_id}
+                  job={job}
+                  onOpen={() => openTab({ kind: 'job', requestId: job.request_id, job })}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="empty-state">
+              No launch jobs are visible yet. Submit a run or sweep to get started.
+            </div>
+          )}
+        </section>
       </div>
     </div>
   );

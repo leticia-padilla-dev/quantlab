@@ -7,7 +7,7 @@ A hypothesis that is not registered may not be promoted.
 
 | Hypothesis ID | Claim | Asset Universe | Strategy Family | Status | Notes |
 |---------------|-------|----------------|-----------------|--------|-------|
-| H001 | RSI mean-reversion with cooldown generates positive risk-adjusted OOS returns on ETH during 2021–2024 | ETH | RSI cooldown | ACTIVE | First confirmatory candidate |
+| H001 | RSI mean-reversion with cooldown generates positive risk-adjusted OOS returns on ETH during 2021–2024 | ETH | RSI cooldown | ACTIVE | Discovery-stage hypothesis |
 | H002 | RSI mean-reversion with cooldown generalizes to BTC during 2021–2024 | BTC | RSI cooldown | ACTIVE | Cross-asset generalization test |
 | H003 | Simple momentum baseline provides a useful weak benchmark for RSI configs | BTC, ETH | Simple momentum | ACTIVE | Benchmark peer only |
 
@@ -15,8 +15,9 @@ A hypothesis that is not registered may not be promoted.
 
 - Each hypothesis must have a unique ID (H001, H002, …).
 - A hypothesis may map to multiple configs.
-- A hypothesis may only be promoted to confirmatory validation if it passes robustness review.
-- Discovery runs may reference a hypothesis but cannot promote it directly.
+- A hypothesis may only enter confirmatory validation when a specific config is frozen, linked to this hypothesis, and assigned a locked config identity.
+- Discovery runs may inform variants but cannot promote directly.
+- Only confirmatory runs may support candidate review.
 - A hypothesis that has been archived may not be re-opened without a new ID and documented reason.
 
 ## Decision States

@@ -9,6 +9,7 @@ const SURFACE_LABELS = {
   runs: 'Runs',
   candidates: 'Candidates',
   compare: 'Compare',
+  execution: 'Execution',
   'paper-ops': 'Paper Ops',
   assistant: 'Assistant',
 };
