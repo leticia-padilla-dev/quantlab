@@ -16,6 +16,7 @@ export type TabKind =
   | 'compare'
   | 'candidates'
   | 'system'
+  | 'execution'
   | 'experiments'
   | 'paper'
   | 'job'
@@ -43,6 +44,13 @@ export type SystemTab = {
   kind: 'system';
   id: 'system';
   navKind: 'system';
+  title: string;
+};
+
+export type ExecutionTab = {
+  kind: 'execution';
+  id: 'execution';
+  navKind: 'execution';
   title: string;
 };
 
@@ -146,6 +154,7 @@ export type Tab =
   | CompareTab
   | CandidatesTab
   | SystemTab
+  | ExecutionTab
   | ExperimentsTab
   | PaperTab
   | JobTab
