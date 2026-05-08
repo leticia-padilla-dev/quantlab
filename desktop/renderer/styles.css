@@ -1979,13 +1979,35 @@ button:disabled {
     font-size: 12px;
 }
 
+#react-root:not([hidden]) button.runtime-chip {
+    width: 100%;
+    cursor: pointer;
+    text-align: left;
+}
+
+#react-root:not([hidden]) button.runtime-chip:hover {
+    border-color: var(--border-strong);
+    background: var(--bg-hover);
+}
+
 #react-root:not([hidden]) .chip-indicator {
     color: var(--success);
     font-size: 14px;
 }
 
+#react-root:not([hidden]) .runtime-chip.down .chip-indicator {
+    color: var(--danger);
+}
+
+#react-root:not([hidden]) .runtime-chip.warn .chip-indicator {
+    color: var(--warning);
+}
+
 #react-root:not([hidden]) .chip-text {
     color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 #react-root:not([hidden]) .main-content {

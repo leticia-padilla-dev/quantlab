@@ -18,12 +18,82 @@ const NAV_ICON_SIZE = 16;
 
 function corridorChip(surface) {
   if (!surface || !surface.available) {
-    return { label: 'No sessions', cls: '' };
+    return {
+      label: 'No sessions',
+      cls: '',
+      rootAlert: 'Unavailable',
+      sessions: 0,
+      latestSession: '—',
+      latestOrder: '—',
+      latestSubmit: '—',
+    };
   }
-  if (surface.submit_has_alerts || surface.submit_alert_status !== 'ok') {
-    return { label: 'Alert', cls: 'down' };
+  const health = surface.submit_health || {};
+  const rootAlert = surface.submit_alert_status || 'unknown';
+  const sessions = Number(health.total_sessions || 0);
+  const rootAlertLabel = rootAlert === 'ok'
+    ? 'OK'
+    : rootAlert.charAt(0).toUpperCase() + rootAlert.slice(1);
+  const cls = surface.submit_has_alerts || rootAlert !== 'ok'
+    ? 'down'
+    : 'up';
+
+  return {
+    label: `${rootAlertLabel} · ${sessions} session${sessions === 1 ? '' : 's'}`,
+    cls,
+    rootAlert: rootAlertLabel,
+    sessions,
+    latestSession: health.latest_submit_session_id || '—',
+    latestOrder: health.latest_order_state || '—',
+    latestSubmit: health.latest_submit_state || '—',
+  };
+}
+
+function statusClass(value) {
+  const normalized = String(value || '').toLowerCase();
+  if (!normalized || normalized === '—' || normalized === 'unknown') return '';
+  if (normalized === 'ok' || normalized === 'filled' || normalized === 'signed') return 'tone-positive';
+  if (normalized === 'critical' || normalized.includes('reject') || normalized.includes('fail') || normalized.includes('error')) return 'tone-negative';
+  return 'tone-warning';
+}
+
+function formatSidebarState(value) {
+  if (!value || value === '—') return '—';
+  const raw = String(value);
+  if (raw.length > 20) return `${raw.slice(0, 8)}…`;
+  return raw.replace(/_/g, ' ');
+}
+
+function CorridorRows({ corridor, includeSession = false }) {
+  return (
+    <>
+      <div className="sidebar-context-row">
+        <span>Root alert</span>
+        <strong className={statusClass(corridor.rootAlert)}>{corridor.rootAlert}</strong>
+      </div>
+      <div className="sidebar-context-row">
+        <span>Sessions</span><strong>{corridor.sessions}</strong>
+      </div>
+      {includeSession && (
+        <>
+          <div className="sidebar-context-row">
+            <span>Latest order</span>
+            <strong className={statusClass(corridor.latestOrder)}>{formatSidebarState(corridor.latestOrder)}</strong>
+          </div>
+          <div className="sidebar-context-row">
+            <span>Latest submit</span>
+            <strong className={statusClass(corridor.latestSubmit)}>{formatSidebarState(corridor.latestSubmit)}</strong>
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
+function openExecutionSurface(navigateToSurface) {
+  if (typeof navigateToSurface === 'function') {
+    navigateToSurface('execution');
   }
-  return { label: 'ok', cls: 'up' };
 }
 
 /**
@@ -137,10 +207,15 @@ export default function Sidebar({ currentSurface, isCollapsed, onToggle }) {
             </section>
             <section className="sidebar-panel">
               <div className="panel-label">Corridor</div>
-              <div className={`runtime-chip ${corridor.cls}`}>
+              <button
+                className={`runtime-chip sidebar-corridor-chip ${corridor.cls}`}
+                type="button"
+                onClick={() => openExecutionSurface(navigateToSurface)}
+                title="Open Execution surface"
+              >
                 <span className="chip-indicator">●</span>
                 <span className="chip-text">{corridor.label}</span>
-              </div>
+              </button>
             </section>
           </div>
         </>
@@ -226,18 +301,22 @@ function ContextPanel({ surface, runs, latestRun, shortlistCount, baselineId, pa
         </section>
       );
 
-    case 'system':
     case 'execution':
       return (
         <section className="sidebar-panel">
           <div className="panel-label">At a glance</div>
           <div className="sidebar-context-list">
-            <div className="sidebar-context-row">
-              <span>Corridor</span>
-              <strong className={corridor.cls === 'up' ? 'tone-positive' : corridor.cls === 'down' ? 'tone-negative' : ''}>
-                {corridor.label}
-              </strong>
-            </div>
+            <CorridorRows corridor={corridor} includeSession />
+          </div>
+        </section>
+      );
+
+    case 'system':
+      return (
+        <section className="sidebar-panel">
+          <div className="panel-label">At a glance</div>
+          <div className="sidebar-context-list">
+            <CorridorRows corridor={corridor} />
             <div className="sidebar-context-row">
               <span>Indexed runs</span><strong>{runs.length}</strong>
             </div>
