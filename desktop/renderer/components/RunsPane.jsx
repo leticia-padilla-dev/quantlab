@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useQuantLab } from './QuantLabContext';
 import {
   formatCount,
@@ -236,12 +236,42 @@ function RunsTable({ runs }) {
 }
 
 /**
+ * Async loader for robustness verdict status — only fires for walkforward runs.
+ * Returns 'pass' | 'fail' | 'review' | null (null = not loaded or not applicable).
+ * Does not block render; badge appears when artifact is ready.
+ */
+function useRobustnessVerdictStatus(run) {
+  const [status, setStatus] = useState(null);
+
+  const isWalkforward = useMemo(() => {
+    const mode = String(run?.mode || '').toLowerCase();
+    const runId = String(run?.run_id || '').toLowerCase();
+    return mode.includes('walkforward') || mode.includes('walk-forward') || runId.includes('walkforward');
+  }, [run?.mode, run?.run_id]);
+
+  useEffect(() => {
+    if (!isWalkforward || !run?.path) return;
+    let cancelled = false;
+    const verdictPath = `${String(run.path).replace(/[\\/]+$/, '')}/robustness_verdict.json`;
+    window.quantlabDesktop?.readProjectJson?.(verdictPath)
+      .then((verdict) => {
+        if (!cancelled && verdict?.status) setStatus(String(verdict.status).toLowerCase());
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [isWalkforward, run?.path]);
+
+  return status;
+}
+
+/**
  * Individual run row in table
  */
 function RunRow({ run, isSelected, isCandidate }) {
   const { state, toggleRunSelection, toggleCandidate, openTab } = useQuantLab();
   const disableSelection =
     !isSelected && state.selectedRunIds.length >= 4;
+  const verdictStatus = useRobustnessVerdictStatus(run);
 
   return (
     <tr className={isSelected ? 'selected' : ''}>
@@ -268,6 +298,11 @@ function RunRow({ run, isSelected, isCandidate }) {
       </td>
       <td className="col-status">
         {isCandidate && <span className="badge candidate">Candidate</span>}
+        {verdictStatus && (
+          <span className={`badge verdict-badge verdict-${verdictStatus}`}>
+            {verdictStatus.toUpperCase()}
+          </span>
+        )}
       </td>
       <td className="col-actions">
         <button
