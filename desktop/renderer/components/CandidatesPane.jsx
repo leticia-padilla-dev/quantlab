@@ -145,20 +145,24 @@ export function CandidatesPane({ tab }) {
 
         <aside className="candidates-workbench-side">
           <div className="artifact-panel">
-            <div className="section-label">Queue controls</div>
-            <h3>Focus the decision queue</h3>
-            <div className="workflow-actions compare-rank-actions">
-              {FILTER_OPTIONS.map((option) => (
-                <button
-                  key={option}
-                  className={`ghost-btn ${filter === option ? 'is-selected' : ''}`}
-                  onClick={() => {
-                    // This would trigger upsertTab in the parent
-                  }}
-                >
-                  {titleCase(option)}
-                </button>
-              ))}
+            <div className="candidate-strip-head">
+              <div>
+                <div className="section-label">Queue controls</div>
+                <h3>Focus the decision queue</h3>
+              </div>
+              <div className="workflow-actions compare-rank-actions">
+                {FILTER_OPTIONS.map((option) => (
+                  <button
+                    key={option}
+                    className={`ghost-btn ${filter === option ? 'is-selected' : ''}`}
+                    onClick={() => {
+                      // This would trigger upsertTab in the parent
+                    }}
+                  >
+                    {titleCase(option)}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <dl className="metric-list">
@@ -220,10 +224,12 @@ function CandidateCard({ entry, isBaseline }) {
             {run.created_at || 'unknown'}
           </div>
         </div>
-        {isBaseline && <span className="badge baseline">Baseline</span>}
-        {entry.shortlisted && (
-          <span className="badge shortlist">Shortlisted</span>
-        )}
+        <div className="candidate-badges">
+          {isBaseline && <span className="badge baseline">Baseline</span>}
+          {entry.shortlisted && (
+            <span className="badge shortlist">Shortlisted</span>
+          )}
+        </div>
       </div>
 
       <div className="candidate-metrics">
@@ -249,25 +255,25 @@ function CandidateCard({ entry, isBaseline }) {
           className="ghost-btn mini"
           onClick={() => openTab({ kind: 'run', runId: run.run_id })}
         >
-          Open run
+          Open
         </button>
         <button
           className="ghost-btn mini"
           onClick={() => toggleCandidate(run.run_id)}
         >
-          {decision.isCandidateRun(run.run_id) ? 'Unmark' : 'Mark'} candidate
+          {decision.isCandidateRun(run.run_id) ? 'Unmark' : 'Mark'}
         </button>
         <button
           className="ghost-btn mini"
           onClick={() => toggleShortlist(run.run_id)}
         >
-          {entry.shortlisted ? 'Remove from' : 'Add to'} shortlist
+          {entry.shortlisted ? 'Remove' : 'Shortlist'}
         </button>
         <button
           className="ghost-btn mini"
           onClick={() => setBaseline(run.run_id)}
         >
-          {isBaseline ? 'Unset' : 'Set'} baseline
+          {isBaseline ? 'Unset' : 'Baseline'}
         </button>
       </div>
     </article>
