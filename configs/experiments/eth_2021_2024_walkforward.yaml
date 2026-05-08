@@ -1,0 +1,55 @@
+# ETH 2021-2024 multi-split walk-forward robustness validation.
+# Purpose:
+# - Validate the RSI/cooldown research hypothesis across multiple market regimes.
+# - Generate walk-forward artifacts and Core-owned robustness verdict artifacts.
+# - This config is for research validation only.
+# - It does not authorize baseline promotion, paper trading, broker execution,
+#   live execution, automation, or capital deployment.
+
+ticker: "ETH-USD"
+start: "2021-01-01"
+end: "2024-01-01"
+interval: "1d"
+
+fee: 0.002
+slippage_mode: "fixed"
+slippage_bps: 8.0
+k_atr: 0.05
+
+param_grid:
+  rsi_buy_max: [50.0, 55.0, 60.0]
+  rsi_sell_min: [70.0, 75.0, 80.0]
+  cooldown_days: [0, 2, 5]
+
+selection:
+  sort_by: ["sharpe_simple", "total_return"]
+  ascending: [false, false]
+  top_k: 3
+
+constraints:
+  min_trade_trades: 3
+
+splits:
+  - name: "2021_train__2022_test"
+    train:
+      start: "2021-01-01"
+      end: "2022-01-01"
+    test:
+      start: "2022-01-01"
+      end: "2023-01-01"
+
+  - name: "2022_train__2023_test"
+    train:
+      start: "2022-01-01"
+      end: "2023-01-01"
+    test:
+      start: "2023-01-01"
+      end: "2024-01-01"
+
+  - name: "H1_2023_train__H2_2023_test"
+    train:
+      start: "2023-01-01"
+      end: "2023-07-01"
+    test:
+      start: "2023-07-01"
+      end: "2024-01-01"
