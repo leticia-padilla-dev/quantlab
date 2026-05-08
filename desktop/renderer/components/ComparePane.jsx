@@ -327,24 +327,26 @@ function CompareRankingTable({ rankedRuns, rankMetric }) {
                 {formatPercent(run.max_drawdown)}
               </td>
               <td className="actions">
-                <button
-                  className="ghost-btn mini"
-                  onClick={() => toggleCandidate(run.run_id)}
-                >
-                  {decision.isCandidateRun(run.run_id) ? 'Unmark' : 'Mark'} candidate
-                </button>
-                <button
-                  className="ghost-btn mini"
-                  onClick={() => setBaseline(run.run_id)}
-                >
-                  Set baseline
-                </button>
-                <button
-                  className="ghost-btn mini"
-                  onClick={() => toggleShortlist(run.run_id)}
-                >
-                  {decision.isShortlistedRun(run.run_id) ? 'Remove' : 'Add'} to shortlist
-                </button>
+                <div className="compare-row-actions">
+                  <button
+                    className="ghost-btn mini"
+                    onClick={() => toggleCandidate(run.run_id)}
+                  >
+                    {decision.isCandidateRun(run.run_id) ? 'Unmark' : 'Mark'}
+                  </button>
+                  <button
+                    className="ghost-btn mini"
+                    onClick={() => setBaseline(run.run_id)}
+                  >
+                    Baseline
+                  </button>
+                  <button
+                    className="ghost-btn mini"
+                    onClick={() => toggleShortlist(run.run_id)}
+                  >
+                    {decision.isShortlistedRun(run.run_id) ? 'Remove' : 'Shortlist'}
+                  </button>
+                </div>
               </td>
             </tr>
           ))}

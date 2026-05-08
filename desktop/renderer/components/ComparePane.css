@@ -18,8 +18,8 @@
 }
 
 .compare-workbench {
-  display: grid;
-  grid-template-columns: 1fr 280px;
+  display: flex;
+  flex-direction: column;
   gap: 1rem;
   padding: 1.5rem;
   overflow: hidden;
@@ -27,16 +27,19 @@
 }
 
 .compare-workbench-main {
-  overflow-y: auto;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
   min-height: 0;
+  min-width: 0;
 }
 
 .compare-workbench-side {
-  overflow-y: auto;
-  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+  overflow: visible;
 }
 
 .artifact-panel {
@@ -94,8 +97,14 @@
 
 .runs-compare-table {
   width: 100%;
+  min-width: 1080px;
   border-collapse: collapse;
   font-size: 0.875rem;
+}
+
+.compare-ranking-table {
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .runs-compare-table thead {
@@ -132,6 +141,10 @@
 
 .runs-compare-table .run-id {
   font-weight: 500;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .runs-compare-table .metric-col {
@@ -155,9 +168,15 @@
 }
 
 .runs-compare-table .actions {
-  display: flex;
-  gap: 0.25rem;
-  flex-wrap: wrap;
+  white-space: nowrap;
+}
+
+.compare-row-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.35rem;
+  white-space: nowrap;
 }
 
 .mini-table {
@@ -198,6 +217,22 @@
     rgba(59, 130, 246, 0.05) 100%
   );
   border-color: var(--color-positive);
+}
+
+.compare-winner-card .metric-list {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+}
+
+.compare-winner-card .metric-list dt,
+.compare-winner-card .metric-list dd {
+  margin: 0;
+}
+
+.compare-winner-card .metric-list dt {
+  margin-right: -0.75rem;
 }
 
 .metric-list {
@@ -248,6 +283,6 @@
 }
 
 .ghost-btn.mini {
-  padding: 0.25rem 0.5rem;
+  padding: 0.25rem 0.45rem;
   font-size: 0.75rem;
 }
