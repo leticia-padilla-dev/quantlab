@@ -256,6 +256,13 @@
   min-height: auto;
 }
 
+.run-spotlight-card,
+.runs-decision-card {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
 .runs-workbench-side .artifact-panel {
   overflow: visible;
 }
@@ -265,6 +272,8 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
+  min-width: 280px;
+  flex: 1 1 340px;
 }
 
 .run-strip-head h3 {
@@ -278,9 +287,12 @@
 .runs-workbench-side .metric-list {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 0.75rem 1.25rem;
-  margin-top: 0.75rem;
+  margin: 0;
+  flex: 2 1 420px;
+  overflow-x: auto;
+  white-space: nowrap;
 }
 
 .runs-workbench-side .metric-list dt,
@@ -294,6 +306,24 @@
 
 .runs-decision-card .ghost-btn {
   flex-shrink: 0;
+}
+
+@media (max-width: 1200px) {
+  .run-spotlight-card,
+  .runs-decision-card {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .run-strip-head,
+  .runs-workbench-side .metric-list {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .runs-workbench-side .metric-list {
+    flex-wrap: wrap;
+  }
 }
 
 .metric-list {

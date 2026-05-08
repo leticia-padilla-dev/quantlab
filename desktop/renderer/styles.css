@@ -1580,6 +1580,19 @@ button:disabled {
     gap: 12px;
 }
 
+.launch-builder-stack {
+    display: grid;
+    gap: 18px;
+}
+
+.launch-queue-panel {
+    margin-top: 2px;
+}
+
+.launch-job-list {
+    gap: 14px;
+}
+
 .system-link-item,
 .system-job-item {
     width: 100%;
@@ -1597,6 +1610,26 @@ button:disabled {
 .system-job-item:hover {
     background: var(--bg-hover);
     border-color: var(--border-strong);
+}
+
+.launch-job-item {
+    position: relative;
+    display: grid;
+    gap: 8px;
+    padding: 16px 18px 16px 22px;
+    border-color: rgba(var(--accent-rgb), 0.24);
+    background:
+        linear-gradient(90deg, rgba(var(--accent-rgb), 0.22), transparent 4px),
+        linear-gradient(180deg, rgba(18, 27, 40, 0.94), rgba(10, 16, 24, 0.98));
+    box-shadow: inset 0 1px 0 rgba(var(--accent-rgb), 0.06);
+}
+
+.launch-job-item + .launch-job-item {
+    margin-top: 2px;
+}
+
+.launch-job-item .artifact-meta {
+    overflow-wrap: anywhere;
 }
 
 .system-link-item strong,
