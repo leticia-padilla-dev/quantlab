@@ -1,0 +1,59 @@
+# BTC/ETH simple momentum baseline — Official config set v1.
+# hypothesis_id: H003
+# reason: Weak systematic baseline peer. Used as benchmark comparison for RSI cooldown configs.
+#         No cooldown, wide RSI bands, minimal filtering — intentionally simple.
+#         This config cannot be promoted to candidate; it exists only as a benchmark peer.
+# This config is for benchmark reference only.
+# It does not authorize baseline promotion, paper trading, broker execution,
+# live execution, automation, or capital deployment.
+
+hypothesis_id: "H003"
+config_id: "C003"
+
+ticker: "ETH-USD"
+start: "2021-01-01"
+end: "2024-01-01"
+interval: "1d"
+
+fee: 0.002
+slippage_mode: "fixed"
+slippage_bps: 8.0
+k_atr: 0.05
+
+param_grid:
+  rsi_buy_max: [40.0, 45.0, 50.0]
+  rsi_sell_min: [60.0, 65.0, 70.0]
+  cooldown_days: [0]
+
+selection:
+  sort_by: ["sharpe_simple", "total_return"]
+  ascending: [false, false]
+  top_k: 3
+
+constraints:
+  min_trade_trades: 3
+
+splits:
+  - name: "2021_train__2022_test"
+    train:
+      start: "2021-01-01"
+      end: "2022-01-01"
+    test:
+      start: "2022-01-01"
+      end: "2023-01-01"
+
+  - name: "2022_train__2023_test"
+    train:
+      start: "2022-01-01"
+      end: "2023-01-01"
+    test:
+      start: "2023-01-01"
+      end: "2024-01-01"
+
+  - name: "H1_2023_train__H2_2023_test"
+    train:
+      start: "2023-01-01"
+      end: "2023-07-01"
+    test:
+      start: "2023-07-01"
+      end: "2024-01-01"
