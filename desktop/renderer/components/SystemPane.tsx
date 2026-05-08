@@ -45,6 +45,30 @@ function workspaceSignal(ws: Partial<WorkspaceState>): Signal {
   return { label: 'Pending', tone: 'tone-warning' };
 }
 
+function researchApiSignal(
+  ss: Partial<SnapshotStatus>,
+  serverUrl: string,
+): Signal & { detail: string } {
+  if (ss.status === 'ok') {
+    return { label: 'Online', tone: 'tone-positive', detail: `Connected at ${serverUrl}.` };
+  }
+  if (ss.status === 'degraded') {
+    return {
+      label: 'Degraded',
+      tone: 'tone-warning',
+      detail: ss.error ? `Some endpoints failing: ${ss.error}` : 'Some required endpoints are not responding.',
+    };
+  }
+  if (ss.status === 'error') {
+    return {
+      label: 'Offline',
+      tone: 'tone-negative',
+      detail: 'Backend not responding. Start it from the repo root: python research_ui/server.py',
+    };
+  }
+  return { label: 'Connecting…', tone: 'tone-warning', detail: 'Waiting for the first API response.' };
+}
+
 function snapshotSignal(ss: Partial<SnapshotStatus>): Signal & { lastSuccessAt: string } {
   const last = fmtDate(ss.lastSuccessAt);
   if (ss.status === 'ok') return { label: ss.refreshPaused ? 'Paused' : 'Live', tone: ss.refreshPaused ? 'tone-warning' : 'tone-positive', lastSuccessAt: last };
@@ -123,20 +147,15 @@ export function SystemPane({ tab: _tab }: { tab: SystemTab }) {
 
   const wsSig = workspaceSignal(workspace);
   const ssSig = snapshotSignal(snapshotStatus);
-  const backendOnline =
-    Boolean(workspaceServerUrl) ||
-    snapshotStatus.status === 'ok' ||
-    launchControl?.status === 'ok';
-  const backendDiagnostic = workspace.error
-    ? `Research backend: Error - ${workspace.error}`
-    : backendOnline
-      ? `Research backend: Online at ${workspaceServerUrl || researchUiServerUrl}`
-      : 'Research backend: Not reachable. Start it manually from the repo root with `python research_ui/server.py`.';
-  const backendTone = workspace.error
-    ? 'tone-negative'
-    : backendOnline
-      ? 'tone-positive'
-      : 'tone-warning';
+  const apiSig = researchApiSignal(snapshotStatus, workspaceServerUrl || researchUiServerUrl);
+  const wsBoot = workspace.error
+    ? { label: 'Error', tone: 'tone-negative', detail: workspace.error }
+    : { label: wsSig.label, tone: wsSig.tone, detail:
+        wsSig.tone === 'tone-positive'
+          ? workspace.serverUrl ? `Server URL resolved: ${workspace.serverUrl}` : 'Desktop workspace attached.'
+          : wsSig.label === 'Booting'
+            ? 'Electron workspace is initializing.'
+            : 'Waiting for server handshake.' };
   const runsIndexDiagnostic = runs.length > 0
     ? `Runs index: ${fmt(runs.length)} runs indexed`
     : 'Runs index: No indexed runs found. The index may be empty or not yet generated.';
@@ -231,13 +250,12 @@ export function SystemPane({ tab: _tab }: { tab: SystemTab }) {
 
       {/* Summary cards */}
       <div className="tab-summary-grid">
-        <SummaryCard label="QuantLab" value={wsSig.label} tone={wsSig.tone} />
-        <SummaryCard label="Snapshot" value={ssSig.label} tone={ssSig.tone} />
+        <SummaryCard label="Workspace bootstrap" value={wsSig.label} tone={wsSig.tone} />
+        <SummaryCard label="Research API" value={apiSig.label} tone={apiSig.tone} />
         <SummaryCard label="Indexed runs" value={fmt(runs.length)} tone={runs.length ? 'tone-positive' : 'tone-warning'} />
         <SummaryCard label="Launch jobs" value={fmt(Array.isArray(launchControl?.jobs) ? launchControl.jobs.length : 0)} tone={jobs.length ? 'tone-positive' : 'tone-warning'} />
         <SummaryCard label="Paper state" value={paper?.available ? 'Ready' : 'Pending'} tone={paper?.available ? 'tone-positive' : 'tone-warning'} />
         <SummaryCard label="Broker alerts" value={fmt(brokerAlerts.length)} tone={brokerAlerts.length ? 'tone-negative' : broker?.available ? 'tone-positive' : 'tone-warning'} />
-        <SummaryCard label="Launch workspace" value={workspace.serverUrl ? 'Connected' : 'Degraded'} tone={workspace.serverUrl ? 'tone-positive' : 'tone-warning'} />
         <SummaryCard label="Stepbit frontend" value={liveUrls.frontend_reachable ? 'Attached' : 'Detached'} tone={liveUrls.frontend_reachable ? 'tone-positive' : 'tone-warning'} />
         <SummaryCard label="Stepbit core" value={liveUrls.core_ready ? 'Ready' : liveUrls.core_reachable ? 'Partial' : 'Detached'} tone={liveUrls.core_ready ? 'tone-positive' : liveUrls.core_reachable ? 'tone-warning' : 'tone-negative'} />
       </div>
@@ -245,7 +263,12 @@ export function SystemPane({ tab: _tab }: { tab: SystemTab }) {
       <section className="artifact-panel system-stack">
         <div className="section-label">Runtime diagnostics</div>
         <h3>Data source status</h3>
-        <div className={`ops-callout ${backendTone}`}>{backendDiagnostic}</div>
+        <div className={`ops-callout ${wsBoot.tone}`}>
+          <strong>Workspace bootstrap:</strong> {wsBoot.label} — {wsBoot.detail}
+        </div>
+        <div className={`ops-callout ${apiSig.tone}`}>
+          <strong>Research API:</strong> {apiSig.label} — {apiSig.detail}
+        </div>
         <div className={`ops-callout ${runs.length ? 'tone-positive' : 'tone-warning'}`}>{runsIndexDiagnostic}</div>
         {!runs.length && (
           <div className="workflow-actions">
@@ -263,10 +286,10 @@ export function SystemPane({ tab: _tab }: { tab: SystemTab }) {
           <div className="section-label">Workspace</div>
           <h3>Bootstrap and refresh state</h3>
           <dl className="metric-list compact">
-            <MetricRow label="Workspace state" value={wsSig.label} tone={wsSig.tone} />
+            <MetricRow label="Workspace bootstrap" value={wsSig.label} tone={wsSig.tone} />
             <MetricRow label="Server URL" value={workspace.serverUrl ?? 'pending'} />
             <MetricRow label="Server source" value={titleCase(workspace.source ?? 'unknown')} />
-            <MetricRow label="Launch workspace surface" value={workspace.serverUrl ? 'Connected' : 'Degraded (runtime offline)'} tone={workspace.serverUrl ? 'tone-positive' : 'tone-warning'} />
+            <MetricRow label="Research API" value={apiSig.label} tone={apiSig.tone} />
             <MetricRow label="Refresh state" value={ssSig.label} tone={ssSig.tone} />
             <MetricRow label="Last refresh" value={ssSig.lastSuccessAt} />
             <MetricRow label="Consecutive refresh errors" value={fmt(snapshotStatus.consecutiveErrors ?? 0)} />
