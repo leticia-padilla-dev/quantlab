@@ -341,9 +341,13 @@ function RunsSpotlightCard({ run, baselineId }) {
 
   return (
     <div className="artifact-panel run-spotlight-card">
-      <div className="section-label">Spotlight</div>
-      <h3>{run?.run_id || 'None'}</h3>
-      {isBaseline && <span className="badge baseline">Baseline</span>}
+      <div className="run-strip-head">
+        <div>
+          <div className="section-label">Spotlight</div>
+          <h3>{run?.run_id || 'None'}</h3>
+        </div>
+        {isBaseline && <span className="badge baseline">Baseline</span>}
+      </div>
       <dl className="metric-list">
         <dt>Return</dt>
         <dd>{formatPercent(run?.total_return)}</dd>
@@ -365,18 +369,12 @@ function RunsDecisionQueueCard({ candidateCount, shortlistCount, compareReady, s
   const isEnabled = compareReady || selectionReady;
 
   return (
-    <div className="artifact-panel">
-      <div className="section-label">Decision queue</div>
-      <h3>Selection state</h3>
-      <dl className="metric-list">
-        <dt>Candidates</dt>
-        <dd>{formatCount(candidateCount)}</dd>
-        <dt>Shortlisted</dt>
-        <dd>{formatCount(shortlistCount)}</dd>
-        <dt>Compare ready</dt>
-        <dd>{compareReady ? 'Yes' : 'No'}</dd>
-      </dl>
-      <div style={{ marginTop: '15px' }}>
+    <div className="artifact-panel runs-decision-card">
+      <div className="run-strip-head">
+        <div>
+          <div className="section-label">Decision queue</div>
+          <h3>Selection state</h3>
+        </div>
         <button
           id="workflow-open-compare"
           className="ghost-btn"
@@ -392,6 +390,14 @@ function RunsDecisionQueueCard({ candidateCount, shortlistCount, compareReady, s
           Compare
         </button>
       </div>
+      <dl className="metric-list">
+        <dt>Candidates</dt>
+        <dd>{formatCount(candidateCount)}</dd>
+        <dt>Shortlisted</dt>
+        <dd>{formatCount(shortlistCount)}</dd>
+        <dt>Compare ready</dt>
+        <dd>{compareReady ? 'Yes' : 'No'}</dd>
+      </dl>
     </div>
   );
 }
