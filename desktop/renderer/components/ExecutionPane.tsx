@@ -10,6 +10,15 @@ const useQuantLab = _useQuantLab as () => any;
 
 const DEFAULT_RESEARCH_UI_SERVER_URL = 'http://127.0.0.1:8000';
 
+const ARTIFACT_TYPES = [
+  ['preflight', 'Preflight'],
+  ['account_readiness', 'Account readiness'],
+  ['signed_action', 'Signed action'],
+  ['submit_response', 'Submit response'],
+  ['order_status', 'Order status'],
+  ['continuous_supervision', 'Continuous supervision'],
+] as const;
+
 function fmt(n: number | null | undefined): string {
   if (n == null || isNaN(Number(n))) return '0';
   return String(Number(n));
@@ -81,6 +90,31 @@ function latestSessionStatus(
   };
 }
 
+function artifactState(artifact: any): { label: string; tone: string } {
+  if (!artifact) return { label: 'Missing', tone: 'tone-warning' };
+  const value =
+    artifact.normalized_state ??
+    artifact.submit_state ??
+    artifact.signature_state ??
+    artifact.readiness_allowed ??
+    artifact.market_supported ??
+    artifact.response_type ??
+    artifact.artifact_type ??
+    'Available';
+  const label = typeof value === 'boolean'
+    ? (value ? 'True' : 'False')
+    : titleCase(String(value));
+  return { label, tone: statusTone(String(value)) };
+}
+
+function copyText(text: string, setCopyStatus: (value: string | null) => void, label = 'Copied path') {
+  if (!text || typeof navigator?.clipboard?.writeText !== 'function') return;
+  void navigator.clipboard.writeText(text).then(() => {
+    setCopyStatus(label);
+    window.setTimeout(() => setCopyStatus(null), 1800);
+  });
+}
+
 function SummaryCard({ label, value, tone = '' }: { label: string; value: string; tone?: string }) {
   return (
     <article className={`summary-card ${tone}`}>
@@ -96,6 +130,58 @@ function MetricRow({ label, value, tone = '' }: { label: string; value: string; 
       <dt title={label}>{label}</dt>
       <dd title={value}>{value}</dd>
     </div>
+  );
+}
+
+function ArtifactListPanel({
+  artifacts,
+  setCopyStatus,
+}: {
+  artifacts: Record<string, any>;
+  setCopyStatus: (value: string | null) => void;
+}) {
+  return (
+    <section className="artifact-panel execution-panel execution-artifacts-panel">
+      <div className="section-label">Artifact list</div>
+      <h3>Supervised corridor evidence</h3>
+      <div className="execution-artifact-list">
+        {ARTIFACT_TYPES.map(([key, label]) => {
+          const artifact = artifacts?.[key] ?? null;
+          const state = artifactState(artifact);
+          const artifactPath = artifact?.path ?? null;
+          return (
+            <article className={`execution-artifact-row ${artifact ? '' : 'is-missing'}`} key={key}>
+              <div className="execution-artifact-main">
+                <strong>{label}</strong>
+                <span className={`execution-artifact-state ${state.tone}`}>{state.label}</span>
+              </div>
+              <div className="execution-artifact-meta">
+                <span>{artifact?.generated_at ? fmtDate(artifact.generated_at) : 'No artifact found'}</span>
+                <span title={artifactPath ?? ''}>{artifactPath ? truncate(artifactPath, 74) : '—'}</span>
+              </div>
+              <div className="execution-artifact-actions">
+                <button
+                  className="ghost-btn mini"
+                  type="button"
+                  disabled={!artifactPath}
+                  onClick={() => artifactPath && window.quantlabDesktop?.openPath?.(artifactPath)}
+                >
+                  Open
+                </button>
+                <button
+                  className="ghost-btn mini"
+                  type="button"
+                  disabled={!artifactPath || typeof navigator?.clipboard?.writeText !== 'function'}
+                  onClick={() => artifactPath && copyText(artifactPath, setCopyStatus, `Copied ${label} path`)}
+                >
+                  Copy
+                </button>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
@@ -119,6 +205,7 @@ export function ExecutionPane({ tab: _tab }: { tab: ExecutionTab }) {
     surface?.latest_artifacts?.submit_response ??
     surface?.latest_artifacts?.continuous_supervision ??
     null;
+  const latestArtifacts: Record<string, any> = surface?.latest_artifacts ?? {};
   const latestArtifactPath: string | null = latestArtifact?.path ?? null;
   const latestUpdatedAt: string | null = surface?.latest_ready_generated_at ?? health.latest_submit_at ?? null;
   const signatureState: string = surface?.signature_state ?? 'unknown';
@@ -242,9 +329,7 @@ export function ExecutionPane({ tab: _tab }: { tab: ExecutionTab }) {
                 disabled={!latestArtifactPath || typeof navigator?.clipboard?.writeText !== 'function'}
                 onClick={async () => {
                   if (!latestArtifactPath || typeof navigator?.clipboard?.writeText !== 'function') return;
-                  await navigator.clipboard.writeText(latestArtifactPath);
-                  setCopyStatus('Copied latest artifact path');
-                  window.setTimeout(() => setCopyStatus(null), 1800);
+                  copyText(latestArtifactPath, setCopyStatus, 'Copied latest artifact path');
                 }}
               >
                 Copy artifact path
@@ -252,6 +337,8 @@ export function ExecutionPane({ tab: _tab }: { tab: ExecutionTab }) {
             </div>
             {copyStatus && <div className="artifact-meta">{copyStatus}</div>}
           </section>
+
+          <ArtifactListPanel artifacts={latestArtifacts} setCopyStatus={setCopyStatus} />
 
           <section className="artifact-panel execution-panel execution-boundary">
             <div className="section-label">Boundary</div>
