@@ -316,3 +316,18 @@
   padding: 0.25rem 0.5rem;
   font-size: 0.75rem;
 }
+
+/* Robustness verdict badge — compact, tone-colored, no background fill */
+.badge.verdict-badge {
+  font-size: 0.69rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  border-radius: 999px;
+  padding: 2px 8px;
+  border: 1px solid currentColor;
+  background: transparent;
+}
+
+.badge.verdict-pass   { color: var(--success); border-color: rgba(57, 217, 138, 0.5);  background: rgba(57, 217, 138, 0.08); }
+.badge.verdict-fail   { color: var(--danger);  border-color: rgba(232, 93, 117, 0.5);  background: rgba(232, 93, 117, 0.08); }
+.badge.verdict-review { color: var(--warning); border-color: rgba(242, 185, 75,  0.5); background: rgba(242, 185, 75,  0.08); }
