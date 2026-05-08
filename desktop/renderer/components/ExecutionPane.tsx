@@ -90,6 +90,41 @@ function latestSessionStatus(
   };
 }
 
+function alertCode(alert: any): string {
+  return String(alert?.alert_code ?? alert?.code ?? 'UNKNOWN_ALERT');
+}
+
+function alertSessionId(alert: any): string | null {
+  const value = alert?.session_id ?? alert?.submit_session_id ?? null;
+  return value ? String(value) : null;
+}
+
+function alertTone(alert: any): string {
+  const severity = String(alert?.severity ?? '').toLowerCase();
+  const code = alertCode(alert).toLowerCase();
+  if (severity === 'critical' || code.includes('rejected') || code.includes('failed') || code.includes('missing')) {
+    return 'tone-negative';
+  }
+  if (severity === 'warning' || code.includes('unknown') || code.includes('attention') || code.includes('canceled')) {
+    return 'tone-warning';
+  }
+  return 'tone-positive';
+}
+
+function alertExplanation(alert: any): string {
+  const message = typeof alert?.message === 'string' ? alert.message.trim() : '';
+  if (message) return message;
+
+  const code = alertCode(alert);
+  if (code.includes('RECONCILIATION')) return 'Reconciliation evidence is incomplete or ambiguous for this submit session.';
+  if (code.includes('REJECTED')) return 'A submit or remote order was rejected and remains preserved as corridor evidence.';
+  if (code.includes('CANCEL')) return 'A cancel-related artifact requires review before interpreting this session as clean.';
+  if (code.includes('SUPERVISION')) return 'Continuous supervision marked this session for operator attention.';
+  if (code.includes('ORDER_STATUS')) return 'Order status evidence is missing or unknown for this submit session.';
+  if (code.includes('SIGN')) return 'Signing evidence is missing, unsigned, or mismatched for this submit session.';
+  return 'Core emitted this corridor alert. Inspect the linked session artifacts before interpreting the current execution state.';
+}
+
 function artifactState(artifact: any): { label: string; tone: string } {
   if (!artifact) return { label: 'Missing', tone: 'tone-warning' };
   const value =
@@ -130,6 +165,81 @@ function MetricRow({ label, value, tone = '' }: { label: string; value: string; 
       <dt title={label}>{label}</dt>
       <dd title={value}>{value}</dd>
     </div>
+  );
+}
+
+function AlertListPanel({
+  alerts,
+  setCopyStatus,
+}: {
+  alerts: any[];
+  setCopyStatus: (value: string | null) => void;
+}) {
+  const visibleAlerts = alerts.slice(0, 5);
+
+  return (
+    <section className="artifact-panel execution-panel execution-alerts-panel">
+      <div className="section-label">Latest alerts</div>
+      <h3>Corridor alert evidence</h3>
+      <p className="artifact-meta execution-alert-note">
+        Alerts are Core-generated and historical. A preserved critical alert can keep the root corridor status elevated
+        even when the latest session fields look complete.
+      </p>
+      {visibleAlerts.length === 0 ? (
+        <div className="empty-state compact">No corridor alerts are currently reported.</div>
+      ) : (
+        <div className="execution-alert-list">
+          {visibleAlerts.map((alert, index) => {
+            const code = alertCode(alert);
+            const sessionId = alertSessionId(alert);
+            const tone = alertTone(alert);
+            const alertPath = alert?.path ? String(alert.path) : null;
+            return (
+              <article className={`execution-alert-row ${tone}`} key={`${code}-${sessionId ?? index}`}>
+                <div className="execution-alert-main">
+                  <span className={`execution-alert-pill ${tone}`}>{titleCase(alert?.severity ?? 'alert')}</span>
+                  <strong title={code}>{code}</strong>
+                </div>
+                <div className="execution-alert-meta">
+                  <span title={sessionId ?? ''}>Session {sessionId ?? '—'}</span>
+                  <span>{fmtDate(alert?.activity_at)}</span>
+                </div>
+                <p>{alertExplanation(alert)}</p>
+                <div className="execution-alert-actions">
+                  <button
+                    className="ghost-btn mini"
+                    type="button"
+                    disabled={!alertPath}
+                    onClick={() => alertPath && window.quantlabDesktop?.openPath?.(alertPath)}
+                  >
+                    Open
+                  </button>
+                  <button
+                    className="ghost-btn mini"
+                    type="button"
+                    disabled={!sessionId || typeof navigator?.clipboard?.writeText !== 'function'}
+                    onClick={() => sessionId && copyText(sessionId, setCopyStatus, 'Copied alert session id')}
+                  >
+                    Copy id
+                  </button>
+                  <button
+                    className="ghost-btn mini"
+                    type="button"
+                    disabled={!alertPath || typeof navigator?.clipboard?.writeText !== 'function'}
+                    onClick={() => alertPath && copyText(alertPath, setCopyStatus, 'Copied alert path')}
+                  >
+                    Copy path
+                  </button>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
+      {alerts.length > visibleAlerts.length && (
+        <div className="artifact-meta">Showing {visibleAlerts.length} of {alerts.length} alerts.</div>
+      )}
+    </section>
   );
 }
 
@@ -198,7 +308,7 @@ export function ExecutionPane({ tab: _tab }: { tab: ExecutionTab }) {
   const empty = !surface || !surface.available;
   const health = surface?.submit_health ?? {};
   const alerts: any[] = Array.isArray(surface?.submit_alerts) ? surface.submit_alerts : [];
-  const latestAlertCode: string | null = alerts[0]?.code ?? null;
+  const latestAlertCode: string | null = alerts[0] ? alertCode(alerts[0]) : null;
   const alertStatus: string = surface?.submit_alert_status ?? 'unknown';
   const latestArtifact: any =
     surface?.latest_artifacts?.order_status ??
@@ -287,6 +397,8 @@ export function ExecutionPane({ tab: _tab }: { tab: ExecutionTab }) {
               <MetricRow label="Latest artifact path" value={truncate(latestArtifactPath ?? '', 72)} />
             </dl>
           </section>
+
+          <AlertListPanel alerts={alerts} setCopyStatus={setCopyStatus} />
 
           <section className="artifact-panel execution-panel">
             <div className="section-label">Safe review actions</div>
