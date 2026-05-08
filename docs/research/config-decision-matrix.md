@@ -14,6 +14,8 @@ No config may be promoted to candidate without a row and a recorded decision.
 
 ## Matrix
 
+> Initial rows may represent planned configs. They must remain Decision = REVIEW until artifacts exist.
+
 | Config ID | Hypothesis ID | Config File | Asset | Window | Splits | Verdict | Positive OOS | Worst Split | Trades | Benchmark | Decision | Memo |
 |-----------|---------------|-------------|-------|--------|--------|---------|--------------|-------------|--------|-----------|----------|------|
 | C001 | H001 | eth_2021_2024_rsi_cooldown_walkforward.yaml | ETH | 2021–2024 | — | — | — | — | — | pending | REVIEW | Pending first run |
@@ -43,7 +45,7 @@ No config may be promoted to candidate without a row and a recorded decision.
 - A PASS verdict does not automatically set Decision = PASS. Operator must record the decision.
 - A Decision = ARCHIVED requires a documented reason in the Memo column.
 - Benchmark column must reference at least HODL and no-trade before a config can reach shortlist.
-- Config hash must be locked before a config transitions from REVIEW to PASS.
+- Config hash must be locked before confirmatory validation and before any config can be considered for Decision = PASS.
 - No config may have Decision = PASS without a `robustness_verdict.json` artifact.
 
 ## Benchmark Peers Required Before Shortlist
