@@ -207,3 +207,41 @@ a new scoping decision by the operator.
 - [roadmap.md](./roadmap.md) — stage definitions and promotion ladder
 - [hyperliquid-boundary-review.md](./hyperliquid-boundary-review.md) — venue contract gap analysis
 - [execution-context-layer.md](./execution-context-layer.md) — signer/routing identity model
+
+---
+
+## 7. Operator Next Actions
+
+**Validation status as of 2026-05-08:** Classification complete (§ 4.6). Stage E explicitly blocked.
+
+### 7.1 What is allowed right now
+
+| Action | Allowed |
+|--------|---------|
+| Research iteration (backtests, walk-forward, Desktop) | Yes |
+| Candidate / shortlist tagging in Desktop | Yes |
+| Generating Hyperliquid signed actions (dry, no submit) | Yes |
+| Reviewing runbook and reconciliation artifacts from #446 | Yes |
+| Opening Stage E issue | No — requires all five declarations below |
+| Submitting a live order | No — requires § 12 gate conditions + operator approval |
+| Paper trading | No — requires D.3 hardening completion |
+| Automation | No — requires full execution gate |
+
+### 7.2 The five declarations required to open Stage E
+
+Before Stage E can be opened, the operator must provide written confirmation for each of the following. Each confirmation must reference the specific section and artifact involved.
+
+| # | Declaration | Reference |
+|---|-------------|-----------|
+| 1 | "I can reconstruct the entry and close flows using only the runbook, without consulting #446 session history." | Runbook § 5, § 6.5 |
+| 2 | "I understand the alert aggregation model: `critical` at root level is expected after historical rejections; session-level `alert_status: ok` is the correct success indicator." | Runbook § 11, alert distinction |
+| 3 | "I can explain the reconciliation state transitions (`submitted_remote` → `filled` or `reconciliation_required`) with reference to the #446 entry artifact." | `outputs/hyperliquid_submits/20260502_230137_hyperliquid_submit_7209d49` |
+| 4 | "I understand that reduce-only close is the correct stop-control mechanism for a filled perp position, and that emergency UI close is the fallback of last resort only when QuantLab artifacts are unavailable." | Runbook § 6, § 12 gate rule 9 |
+| 5 | "The #446 session directories exist locally, are readable, and have not been modified since cycle completion." | Entry: `20260502_230137_hyperliquid_submit_7209d49` · Close: `20260502_232513_hyperliquid_submit_5d599f8` |
+
+### 7.3 Process for opening Stage E
+
+1. Operator provides written confirmation for all five declarations in § 7.2 (inline comment on this issue or a new issue is acceptable).
+2. Each confirmation explicitly references the runbook section or artifact path listed in the table.
+3. Once all five are confirmed, operator creates a new Stage E scoping issue — Stage E is **never** implied by closing this issue.
+4. Stage E issue must define explicit scope; it is not a continuation of D.3.
