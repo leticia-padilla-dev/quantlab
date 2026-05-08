@@ -9,6 +9,7 @@ const REQUIRED_ENDPOINTS = {
 
 const OPTIONAL_ENDPOINTS = {
   launchControl: '/api/launch-control',
+  hyperliquidSurface: '/api/hyperliquid-surface',
 };
 
 const INITIAL_STATUS = {
