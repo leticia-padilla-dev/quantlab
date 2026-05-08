@@ -1,11 +1,12 @@
 import React from 'react';
+import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 
 /**
  * Topbar - Top navigation bar with:
  * - Runtime status indicator
  * - Version display
  * - Sidebar toggle
- * 
+ *
  * This is the minimal topbar for the new shell frame.
  * It provides visibility into system state without replacing legacy surfaces.
  */
@@ -13,15 +14,16 @@ export default function Topbar({ currentSurface, onToggleSidebar, isSidebarColla
   return (
     <header className="topbar">
       <div className="topbar-left">
-        <button 
-          className="topbar-toggle" 
+        <button
+          className="topbar-toggle"
           onClick={onToggleSidebar}
           aria-label={isSidebarCollapsed ? "Open sidebar" : "Close sidebar"}
           title={isSidebarCollapsed ? "Open sidebar" : "Close sidebar"}
         >
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-            <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" />
-          </svg>
+          {isSidebarCollapsed
+            ? <PanelLeftOpen size={18} strokeWidth={1.6} />
+            : <PanelLeftClose size={18} strokeWidth={1.6} />
+          }
         </button>
       </div>
 
@@ -42,11 +44,6 @@ export default function Topbar({ currentSurface, onToggleSidebar, isSidebarColla
   );
 }
 
-/**
- * Format surface name for display
- * @param {string} surface
- * @returns {string}
- */
 function formatSurfaceLabel(surface) {
   const labels = {
     'system': 'System',

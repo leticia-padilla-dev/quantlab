@@ -1862,6 +1862,40 @@ button:disabled {
 
 #react-root:not([hidden]) .sidebar.collapsed {
     display: none;
+    width: 0;
+    padding: 0;
+    border-right: none;
+    overflow: hidden;
+}
+
+#react-root:not([hidden]) .sidebar-context-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+#react-root:not([hidden]) .sidebar-context-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 0.78rem;
+}
+
+#react-root:not([hidden]) .sidebar-context-row span {
+    color: var(--muted);
+    white-space: nowrap;
+}
+
+#react-root:not([hidden]) .sidebar-context-row strong {
+    color: var(--text);
+    font-weight: 500;
+    text-align: right;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100px;
 }
 
 #react-root:not([hidden]) .sidebar-brand {
