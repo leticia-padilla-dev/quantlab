@@ -8,6 +8,7 @@ import { RunDetailPane } from './RunDetailPane';
 import { TabsBar } from './TabsBar';
 import { PaperOpsPane } from './PaperOpsPane';
 import { SystemPane } from './SystemPane';
+import { ExecutionPane } from './ExecutionPane';
 import { ExperimentsPane } from './ExperimentsPane';
 import { JobLaunchReviewPane } from './JobLaunchReviewPane';
 import { AssistantPane } from './AssistantPane';
@@ -80,6 +81,8 @@ function renderSurface(tab: Tab): React.ReactElement {
       return <CandidatesPane tab={tab as any} />;
     case 'system':
       return <SystemPane tab={tab as any} />;
+    case 'execution':
+      return <ExecutionPane tab={tab as any} />;
     case 'experiments':
       return <ExperimentsPane tab={tab as any} />;
     case 'paper':

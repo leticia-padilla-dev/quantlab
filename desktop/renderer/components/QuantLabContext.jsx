@@ -226,6 +226,7 @@ export function useQuantLabContextValue() {
         'compare': 'compare:selection',
         'paper-ops': 'paper-ops',
         'system': 'system',
+        'execution': 'execution',
         'experiments': 'experiments',
         'launch': 'launch'
       };
@@ -245,6 +246,7 @@ export function useQuantLabContextValue() {
         'compare': 'Compare',
         'paper-ops': 'Paper Ops',
         'system': 'System',
+        'execution': 'Execution',
         'experiments': 'Experiments',
         'launch': 'Launch'
       };
