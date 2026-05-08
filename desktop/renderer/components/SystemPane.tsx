@@ -115,6 +115,66 @@ function WatchItem({ tone, label, body }: { tone: string; label: string; body: s
   );
 }
 
+// ── Hyperliquid supervised corridor panel ─────────────────────────────────────
+
+type CorridorProps = {
+  surface: any;
+  fmtDate: (iso: string | null | undefined) => string;
+  fmt: (n: number | null | undefined) => string;
+  truncate: (text: string, maxChars: number) => string;
+};
+
+function HyperliquidCorridorPanel({ surface, fmtDate, fmt, truncate }: CorridorProps) {
+  const empty = !surface || !surface.available;
+
+  const health = surface?.submit_health ?? {};
+  const alerts: any[] = Array.isArray(surface?.submit_alerts) ? surface.submit_alerts : [];
+  const latestAlertCode: string | null = alerts[0]?.code ?? null;
+  const alertStatus: string = surface?.submit_alert_status ?? '—';
+  const alertTone = alertStatus === 'ok' ? 'tone-positive' : alertStatus === '—' ? '' : 'tone-negative';
+  const signatureState: string = surface?.signature_state ?? '—';
+  const latestUpdatedAt: string | null = surface?.latest_ready_generated_at ?? health.latest_submit_at ?? null;
+
+  const latestArtifact: any =
+    surface?.latest_artifacts?.order_status ??
+    surface?.latest_artifacts?.submit_response ??
+    surface?.latest_artifacts?.continuous_supervision ??
+    null;
+  const latestArtifactPath: string | null = latestArtifact?.path ?? null;
+
+  return (
+    <section className="artifact-panel system-stack corridor-panel">
+      <div className="section-label">Execution</div>
+      <h3>Hyperliquid supervised corridor</h3>
+      <p className="corridor-copy">
+        Read-only status from QuantLab artifacts. Desktop does not authorize or submit orders.
+      </p>
+      {empty ? (
+        <div className="empty-state">
+          Latest supervised evidence unavailable. Backend may be offline or no submit sessions exist yet.
+        </div>
+      ) : (
+        <dl className="metric-list compact">
+          <MetricRow label="Total sessions" value={fmt(health.total_sessions)} />
+          <MetricRow label="Latest session" value={health.latest_submit_session_id ?? '—'} />
+          <MetricRow label="Latest submit state" value={health.latest_submit_state ?? '—'} />
+          <MetricRow label="Latest order state" value={health.latest_order_state ?? '—'} />
+          <MetricRow label="Latest artifact state" value={latestArtifact?.normalized_state ?? '—'} />
+          <MetricRow label="Signature state" value={signatureState} />
+          <MetricRow label="Alert status" value={alertStatus} tone={alertTone} />
+          {latestAlertCode && (
+            <MetricRow label="Latest alert" value={latestAlertCode} tone="tone-negative" />
+          )}
+          <MetricRow label="Last evidence at" value={fmtDate(latestUpdatedAt)} />
+          {latestArtifactPath && (
+            <MetricRow label="Latest artifact path" value={truncate(latestArtifactPath, 48)} />
+          )}
+        </dl>
+      )}
+    </section>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 const DEFAULT_RESEARCH_UI_SERVER_URL = 'http://127.0.0.1:8000';
@@ -134,6 +194,7 @@ export function SystemPane({ tab: _tab }: { tab: SystemTab }) {
   const paper = (snapshot as any).paperHealth ?? null;
   const broker = (snapshot as any).brokerHealth ?? null;
   const stepbit = (snapshot as any).stepbitWorkspace ?? null;
+  const hyperliquidSurface = (snapshot as any).hyperliquidSurface ?? null;
   const liveUrls: Record<string, unknown> = stepbit?.live_urls ?? {};
 
   const runs = getRuns();
@@ -377,6 +438,9 @@ export function SystemPane({ tab: _tab }: { tab: SystemTab }) {
           }
         </section>
       </div>
+
+      {/* Supervised corridor */}
+      <HyperliquidCorridorPanel surface={hyperliquidSurface} fmtDate={fmtDate} fmt={fmt} truncate={truncate} />
     </div>
   );
 }

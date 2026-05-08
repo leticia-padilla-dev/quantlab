@@ -2308,3 +2308,17 @@ input[type="date"].launch-input {
     white-space: pre;
     word-break: normal;
 }
+
+/* Hyperliquid supervised corridor panel */
+.corridor-panel {
+    grid-column: 1 / -1;
+}
+
+.corridor-copy {
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--muted);
+    line-height: 1.5;
+    border-left: 2px solid var(--border-strong);
+    padding-left: 10px;
+}
