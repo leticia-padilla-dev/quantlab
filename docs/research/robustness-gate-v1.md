@@ -175,7 +175,7 @@ automatically after the sweep completes. No manual step is required.
 For existing walk-forward run directories that predate automatic emission:
 
 ```bash
-PYTHONPATH=src python main.py --evaluate-walkforward-robustness <run_dir>
+PYTHONPATH=src python main.py --evaluate-walkforward-run <run_dir>
 ```
 
 This writes (or overwrites) `robustness_verdict.json` and
