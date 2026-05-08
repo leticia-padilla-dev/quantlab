@@ -117,64 +117,69 @@ export function CandidatesPane({ tab }) {
       <div className="candidates-workbench">
         <div className="candidates-workbench-main">
           <div className="artifact-panel">
-            <div className="section-label">{titleCase(filter)}</div>
-            <h3>Decision queue</h3>
-            <div className="artifact-meta">
-              Sorted by baseline, shortlist, and recency so the queue behaves
-              like a real operator surface.
+            <div className="candidate-panel-head">
+              <div>
+                <div className="section-label">{titleCase(filter)}</div>
+                <h3>Decision queue</h3>
+                <div className="artifact-meta">
+                  Sorted by baseline, shortlist, and recency so the queue behaves
+                  like a real operator surface.
+                </div>
+              </div>
+              <div className="candidate-control-strip" aria-label="Queue controls">
+                <span className="section-label">Queue controls</span>
+                <div className="workflow-actions compare-rank-actions">
+                  {FILTER_OPTIONS.map((option) => (
+                    <button
+                      key={option}
+                      className={`ghost-btn ${filter === option ? 'is-selected' : ''}`}
+                      onClick={() => {
+                        // This would trigger upsertTab in the parent
+                      }}
+                    >
+                      {titleCase(option)}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
-            {visibleEntries.length ? (
-              <div className="candidate-list">
-                {visibleEntries.map((entry) => (
-                  <CandidateCard
-                    key={entry.run_id}
-                    entry={entry}
-                    isBaseline={
-                      entry.run_id === candidatesStore.baseline_run_id
-                    }
-                  />
-                ))}
+
+            <dl className="candidate-queue-metrics">
+              <div>
+                <dt>Visible entries</dt>
+                <dd>{formatCount(visibleEntries.length)}</dd>
               </div>
-            ) : (
-              <div className="empty-state">
-                No runs match this candidate filter yet.
+              <div>
+                <dt>Total candidates</dt>
+                <dd>{formatCount(sortedEntries.length)}</dd>
               </div>
-            )}
+              <div>
+                <dt>Shortlist ready</dt>
+                <dd>{compareReady ? 'Yes' : 'No'}</dd>
+              </div>
+            </dl>
+
+            <div className="candidate-list-wrap">
+              {visibleEntries.length ? (
+                <div className="candidate-list">
+                  {visibleEntries.map((entry) => (
+                    <CandidateCard
+                      key={entry.run_id}
+                      entry={entry}
+                      isBaseline={
+                        entry.run_id === candidatesStore.baseline_run_id
+                      }
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="empty-state">
+                  No runs match this candidate filter yet.
+                </div>
+              )}
+            </div>
           </div>
         </div>
-
-        <aside className="candidates-workbench-side">
-          <div className="artifact-panel">
-            <div className="candidate-strip-head">
-              <div>
-                <div className="section-label">Queue controls</div>
-                <h3>Focus the decision queue</h3>
-              </div>
-              <div className="workflow-actions compare-rank-actions">
-                {FILTER_OPTIONS.map((option) => (
-                  <button
-                    key={option}
-                    className={`ghost-btn ${filter === option ? 'is-selected' : ''}`}
-                    onClick={() => {
-                      // This would trigger upsertTab in the parent
-                    }}
-                  >
-                    {titleCase(option)}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <dl className="metric-list">
-              <dt>Visible entries</dt>
-              <dd>{formatCount(visibleEntries.length)}</dd>
-              <dt>Total candidates</dt>
-              <dd>{formatCount(sortedEntries.length)}</dd>
-              <dt>Shortlist ready</dt>
-              <dd>{compareReady ? 'Yes' : 'No'}</dd>
-            </dl>
-          </div>
-        </aside>
       </div>
     </div>
   );
