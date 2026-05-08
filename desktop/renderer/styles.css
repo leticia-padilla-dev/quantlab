@@ -2387,8 +2387,22 @@ input[type="date"].launch-input {
     align-items: stretch;
 }
 
+.execution-explainer {
+    margin: -4px 0 0;
+}
+
 .execution-panel {
     min-height: 100%;
+}
+
+.execution-session-callout {
+    margin: 10px 0 14px;
+}
+
+.execution-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
 }
 
 .execution-boundary p {

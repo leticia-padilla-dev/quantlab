@@ -42,6 +42,45 @@ function statusTone(status: string | null | undefined): string {
   return 'tone-warning';
 }
 
+function parentPath(targetPath: string | null | undefined): string | null {
+  if (!targetPath) return null;
+  const normalized = String(targetPath).replace(/\\/g, '/');
+  const idx = normalized.lastIndexOf('/');
+  return idx > 0 ? normalized.slice(0, idx) : null;
+}
+
+function latestSessionStatus(
+  submitState: string,
+  orderState: string,
+  artifactState: string,
+  signatureState: string,
+): { label: string; tone: string; detail: string } {
+  const submit = submitState.toLowerCase();
+  const order = orderState.toLowerCase();
+  const artifact = artifactState.toLowerCase();
+  const signature = signatureState.toLowerCase();
+
+  if (order === 'filled' && artifact === 'filled' && signature === 'signed') {
+    return {
+      label: 'Evidence complete',
+      tone: 'tone-positive',
+      detail: 'Latest session artifacts show filled order evidence with a signed action trail.',
+    };
+  }
+  if (submit.includes('reject') || order.includes('reject') || artifact.includes('fail')) {
+    return {
+      label: 'Review required',
+      tone: 'tone-negative',
+      detail: 'Latest session contains a rejected or failed state. Inspect the artifacts before continuing.',
+    };
+  }
+  return {
+    label: 'Review',
+    tone: 'tone-warning',
+    detail: 'Latest session is not terminally clear from the displayed fields. Inspect the artifacts.',
+  };
+}
+
 function SummaryCard({ label, value, tone = '' }: { label: string; value: string; tone?: string }) {
   return (
     <article className={`summary-card ${tone}`}>
@@ -62,6 +101,7 @@ function MetricRow({ label, value, tone = '' }: { label: string; value: string; 
 
 export function ExecutionPane({ tab: _tab }: { tab: ExecutionTab }) {
   const { state } = useQuantLab();
+  const [copyStatus, setCopyStatus] = React.useState<string | null>(null);
   const workspace = state.workspace ?? {};
   const workspaceServerUrl = typeof workspace.serverUrl === 'string' ? workspace.serverUrl.trim() : '';
   const native = useSnapshot(state.snapshot != null ? null : (workspaceServerUrl || DEFAULT_RESEARCH_UI_SERVER_URL));
@@ -85,14 +125,12 @@ export function ExecutionPane({ tab: _tab }: { tab: ExecutionTab }) {
   const latestSubmitState: string = health.latest_submit_state ?? 'unknown';
   const latestOrderState: string = health.latest_order_state ?? 'unknown';
   const latestArtifactState: string = latestArtifact?.normalized_state ?? 'unknown';
+  const latestArtifactDir = parentPath(latestArtifactPath);
+  const latestSessionDir: string | null = surface?.submit_sessions_root && health.latest_submit_session_id
+    ? `${surface.submit_sessions_root}/${health.latest_submit_session_id}`
+    : latestArtifactDir;
+  const latestSession = latestSessionStatus(latestSubmitState, latestOrderState, latestArtifactState, signatureState);
   const alertTone = empty ? 'tone-warning' : statusTone(alertStatus);
-  const snapshotLabel = snapshotStatus.status === 'ok'
-    ? 'Live'
-    : snapshotStatus.status === 'degraded'
-      ? 'Degraded'
-      : snapshotStatus.status === 'error'
-        ? 'Unavailable'
-        : 'Waiting';
 
   return (
     <div className="tab-shell execution-pane" data-smoke="surface-execution">
@@ -105,18 +143,26 @@ export function ExecutionPane({ tab: _tab }: { tab: ExecutionTab }) {
           </p>
         </div>
         <div className={`execution-alert-badge ${alertTone}`}>
-          <span>Alert status</span>
+          <span>Root corridor alert</span>
           <strong>{empty ? 'Unavailable' : titleCase(alertStatus)}</strong>
         </div>
       </div>
 
+      {!empty && alertStatus !== 'ok' && (
+        <section className="ops-callout tone-warning execution-explainer">
+          <strong>Root alert and latest session are separate.</strong>
+          {' '}The root corridor alert can remain {titleCase(alertStatus)} because historical rejected or ambiguous sessions are preserved as evidence.
+          Inspect the latest session state below before interpreting the current cycle.
+        </section>
+      )}
+
       <div className="tab-summary-grid">
-        <SummaryCard label="Total sessions" value={fmt(health.total_sessions)} tone={empty ? 'tone-warning' : 'tone-positive'} />
+        <SummaryCard label="Root alert" value={empty ? 'Unavailable' : titleCase(alertStatus)} tone={alertTone} />
+        <SummaryCard label="Latest session" value={latestSession.label} tone={empty ? 'tone-warning' : latestSession.tone} />
         <SummaryCard label="Latest submit" value={titleCase(latestSubmitState)} tone={statusTone(latestSubmitState)} />
         <SummaryCard label="Latest order" value={titleCase(latestOrderState)} tone={statusTone(latestOrderState)} />
         <SummaryCard label="Artifact state" value={titleCase(latestArtifactState)} tone={statusTone(latestArtifactState)} />
         <SummaryCard label="Signature" value={titleCase(signatureState)} tone={statusTone(signatureState)} />
-        <SummaryCard label="Snapshot" value={snapshotLabel} tone={snapshotStatus.status === 'ok' ? 'tone-positive' : 'tone-warning'} />
       </div>
 
       {empty ? (
@@ -130,8 +176,11 @@ export function ExecutionPane({ tab: _tab }: { tab: ExecutionTab }) {
       ) : (
         <div className="artifact-grid execution-grid">
           <section className="artifact-panel execution-panel">
-            <div className="section-label">Latest session</div>
+            <div className="section-label">Latest session status</div>
             <h3>{health.latest_submit_session_id ?? 'No session id'}</h3>
+            <div className={`ops-callout ${latestSession.tone} execution-session-callout`}>
+              <strong>{latestSession.label}:</strong> {latestSession.detail}
+            </div>
             <dl className="metric-list compact">
               <MetricRow label="Submit state" value={latestSubmitState} tone={statusTone(latestSubmitState)} />
               <MetricRow label="Order state" value={latestOrderState} tone={statusTone(latestOrderState)} />
@@ -142,13 +191,66 @@ export function ExecutionPane({ tab: _tab }: { tab: ExecutionTab }) {
           </section>
 
           <section className="artifact-panel execution-panel">
-            <div className="section-label">Alerts and evidence</div>
+            <div className="section-label">Root alert and evidence</div>
             <h3>{latestAlertCode ? latestAlertCode : 'No latest alert code'}</h3>
             <dl className="metric-list compact">
-              <MetricRow label="Alert status" value={alertStatus} tone={alertTone} />
+              <MetricRow label="Root corridor alert" value={alertStatus} tone={alertTone} />
               <MetricRow label="Alert count" value={fmt(alerts.length)} tone={alerts.length ? 'tone-negative' : 'tone-positive'} />
+              <MetricRow label="Total sessions" value={fmt(health.total_sessions)} />
               <MetricRow label="Latest artifact path" value={truncate(latestArtifactPath ?? '', 72)} />
             </dl>
+          </section>
+
+          <section className="artifact-panel execution-panel">
+            <div className="section-label">Safe review actions</div>
+            <h3>Open evidence without changing state</h3>
+            <div className="workflow-actions execution-actions">
+              <button
+                className="ghost-btn"
+                type="button"
+                disabled={!latestSessionDir}
+                onClick={() => latestSessionDir && window.quantlabDesktop?.openPath?.(latestSessionDir)}
+              >
+                Open latest session
+              </button>
+              <button
+                className="ghost-btn"
+                type="button"
+                disabled={!latestArtifactPath}
+                onClick={() => latestArtifactPath && window.quantlabDesktop?.openPath?.(latestArtifactPath)}
+              >
+                Open latest artifact
+              </button>
+              <button
+                className="ghost-btn"
+                type="button"
+                disabled={!surface?.submit_sessions_root}
+                onClick={() => surface?.submit_sessions_root && window.quantlabDesktop?.openPath?.(surface.submit_sessions_root)}
+              >
+                Open submit root
+              </button>
+              <button
+                className="ghost-btn"
+                type="button"
+                onClick={() => window.quantlabDesktop?.openPath?.('docs/supervised-broker-runbook.md')}
+              >
+                Open runbook
+              </button>
+              <button
+                className="ghost-btn"
+                type="button"
+                disabled={!latestArtifactPath || typeof navigator?.clipboard?.writeText !== 'function'}
+                onClick={async () => {
+                  if (!latestArtifactPath || typeof navigator?.clipboard?.writeText !== 'function') return;
+                  await navigator.clipboard.writeText(latestArtifactPath);
+                  setCopyStatus('Copied latest artifact path');
+                  window.setTimeout(() => setCopyStatus(null), 1800);
+                }}
+              >
+                Copy artifact path
+              </button>
+            </div>
+            {copyStatus && <div className="artifact-meta">{copyStatus}</div>}
           </section>
 
           <section className="artifact-panel execution-panel execution-boundary">
