@@ -13,6 +13,16 @@ import { useQuantLab } from './QuantLabContext';
 
 const NAV_ICON_SIZE = 16;
 
+function corridorChip(surface) {
+  if (!surface || !surface.available) {
+    return { label: 'No sessions', cls: '' };
+  }
+  if (surface.submit_has_alerts || surface.submit_alert_status !== 'ok') {
+    return { label: 'Alert', cls: 'down' };
+  }
+  return { label: 'ok', cls: 'up' };
+}
+
 /**
  * Sidebar - Left navigation sidebar with:
  * - Brand mark and title
@@ -23,7 +33,9 @@ const NAV_ICON_SIZE = 16;
  * Maps navigation actions to surface routing.
  */
 export default function Sidebar({ currentSurface, isCollapsed }) {
-  const { navigateToSurface } = useQuantLab();
+  const { navigateToSurface, state } = useQuantLab();
+  const hyperliquidSurface = state?.snapshot?.hyperliquidSurface ?? null;
+  const corridor = corridorChip(hyperliquidSurface);
 
   const navItems = [
     { id: 'system',      label: 'System',      Icon: Activity       },
@@ -89,6 +101,14 @@ export default function Sidebar({ currentSurface, isCollapsed }) {
               <div className="runtime-chip">
                 <span className="chip-indicator">●</span>
                 <span className="chip-text">Ready</span>
+              </div>
+            </section>
+
+            <section className="sidebar-panel">
+              <div className="panel-label">Corridor</div>
+              <div className={`runtime-chip ${corridor.cls}`}>
+                <span className="chip-indicator">●</span>
+                <span className="chip-text">{corridor.label}</span>
               </div>
             </section>
           </div>
