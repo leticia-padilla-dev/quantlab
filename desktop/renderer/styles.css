@@ -1731,83 +1731,14 @@ button:disabled {
 #react-root:not([hidden]) .app-container {
     display: grid;
     grid-template-columns: 280px 1fr;
-    grid-template-rows: auto 1fr;
+    grid-template-rows: 1fr;
     min-height: 100vh;
     background: var(--bg);
     color: var(--text);
 }
 
-#react-root:not([hidden]) .topbar {
-    grid-column: 1 / -1;
-    grid-row: 1;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 24px;
-    border-bottom: 1px solid var(--border);
-    background: linear-gradient(180deg, rgba(17, 24, 39, 0.64), rgba(10, 15, 23, 0.48));
-    backdrop-filter: blur(8px);
-}
-
-#react-root:not([hidden]) .topbar-left {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-#react-root:not([hidden]) .topbar-toggle {
-    background: none;
-    border: none;
-    color: var(--text);
-    cursor: pointer;
-    padding: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 6px;
-    transition: background 0.2s, color 0.2s;
-}
-
-#react-root:not([hidden]) .topbar-toggle:hover {
-    background: var(--bg-hover);
-}
-
-#react-root:not([hidden]) .topbar-center {
-    flex: 1;
-    text-align: center;
-}
-
-#react-root:not([hidden]) .topbar-title {
-    margin: 0;
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--text);
-}
-
-#react-root:not([hidden]) .topbar-right {
-    display: flex;
-    align-items: center;
-    gap: 24px;
-}
-
-#react-root:not([hidden]) .topbar-status {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-}
-
-#react-root:not([hidden]) .topbar-surface-label {
-    font-size: 13px;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-#react-root:not([hidden]) .topbar-runtime-indicator {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 12px;
+#react-root:not([hidden]) .app-container.sidebar-collapsed {
+    grid-template-columns: 48px 1fr;
 }
 
 #react-root:not([hidden]) .indicator-dot {
@@ -1851,21 +1782,44 @@ button:disabled {
 #react-root:not([hidden]) .indicator-dot.offline ~ .indicator-label { color: var(--danger); }
 #react-root:not([hidden]) .indicator-dot.warn    ~ .indicator-label { color: var(--warning); }
 
-#react-root:not([hidden]) .app-main-area {
-    grid-column: 1 / -1;
-    grid-row: 2;
-    display: grid;
-    grid-template-columns: 280px minmax(0, 1fr);
-    min-height: calc(100vh - 61px);
+#react-root:not([hidden]) .sidebar {
+    grid-column: 1;
+    grid-row: 1;
+    display: flex;
+    flex-direction: column;
     overflow: hidden;
+    min-height: 100vh;
 }
 
 #react-root:not([hidden]) .sidebar.collapsed {
-    display: none;
-    width: 0;
+    width: 48px;
+    min-width: 48px;
     padding: 0;
-    border-right: none;
+    border-right: 1px solid var(--border);
     overflow: hidden;
+    align-items: center;
+}
+
+#react-root:not([hidden]) .sidebar-toggle-btn {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    transition: background 0.15s, color 0.15s;
+    flex-shrink: 0;
+    margin: 8px 0 4px;
+    width: 34px;
+    height: 34px;
+}
+
+#react-root:not([hidden]) .sidebar-toggle-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text);
 }
 
 #react-root:not([hidden]) .sidebar-context-list {
@@ -2012,14 +1966,11 @@ button:disabled {
     padding: 0;
     overflow: hidden;
     border-left: 1px solid var(--border);
+    min-height: 100vh;
 }
 
 #react-root:not([hidden]) #tabs-bar.tabs-bar {
     flex: 0 0 auto;
-    flex-wrap: nowrap;
-    padding: 12px 24px;
-    min-height: 48px;
-    border-bottom: 1px solid var(--border);
 }
 
 #react-root:not([hidden]) #tab-content > .tab-shell,
@@ -2106,11 +2057,11 @@ button:disabled {
         grid-template-columns: 1fr;
     }
 
-    #react-root:not([hidden]) .app-main-area {
-        grid-template-columns: 1fr;
+    #react-root:not([hidden]) .app-container.sidebar-collapsed {
+        grid-template-columns: 48px 1fr;
     }
 
-    #react-root:not([hidden]) .sidebar {
+    #react-root:not([hidden]) .sidebar:not(.collapsed) {
         display: none;
     }
 

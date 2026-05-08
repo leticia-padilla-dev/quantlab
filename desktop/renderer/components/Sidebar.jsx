@@ -8,6 +8,8 @@ import {
   GitCompare,
   ClipboardCheck,
   MessageSquare,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from 'lucide-react';
 import { useQuantLab } from './QuantLabContext';
 
@@ -32,7 +34,7 @@ function corridorChip(surface) {
  *
  * Maps navigation actions to surface routing.
  */
-export default function Sidebar({ currentSurface, isCollapsed }) {
+export default function Sidebar({ currentSurface, isCollapsed, onToggle }) {
   const { navigateToSurface, state, getRuns, getLatestRun, decision } = useQuantLab();
   const hyperliquidSurface = state?.snapshot?.hyperliquidSurface ?? null;
   const corridor = corridorChip(hyperliquidSurface);
@@ -60,6 +62,19 @@ export default function Sidebar({ currentSurface, isCollapsed }) {
 
   return (
     <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''}`}>
+      {/* Toggle — always visible, anchored to top */}
+      <button
+        className="sidebar-toggle-btn"
+        onClick={onToggle}
+        aria-label={isCollapsed ? 'Open sidebar' : 'Close sidebar'}
+        title={isCollapsed ? 'Open sidebar' : 'Close sidebar'}
+      >
+        {isCollapsed
+          ? <PanelLeftOpen size={18} strokeWidth={1.6} />
+          : <PanelLeftClose size={18} strokeWidth={1.6} />
+        }
+      </button>
+
       {!isCollapsed && (
         <>
           {/* Brand Section */}

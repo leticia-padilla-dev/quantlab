@@ -1,12 +1,51 @@
 .tabs-bar {
-  padding: 12px 24px 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px 0 24px;
   background: transparent;
   border-bottom: 1px solid var(--border);
   min-height: 48px;
+  gap: 16px;
+}
+
+.tabs-bar-pills {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
   overflow-x: auto;
   overflow-y: hidden;
-  white-space: nowrap;
-  scrollbar-width: thin;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-bottom: 0;
+  scrollbar-width: none;
+}
+
+.tabs-bar-pills::-webkit-scrollbar {
+  display: none;
+}
+
+.tabs-bar-status {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+  padding: 4px 0;
+}
+
+.tabs-surface-label {
+  font-size: 11px;
+  color: var(--muted, #6b7280);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  font-weight: 500;
+}
+
+.tabs-runtime-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
 }
 
 .tabs-bar::-webkit-scrollbar {
