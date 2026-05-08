@@ -33,7 +33,7 @@ function corridorChip(surface) {
  * Maps navigation actions to surface routing.
  */
 export default function Sidebar({ currentSurface, isCollapsed }) {
-  const { navigateToSurface, state } = useQuantLab();
+  const { navigateToSurface, state, getRuns, getLatestRun, decision } = useQuantLab();
   const hyperliquidSurface = state?.snapshot?.hyperliquidSurface ?? null;
   const corridor = corridorChip(hyperliquidSurface);
 
@@ -47,6 +47,16 @@ export default function Sidebar({ currentSurface, isCollapsed }) {
     { id: 'paper-ops',   label: 'Paper Ops',   Icon: ClipboardCheck },
     { id: 'assistant',   label: 'Assistant',   Icon: MessageSquare  },
   ];
+
+  // Contextual data for surface panels
+  const runs = getRuns?.() ?? [];
+  const latestRun = getLatestRun?.();
+  const candidateEntries = decision?.getCandidateEntriesResolved?.() ?? [];
+  const shortlistCount = candidateEntries.filter((e) => e.shortlisted && e.run).length;
+  const baselineId = state?.candidatesStore?.baseline_run_id ?? null;
+  const paper = state?.snapshot?.paperHealth ?? null;
+  const launchJobs = state?.snapshot?.launchControl?.jobs ?? [];
+  const latestJob = launchJobs[0] ?? null;
 
   return (
     <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''}`}>
@@ -91,11 +101,16 @@ export default function Sidebar({ currentSurface, isCollapsed }) {
 
           {/* Support Panels */}
           <div className="sidebar-panels">
-            <section className="sidebar-panel">
-              <div className="panel-label">Current principle</div>
-              <p>One shell, one runtime strip, one place to launch, inspect, compare, and decide.</p>
-            </section>
-
+            <ContextPanel
+              surface={currentSurface}
+              runs={runs}
+              latestRun={latestRun}
+              shortlistCount={shortlistCount}
+              baselineId={baselineId}
+              paper={paper}
+              latestJob={latestJob}
+              corridor={corridor}
+            />
             <section className="sidebar-panel">
               <div className="panel-label">Runtime</div>
               <div className="runtime-chip">
@@ -103,7 +118,6 @@ export default function Sidebar({ currentSurface, isCollapsed }) {
                 <span className="chip-text">Ready</span>
               </div>
             </section>
-
             <section className="sidebar-panel">
               <div className="panel-label">Corridor</div>
               <div className={`runtime-chip ${corridor.cls}`}>
@@ -116,4 +130,109 @@ export default function Sidebar({ currentSurface, isCollapsed }) {
       )}
     </aside>
   );
+}
+
+function ContextPanel({ surface, runs, latestRun, shortlistCount, baselineId, paper, latestJob, corridor }) {
+  switch (surface) {
+    case 'runs':
+      return (
+        <section className="sidebar-panel">
+          <div className="panel-label">At a glance</div>
+          <div className="sidebar-context-list">
+            <div className="sidebar-context-row">
+              <span>Indexed</span><strong>{runs.length}</strong>
+            </div>
+            <div className="sidebar-context-row">
+              <span>Shortlisted</span><strong>{shortlistCount}</strong>
+            </div>
+            <div className="sidebar-context-row">
+              <span>Baseline</span><strong>{baselineId ?? '—'}</strong>
+            </div>
+            {latestRun && (
+              <div className="sidebar-context-row">
+                <span>Latest</span><strong title={latestRun.run_id}>{String(latestRun.run_id).slice(-8)}</strong>
+              </div>
+            )}
+          </div>
+        </section>
+      );
+
+    case 'launch':
+      return (
+        <section className="sidebar-panel">
+          <div className="panel-label">At a glance</div>
+          <div className="sidebar-context-list">
+            {latestJob ? (
+              <>
+                <div className="sidebar-context-row">
+                  <span>Latest job</span><strong>{latestJob.command ?? '—'}</strong>
+                </div>
+                <div className="sidebar-context-row">
+                  <span>Status</span><strong>{latestJob.status ?? '—'}</strong>
+                </div>
+              </>
+            ) : (
+              <div className="sidebar-context-row">
+                <span>Jobs</span><strong>None yet</strong>
+              </div>
+            )}
+          </div>
+        </section>
+      );
+
+    case 'candidates':
+    case 'compare':
+      return (
+        <section className="sidebar-panel">
+          <div className="panel-label">At a glance</div>
+          <div className="sidebar-context-list">
+            <div className="sidebar-context-row">
+              <span>Shortlisted</span><strong>{shortlistCount}</strong>
+            </div>
+            <div className="sidebar-context-row">
+              <span>Baseline</span><strong>{baselineId ?? '—'}</strong>
+            </div>
+          </div>
+        </section>
+      );
+
+    case 'paper-ops':
+      return (
+        <section className="sidebar-panel">
+          <div className="panel-label">At a glance</div>
+          <div className="sidebar-context-list">
+            <div className="sidebar-context-row">
+              <span>Paper state</span>
+              <strong>{paper?.available ? 'Ready' : 'Pending'}</strong>
+            </div>
+          </div>
+        </section>
+      );
+
+    case 'system':
+      return (
+        <section className="sidebar-panel">
+          <div className="panel-label">At a glance</div>
+          <div className="sidebar-context-list">
+            <div className="sidebar-context-row">
+              <span>Corridor</span>
+              <strong className={corridor.cls === 'up' ? 'tone-positive' : corridor.cls === 'down' ? 'tone-negative' : ''}>
+                {corridor.label}
+              </strong>
+            </div>
+            <div className="sidebar-context-row">
+              <span>Indexed runs</span><strong>{runs.length}</strong>
+            </div>
+          </div>
+        </section>
+      );
+
+    default:
+      return (
+        <section className="sidebar-panel">
+          <div className="panel-label">Current principle</div>
+          <p>One shell, one runtime strip, one place to launch, inspect, compare, and decide.</p>
+        </section>
+      );
+  }
 }
