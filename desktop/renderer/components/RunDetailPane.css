@@ -168,36 +168,66 @@
   gap: 12px;
 }
 
-.robustness-heading h3 {
+/* Status headline — large, colored, immediately scannable */
+.robustness-status {
   margin: 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
 }
 
-.robustness-heading .badge {
+.robustness-status.tone-positive { color: var(--success); }
+.robustness-status.tone-negative { color: var(--danger); }
+.robustness-status.tone-warning  { color: var(--warning); }
+
+/* Grade chip — compact, secondary to the headline */
+.robustness-grade-chip {
   border: 1px solid currentColor;
   border-radius: 999px;
-  padding: 4px 8px;
+  padding: 4px 10px;
   font-size: 0.72rem;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.04em;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.robustness-grade-chip.tone-positive { color: var(--success); }
+.robustness-grade-chip.tone-negative { color: var(--danger); }
+.robustness-grade-chip.tone-warning  { color: var(--warning); }
+
+/* Recommendation — visible, not muted; operator reads this to decide next step */
+.robustness-recommendation {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.88rem;
+  line-height: 1.55;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+  border-left: 3px solid currentColor;
 }
 
 .robustness-metrics dd {
   white-space: normal;
 }
 
-.robustness-copy,
-.robustness-recommendation {
+.robustness-copy {
   margin: 0;
   color: var(--muted);
   font-size: 0.88rem;
 }
 
+/* Reasons — compact, visually secondary */
 .robustness-reasons {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
   margin: 0;
-  padding-left: 18px;
+  padding-left: 16px;
   color: var(--muted);
-  font-size: 0.84rem;
+  font-size: 0.81rem;
+  line-height: 1.45;
+  border-top: 1px solid rgba(90, 115, 143, 0.15);
+  padding-top: 10px;
 }

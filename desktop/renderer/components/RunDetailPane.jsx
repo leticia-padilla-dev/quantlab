@@ -453,10 +453,19 @@ function RobustnessVerdictCard({ verdict, showMissing }) {
   return (
     <section className={`artifact-panel run-rail-card robustness-card ${tone}`}>
       <div className="section-label">Robustness verdict</div>
+
+      {/* 1. Status headline + grade chip */}
       <div className="robustness-heading">
-        <h3>{status}</h3>
-        <span className={`badge ${tone}`}>{grade}</span>
+        <h3 className={`robustness-status ${tone}`}>{status}</h3>
+        <span className={`robustness-grade-chip ${tone}`}>{grade}</span>
       </div>
+
+      {/* 2. Recommendation — most actionable block, read first */}
+      {verdict.recommendation && (
+        <p className="robustness-recommendation">{verdict.recommendation}</p>
+      )}
+
+      {/* 3. Key metrics */}
       <dl className="metric-list compact robustness-metrics">
         <dt>OOS splits</dt>
         <dd>{formatCount(verdict.positive_oos_splits)} / {formatCount(verdict.total_splits)} positive</dd>
@@ -469,15 +478,14 @@ function RobustnessVerdictCard({ verdict, showMissing }) {
         <dt>OOS trades</dt>
         <dd>{formatCount(verdict.total_oos_trades)}</dd>
       </dl>
+
+      {/* 4. Reasons — compact and visually secondary */}
       {reasons.length > 0 && (
         <ul className="robustness-reasons">
           {reasons.map((reason, index) => (
             <li key={index}>{reason}</li>
           ))}
         </ul>
-      )}
-      {verdict.recommendation && (
-        <p className="robustness-recommendation">{verdict.recommendation}</p>
       )}
     </section>
   );
