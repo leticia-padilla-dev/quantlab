@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import Topbar from './Topbar.jsx';
 import Sidebar from './Sidebar.jsx';
 import MainContent from './MainContent.jsx';
 import {
@@ -70,39 +69,26 @@ function AppShell() {
 
   return (
     <QuantLabContextProvider value={contextValue}>
-      <div className="app-container" data-smoke="react-shell">
-        <Topbar
+      <div className={`app-container ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`} data-smoke="react-shell">
+        <Sidebar
           currentSurface={currentSurface}
-          onToggleSidebar={handleToggleSidebar}
-          isSidebarCollapsed={isSidebarCollapsed}
+          isCollapsed={isSidebarCollapsed}
+          onToggle={handleToggleSidebar}
         />
 
-        <div className="app-main-area">
-          <Sidebar
-            currentSurface={currentSurface}
-            isCollapsed={isSidebarCollapsed}
-          />
-
-          <MainContent
-            activeTab={activeTab}
-            allTabs={allTabs}
-            onTabChange={handleTabChange}
-            shellStateMismatch={hasActiveTabMismatch ? {
-              activeTabId,
-            } : null}
-          />
-        </div>
+        <MainContent
+          activeTab={activeTab}
+          allTabs={allTabs}
+          onTabChange={handleTabChange}
+          shellStateMismatch={hasActiveTabMismatch ? {
+            activeTabId,
+          } : null}
+        />
       </div>
     </QuantLabContextProvider>
   );
 }
 
-/**
- * App - Root component for the QuantLab Desktop React shell.
- *
- * Mounts the RegistryProvider (native data authority) as the outermost
- * wrapper so that all hooks downstream can consume registry state.
- */
 export default function App() {
   return (
     <RegistryProvider>
