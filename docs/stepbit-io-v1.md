@@ -4,6 +4,8 @@
 
 This document defines the formal communication contract between **Stepbit-core** (external AI/workflow consumer) and **QuantLab** (research and execution system).
 
+For the concrete local invocation guide Stepbit should implement against, see [stepbit-local-invocation-contract.md](./stepbit-local-invocation-contract.md).
+
 QuantLab is a research-first, CLI-driven system that remains autonomous. This contract provides a stable, machine-readable wrapper for optional headless integration.
 
 Each field and section is labeled with its current implementation status:
