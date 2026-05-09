@@ -72,6 +72,8 @@ In practical terms, that means Stepbit should interact with surfaces such as:
 - `report.json.machine_contract`
 - canonical run artifacts under `outputs/runs/<run_id>/`
 
+For the concrete local invocation contract, request shapes, signal-file lifecycle, artifact resolution, and invalid consumer states, see [stepbit-local-invocation-contract.md](./stepbit-local-invocation-contract.md).
+
 ## 4. What Stepbit Should Not Own
 
 Stepbit should not become the sovereign owner of:
