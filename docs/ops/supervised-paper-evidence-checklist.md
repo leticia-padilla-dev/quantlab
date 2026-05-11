@@ -49,7 +49,7 @@ session_id: ""
 mode: paper
 operator: ""
 source_issue: ""
-````
+```
 
 ## Command / Setup
 
@@ -91,7 +91,7 @@ operator_can_diagnose: true|false
 ```text
 <proven, not proven, or blocked>
 ```
-```
+````
 
 ## Minimum Declaration Before Re-Audit
 
