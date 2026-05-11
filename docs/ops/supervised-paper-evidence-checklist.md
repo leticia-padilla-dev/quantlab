@@ -38,7 +38,7 @@ It is ready only when QuantLab demonstrates that paper sessions can be launched,
 
 Use this structure for each paper evidence pass:
 
-```markdown
+````markdown
 # Paper Evidence Review — <session_id or scenario>
 
 ## Metadata
@@ -91,7 +91,7 @@ operator_can_diagnose: true|false
 ```text
 <proven, not proven, or blocked>
 ```
-```
+````
 
 ## Minimum Declaration Before Re-Audit
 
