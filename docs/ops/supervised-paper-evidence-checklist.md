@@ -38,7 +38,7 @@ It is ready only when QuantLab demonstrates that paper sessions can be launched,
 
 Use this structure for each paper evidence pass:
 
-```markdown
+````markdown
 # Paper Evidence Review — <session_id or scenario>
 
 ## Metadata
@@ -49,7 +49,7 @@ session_id: ""
 mode: paper
 operator: ""
 source_issue: ""
-```
+````
 
 ## Command / Setup
 
