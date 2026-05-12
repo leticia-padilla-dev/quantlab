@@ -28,6 +28,19 @@
     --status-success-bg: rgba(57, 217, 138, 0.10);
     --status-warning-bg: rgba(242, 185, 75,  0.10);
     --status-danger-bg:  rgba(232, 93,  117, 0.10);
+    --color-surface: var(--bg-soft);
+    --color-surface-2: var(--bg-hover);
+    --color-panel-bg: var(--bg-panel);
+    --color-border: var(--border);
+    --color-text-primary: var(--text);
+    --color-text-secondary: var(--muted);
+    --color-muted: var(--muted);
+    --color-accent: var(--accent);
+    --color-positive: var(--success);
+    --color-warning: var(--warning);
+    --color-danger: var(--danger);
+    --color-negative: var(--danger);
+    --color-info: var(--accent-signal);
     font-family: "Inter", sans-serif;
 }
 
