@@ -253,6 +253,16 @@ Before changing files, confirm:
 - that unrelated files remain untouched
 - that stray files are not being pulled into the change without an explicit decision
 
+### GitHub Actions cost discipline
+
+- Validate locally before pushing.
+- Avoid repeated tiny pushes to the same PR.
+- Batch related changes locally, then push once after a coherent validation pass.
+- Use `[skip ci]` only for safe documentation-only commits when the workflow supports it.
+- Keep CI mandatory for product code, broker/execution code, desktop runtime code, tests, and contracts.
+- Do not disable GitHub Actions globally.
+- Prefer `concurrency` and `paths-ignore` over weakening validation.
+
 Before implementing, confirm the target branch and verify that the current diff matches the intended slice.
 
 Suggested checks:
