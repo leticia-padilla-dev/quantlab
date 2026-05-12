@@ -1,0 +1,106 @@
+/* QuantLab Desktop — Evolved token system
+ * Single canonical palette. Replaces the two competing systems
+ * (App.module.css `--accent/--bg` vs pane CSS `--color-*`).
+ */
+
+:root {
+  /* Ink — vertical surface scale, neutral cool */
+  --ink-900: #050a10;   /* outer chrome */
+  --ink-850: #0a121b;   /* shell bg */
+  --ink-800: #0f1822;   /* panel bg */
+  --ink-750: #131f2b;   /* elevated panel */
+  --ink-700: #1a2733;   /* hover / row stripe */
+  --ink-650: #22303d;   /* input field */
+
+  /* Lines */
+  --line-soft: rgba(150, 174, 198, 0.10);
+  --line: rgba(150, 174, 198, 0.16);
+  --line-strong: rgba(150, 174, 198, 0.28);
+  --line-rail: rgba(98, 212, 255, 0.32);
+
+  /* Text */
+  --text: #e8eef6;
+  --text-soft: #c0ccdb;
+  --muted: #8294aa;
+  --muted-dark: #5d6e84;
+
+  /* Accent — restrained cyan, single hue */
+  --accent: #62d4ff;
+  --accent-soft: rgba(98, 212, 255, 0.12);
+  --accent-line: rgba(98, 212, 255, 0.45);
+
+  /* Semantic tones — single chroma/lightness family in oklch */
+  --success:    oklch(0.78 0.16 158);
+  --success-bg: oklch(0.78 0.16 158 / 0.10);
+  --warn:       oklch(0.82 0.16 78);
+  --warn-bg:    oklch(0.82 0.16 78 / 0.10);
+  --danger:     oklch(0.72 0.18 22);
+  --danger-bg:  oklch(0.72 0.18 22 / 0.10);
+  --info:       oklch(0.78 0.13 230);
+  --info-bg:    oklch(0.78 0.13 230 / 0.10);
+
+  /* Type */
+  --font-ui: "Inter", "Helvetica Neue", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
+
+  /* Spacing scale */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 20px;
+  --s-6: 24px;
+  --s-8: 32px;
+  --s-10: 40px;
+
+  /* Radii */
+  --r-2: 4px;
+  --r-3: 6px;
+  --r-4: 8px;
+  --r-5: 10px;
+
+  /* Density (tweakable) */
+  --row-h: 36px;
+  --pad-pane: 20px;
+}
+
+[data-density="compact"] {
+  --row-h: 30px;
+  --pad-pane: 16px;
+}
+
+[data-density="comfortable"] {
+  --row-h: 42px;
+  --pad-pane: 24px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  background: var(--ink-900);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+button { font: inherit; color: inherit; cursor: pointer; background: transparent; border: 0; }
+
+/* utility */
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 500;
+}
+.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+.tone-positive { color: var(--success); }
+.tone-warning  { color: var(--warn); }
+.tone-negative { color: var(--danger); }
+.tone-info     { color: var(--info); }

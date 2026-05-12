@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>QuantLab — Mobile Companion</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="tokens.css" />
+<link rel="stylesheet" href="mobile.css" />
+<style>
+  body { background: #04070b; }
+  .stage-header {
+    padding: 28px 36px 8px;
+    display: flex; justify-content: space-between; align-items: flex-end;
+    font-family: var(--font-ui);
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .stage-header h1 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+  .stage-header .eyebrow { display: block; }
+  .stage-header .meta {
+    font-family: var(--font-mono); font-size: 11px; color: var(--muted); letter-spacing: 0.10em; text-transform: uppercase;
+  }
+  /* Phone bezel */
+  .phone {
+    position: relative;
+    width: 360px; height: 740px;
+    background: #000;
+    border-radius: 44px;
+    padding: 8px;
+    box-shadow:
+      0 0 0 1px rgba(150,174,198,0.10),
+      0 30px 60px -20px rgba(0,0,0,0.9),
+      inset 0 0 0 1px rgba(255,255,255,0.06);
+  }
+  .phone-screen {
+    position: relative;
+    width: 100%; height: 100%;
+    border-radius: 36px;
+    overflow: hidden;
+    background: var(--ink-850);
+  }
+  /* Dynamic Island */
+  .phone-island {
+    position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+    width: 100px; height: 28px; border-radius: 20px;
+    background: #000;
+    z-index: 10;
+  }
+  .artboard-caption {
+    position: absolute; bottom: -34px; left: 0; right: 0;
+    text-align: center;
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em;
+    color: var(--muted); text-transform: uppercase;
+  }
+  .focus-host { background: #04070b !important; }
+</style>
+</head>
+<body>
+
+<div class="stage-header">
+  <div>
+    <span class="eyebrow">QuantLab · Mobile Companion · Concept</span>
+    <h1>Read-only operator surface · evolved from Desktop</h1>
+  </div>
+  <div class="meta">v0.1 · design reference · 8 screens + live</div>
+</div>
+
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="mobile.jsx"></script>
+
+<script type="text/babel">
+  // Phone bezel wrapper — fixed 360×740, screens render at full bleed inside.
+  function Phone({ children, caption }) {
+    return (
+      <div className="phone">
+        <div className="phone-island"></div>
+        <div className="phone-screen">{children}</div>
+        {caption && <div className="artboard-caption">{caption}</div>}
+      </div>
+    );
+  }
+
+  const App = () => (
+    <DesignCanvas>
+      <DCSection id="interactive" title="Live · interactive prototype" subtitle="Bottom-nav cycles 5 primary surfaces — same shell, tap to navigate">
+        <DCArtboard id="live" label="Tap tabs · 5 screens" width={400} height={800}>
+          <div style={{ background: '#04070b', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Phone caption="Interactive · home → runs → alerts → gate → settings">
+              <InteractivePrototype />
+            </Phone>
+          </div>
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="primary" title="Primary surfaces" subtitle="Five anchors in the bottom nav — companion's main entry points">
+        <DCArtboard id="s1" label="01 · Home / Overview" width={400} height={800}>
+          <div style={{ background: '#04070b', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Phone caption="Status · gate count · health · activity"><HomeScreen tab="home" /></Phone>
+          </div>
+        </DCArtboard>
+        <DCArtboard id="s2" label="02 · Runs list" width={400} height={800}>
+          <div style={{ background: '#04070b', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Phone caption="Cards · filter chips · verdict badges"><RunsScreen tab="runs" /></Phone>
+          </div>
+        </DCArtboard>
+        <DCArtboard id="s4" label="04 · Alerts / Corridor" width={400} height={800}>
+          <div style={{ background: '#04070b', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Phone caption="Corridor sparkline · alert stream"><AlertsScreen tab="alert" /></Phone>
+          </div>
+        </DCArtboard>
+        <DCArtboard id="s5" label="05 · Promotion Gate" width={400} height={800}>
+          <div style={{ background: '#04070b', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Phone caption="D.2/D.3 visibility · view-only"><GateScreen tab="gate" /></Phone>
+          </div>
+        </DCArtboard>
+        <DCArtboard id="s8" label="08 · Settings · safety boundaries" width={400} height={800}>
+          <div style={{ background: '#04070b', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Phone caption="Identity · notifications · locked surfaces"><SettingsScreen tab="more" /></Phone>
+          </div>
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="detail" title="Detail surfaces" subtitle="Push-navigation off the primaries — never reachable through bottom nav alone">
+        <DCArtboard id="s3" label="03 · Run detail · evidence" width={400} height={800}>
+          <div style={{ background: '#04070b', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Phone caption="Equity · evidence timeline · 7 steps"><RunDetailScreen tab="runs" /></Phone>
+          </div>
+        </DCArtboard>
+        <DCArtboard id="s6" label="06 · Artifact summary" width={400} height={800}>
+          <div style={{ background: '#04070b', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Phone caption="Glyph type · lineage · hash"><ArtifactScreen tab="runs" /></Phone>
+          </div>
+        </DCArtboard>
+        <DCArtboard id="s7" label="07 · Assistant / notes" width={400} height={800}>
+          <div style={{ background: '#04070b', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Phone caption="Advisory mode · pin notes to evidence"><AssistantScreen tab="more" /></Phone>
+          </div>
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="rationale" title="Design rationale" subtitle="How the desktop system translates to mobile — and what's deliberately omitted">
+        <DCArtboard id="r1" label="Rationale · translation rules" width={520} height={760}>
+          <div style={{ background: 'var(--ink-850)', width: '100%', height: '100%', overflowY: 'auto', padding: '28px 32px', fontFamily: 'var(--font-ui)', color: 'var(--text)' }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.14em', color: 'var(--muted)', textTransform: 'uppercase' }}>Translation rules</span>
+            <h2 style={{ margin: '8px 0 16px', fontSize: 22, fontWeight: 600, letterSpacing: '-0.01em' }}>Desktop → Mobile</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 18, fontSize: 13, lineHeight: 1.55, color: 'var(--text-soft)' }}>
+              <div><span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--accent)', letterSpacing: '0.10em', textTransform: 'uppercase' }}>Tokens</span><div style={{ marginTop: 4 }}>Same canonical scale: ink-900/850/800/750/700, line family, accent cyan, oklch tones. No new palette. JetBrains Mono carries IDs and metrics; Inter carries prose.</div></div>
+              <div><span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--accent)', letterSpacing: '0.10em', textTransform: 'uppercase' }}>Status strip</span><div style={{ marginTop: 4 }}>Desktop has a top-wide strip; mobile keeps the same three cells (Runtime / Corridor / Reach) directly under the title. Authority is always visible.</div></div>
+              <div><span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--accent)', letterSpacing: '0.10em', textTransform: 'uppercase' }}>Tables → cards</span><div style={{ marginTop: 4 }}>Run rows become cards with a 3-col metric strip. Compare matrix and config delta tables are deliberately absent on mobile — they belong on Desktop.</div></div>
+              <div><span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--accent)', letterSpacing: '0.10em', textTransform: 'uppercase' }}>Evidence rail → timeline</span><div style={{ marginTop: 4 }}>The desktop rail collapses to a vertical timeline. Each step keeps the same semantics (config · launch · artifacts · verdict · decision · paper).</div></div>
+              <div><span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--accent)', letterSpacing: '0.10em', textTransform: 'uppercase' }}>Read-only contract</span><div style={{ marginTop: 4 }}>Every surface tagged. Settings shows the locked actions explicitly. The companion can never become a second execution authority — architectural rule.</div></div>
+            </div>
+          </div>
+        </DCArtboard>
+
+        <DCArtboard id="r2" label="What's omitted · on purpose" width={520} height={760}>
+          <div style={{ background: 'var(--ink-850)', width: '100%', height: '100%', overflowY: 'auto', padding: '28px 32px', fontFamily: 'var(--font-ui)', color: 'var(--text)' }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.14em', color: 'var(--muted)', textTransform: 'uppercase' }}>Out of scope</span>
+            <h2 style={{ margin: '8px 0 16px', fontSize: 22, fontWeight: 600, letterSpacing: '-0.01em' }}>What mobile does not do</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 0, border: '1px solid var(--line)', borderRadius: 14, overflow: 'hidden' }}>
+              {[
+                ['Broker order submission', 'desktop only · operator key required'],
+                ['D.2 / D.3 approval', 'supervised sign-off on desktop'],
+                ['Config or param edits', 'protects artifact integrity'],
+                ['Start / stop runs', 'execution authority lives in lab'],
+                ['Compare matrix', 'too dense for mobile · desktop only'],
+                ['Tick-level charts', 'evidence summaries only on mobile'],
+                ['Assistant agency', 'advisory mode only · no actions'],
+              ].map(([k, v], i, arr) => (
+                <div key={k} style={{ padding: '14px 16px', borderBottom: i < arr.length - 1 ? '1px solid var(--line-soft)' : 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14 }}>
+                  <div>
+                    <div style={{ fontSize: 13 }}>{k}</div>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--muted)', marginTop: 3 }}>{v}</div>
+                  </div>
+                  <span className="m-badge neut">locked</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ marginTop: 18, padding: 14, borderRadius: 10, background: 'rgba(98,212,255,0.06)', border: '1px solid var(--accent-line)' }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.10em', color: 'var(--accent)', textTransform: 'uppercase' }}>Principle</div>
+              <div style={{ marginTop: 6, fontSize: 13, lineHeight: 1.5 }}>Mobile is a review surface — it widens the operator's situational awareness, never narrows their commitment ceremony.</div>
+            </div>
+          </div>
+        </DCArtboard>
+
+        <DCArtboard id="r3" label="Implementation notes" width={520} height={760}>
+          <div style={{ background: 'var(--ink-850)', width: '100%', height: '100%', overflowY: 'auto', padding: '28px 32px', fontFamily: 'var(--font-ui)', color: 'var(--text)' }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.14em', color: 'var(--muted)', textTransform: 'uppercase' }}>Recommended future work</span>
+            <h2 style={{ margin: '8px 0 16px', fontSize: 22, fontWeight: 600, letterSpacing: '-0.01em' }}>Build notes</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, fontSize: 13, lineHeight: 1.55, color: 'var(--text-soft)' }}>
+              <div>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--accent)', letterSpacing: '0.10em', textTransform: 'uppercase' }}>Transport</span>
+                <div style={{ marginTop: 4 }}>LAN-paired session with the desktop workstation. Mobile holds a short-lived read scope (≤ 12h). No direct broker/engine reachability from the device.</div>
+              </div>
+              <div>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--accent)', letterSpacing: '0.10em', textTransform: 'uppercase' }}>Data shape</span>
+                <div style={{ marginTop: 4 }}>Consume the same artifact + verdict feed the desktop already produces — no new contracts. Mobile-specific summaries are derived views, not new sources of truth.</div>
+              </div>
+              <div>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--accent)', letterSpacing: '0.10em', textTransform: 'uppercase' }}>Notifications</span>
+                <div style={{ marginTop: 4 }}>Push triggers: gate transitions, corridor σ ≥ 1.5, reachability degraded, paper session paused. Run-completion off by default.</div>
+              </div>
+              <div>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--accent)', letterSpacing: '0.10em', textTransform: 'uppercase' }}>Offline</span>
+                <div style={{ marginTop: 4 }}>Last evidence snapshot is cached and stamped with capture-time. Stale data is shown with a banner — never silently refreshed.</div>
+              </div>
+              <div>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--accent)', letterSpacing: '0.10em', textTransform: 'uppercase' }}>Telemetry</span>
+                <div style={{ marginTop: 4 }}>Operator note pins from mobile are first-class artifacts on the desktop side — they appear in the evidence pack with mobile-origin metadata.</div>
+              </div>
+              <div>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--accent)', letterSpacing: '0.10em', textTransform: 'uppercase' }}>Continuity</span>
+                <div style={{ marginTop: 4 }}>Deep links from notifications open the matching desktop surface when the operator is back at the workstation.</div>
+              </div>
+            </div>
+          </div>
+        </DCArtboard>
+      </DCSection>
+    </DesignCanvas>
+  );
+
+  ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
