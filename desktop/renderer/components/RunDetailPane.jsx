@@ -117,6 +117,7 @@ export function RunDetailPane({ tab }) {
   const artifacts = Array.isArray(report?.artifacts) ? report.artifacts : [];
   const topResults = selectTopResults(report?.results, 4);
   const isArtifactsView = tab.kind === "artifacts" || tab.subview === "artifacts";
+  const paper = state?.snapshot?.paperHealth ?? null;
 
   const candidateEntry = decision.getCandidateEntry(state.candidatesStore, run.run_id);
   const relatedJobs = getRunRelatedJobs(run.run_id);
@@ -360,6 +361,15 @@ export function RunDetailPane({ tab }) {
         </div>
 
         <aside className="run-detail-side run-evidence-rail stack">
+          <EvidenceLineageRail
+            run={run}
+            reportUrl={detail.reportUrl}
+            artifacts={artifacts}
+            robustnessVerdict={robustnessVerdict}
+            showMissingRobustness={shouldShowMissingRobustness(run, report)}
+            decisionState={decisionState}
+            paper={paper}
+          />
           <RobustnessVerdictCard
             verdict={robustnessVerdict}
             showMissing={shouldShowMissingRobustness(run, report)}
@@ -497,5 +507,81 @@ function SummaryCard({ label, value, tone = '' }) {
       <div className="label">{label}</div>
       <div className={`value ${tone || ''}`}>{value}</div>
     </article>
+  );
+}
+
+function EvidenceLineageRail({
+  run,
+  reportUrl,
+  artifacts,
+  robustnessVerdict,
+  showMissingRobustness,
+  decisionState,
+  paper,
+}) {
+  const decisionSignal = resolveDecisionSignal(decisionState);
+  const artifactCount = Array.isArray(artifacts) ? artifacts.length : 0;
+  const hasReport = Boolean(reportUrl);
+
+  const verdictStatus = robustnessVerdict?.status ? String(robustnessVerdict.status).toUpperCase() : "";
+  const verdictGrade = robustnessVerdict?.grade ? titleCase(robustnessVerdict.grade) : "";
+  const verdictLabel = robustnessVerdict
+    ? `${verdictStatus}${verdictGrade ? ` · ${verdictGrade}` : ""}`
+    : showMissingRobustness
+      ? "Missing"
+      : "Unknown";
+  const verdictTone = robustnessVerdict
+    ? robustnessTone(robustnessVerdict.status)
+    : showMissingRobustness
+      ? "tone-warning"
+      : "tone-neutral";
+
+  const paperLabel = paper?.available ? "Available" : "Pending";
+  const paperTone = paper?.available ? "tone-positive" : "tone-warning";
+
+  return (
+    <section className="artifact-panel run-rail-card evidence-rail-card">
+      <div className="section-label">Evidence lineage</div>
+      <h3>Run → artifacts → verdict → promotion/paper</h3>
+      <div className="rail-posture-list">
+        <div className="rail-posture-row">
+          <div className="rail-posture-copy">
+            <div className="rail-posture-label">Run</div>
+            <div className="rail-posture-value">{run?.run_id || "-"}</div>
+          </div>
+          <span className="rail-tone-dot tone-neutral" aria-hidden="true"></span>
+        </div>
+
+        <div className="rail-posture-row">
+          <div className="rail-posture-copy">
+            <div className="rail-posture-label">Artifacts</div>
+            <div className={`rail-posture-value ${hasReport ? "tone-positive" : "tone-warning"}`}>
+              {hasReport ? "Report available" : "Report missing"} · Manifest {formatCount(artifactCount)}
+            </div>
+          </div>
+          <span className={`rail-tone-dot ${hasReport ? "tone-positive" : "tone-warning"}`} aria-hidden="true"></span>
+        </div>
+
+        <div className="rail-posture-row">
+          <div className="rail-posture-copy">
+            <div className="rail-posture-label">Robustness verdict</div>
+            <div className={`rail-posture-value ${verdictTone}`}>{verdictLabel}</div>
+          </div>
+          <span className={`rail-tone-dot ${verdictTone}`} aria-hidden="true"></span>
+        </div>
+
+        <div className="rail-posture-row">
+          <div className="rail-posture-copy">
+            <div className="rail-posture-label">Promotion / paper</div>
+            <div className="rail-posture-value">
+              <span className={decisionSignal.tone}>{decisionSignal.label}</span>
+              {" · "}
+              <span className={paperTone}>Paper health {paperLabel}</span>
+            </div>
+          </div>
+          <span className={`rail-tone-dot ${decisionSignal.tone || "tone-neutral"}`} aria-hidden="true"></span>
+        </div>
+      </div>
+    </section>
   );
 }
