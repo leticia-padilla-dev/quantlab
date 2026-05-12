@@ -364,11 +364,17 @@ export function RunDetailPane({ tab }) {
           <EvidenceLineageRail
             run={run}
             reportUrl={detail.reportUrl}
+            report={report}
+            configDeltaCount={configEntries.length}
             artifacts={artifacts}
+            localFileCount={fileEntries.length}
+            localListingTruncated={Boolean(detail.directoryTruncated)}
+            primaryResult={primaryResult}
             robustnessVerdict={robustnessVerdict}
             showMissingRobustness={shouldShowMissingRobustness(run, report)}
             decisionState={decisionState}
             paper={paper}
+            stderrHref={latestRelatedJob?.stderr_href}
           />
           <RobustnessVerdictCard
             verdict={robustnessVerdict}
@@ -513,15 +519,37 @@ function SummaryCard({ label, value, tone = '' }) {
 function EvidenceLineageRail({
   run,
   reportUrl,
+  report,
+  configDeltaCount,
   artifacts,
+  localFileCount,
+  localListingTruncated,
+  primaryResult,
   robustnessVerdict,
   showMissingRobustness,
   decisionState,
   paper,
+  stderrHref,
 }) {
   const decisionSignal = resolveDecisionSignal(decisionState);
   const artifactCount = Array.isArray(artifacts) ? artifacts.length : 0;
   const hasReport = Boolean(reportUrl);
+  const hasConfig = Boolean(report?.config_received || report?.config_resolved);
+  const configTone = hasConfig ? "tone-positive" : (hasReport ? "tone-warning" : "tone-neutral");
+
+  const metricSource = primaryResult || run || {};
+  const hasMetrics = [
+    metricSource.total_return,
+    metricSource.sharpe_simple,
+    metricSource.max_drawdown,
+    metricSource.trades,
+  ].some((value) => typeof value === "number" && !Number.isNaN(value));
+  const metricsTone = hasMetrics ? "tone-neutral" : (hasReport ? "tone-warning" : "tone-neutral");
+
+  const hasAnyArtifacts = artifactCount > 0 || (typeof localFileCount === "number" && localFileCount > 0);
+  const artifactsTone = hasAnyArtifacts ? "tone-positive" : "tone-neutral";
+
+  const errorsTone = stderrHref ? "tone-warning" : "tone-neutral";
 
   const verdictStatus = robustnessVerdict?.status ? String(robustnessVerdict.status).toUpperCase() : "";
   const verdictGrade = robustnessVerdict?.grade ? titleCase(robustnessVerdict.grade) : "";
@@ -542,7 +570,7 @@ function EvidenceLineageRail({
   return (
     <section className="artifact-panel run-rail-card evidence-rail-card">
       <div className="section-label">Evidence lineage</div>
-      <h3>Run → artifacts → verdict → promotion/paper</h3>
+      <h3>Run → inputs → report → metrics → artifacts → verdict</h3>
       <div className="rail-posture-list">
         <div className="rail-posture-row">
           <div className="rail-posture-copy">
@@ -554,12 +582,69 @@ function EvidenceLineageRail({
 
         <div className="rail-posture-row">
           <div className="rail-posture-copy">
-            <div className="rail-posture-label">Artifacts</div>
+            <div className="rail-posture-label">Input / config</div>
+            <div className={`rail-posture-value ${configTone}`}>
+              {hasConfig ? "Captured" : (hasReport ? "Missing" : "Unknown")}
+              {" · "}
+              Resolved delta {formatCount(configDeltaCount)}
+            </div>
+          </div>
+          <span className={`rail-tone-dot ${configTone}`} aria-hidden="true"></span>
+        </div>
+
+        <div className="rail-posture-row">
+          <div className="rail-posture-copy">
+            <div className="rail-posture-label">Report</div>
             <div className={`rail-posture-value ${hasReport ? "tone-positive" : "tone-warning"}`}>
-              {hasReport ? "Report available" : "Report missing"} · Manifest {formatCount(artifactCount)}
+              {hasReport ? "Available" : "Missing"}
             </div>
           </div>
           <span className={`rail-tone-dot ${hasReport ? "tone-positive" : "tone-warning"}`} aria-hidden="true"></span>
+        </div>
+
+        <div className="rail-posture-row">
+          <div className="rail-posture-copy">
+            <div className="rail-posture-label">Metrics</div>
+            <div className={`rail-posture-value ${metricsTone}`}>
+              {hasMetrics ? (primaryResult ? "Primary snapshot" : "Index snapshot") : "Missing"}
+              {hasMetrics && (
+                <>
+                  {" · "}
+                  Return {formatPercent(metricSource.total_return)}
+                  {" · "}
+                  Sharpe {formatNumber(metricSource.sharpe_simple)}
+                  {" · "}
+                  Drawdown {formatPercent(metricSource.max_drawdown)}
+                  {" · "}
+                  Trades {formatCount(metricSource.trades)}
+                </>
+              )}
+            </div>
+          </div>
+          <span className={`rail-tone-dot ${metricsTone}`} aria-hidden="true"></span>
+        </div>
+
+        <div className="rail-posture-row">
+          <div className="rail-posture-copy">
+            <div className="rail-posture-label">Artifacts</div>
+            <div className={`rail-posture-value ${artifactsTone}`}>
+              Manifest {formatCount(artifactCount)}
+              {" · "}
+              Local {formatCount(localFileCount)}
+              {localListingTruncated ? " (truncated)" : ""}
+            </div>
+          </div>
+          <span className={`rail-tone-dot ${artifactsTone}`} aria-hidden="true"></span>
+        </div>
+
+        <div className="rail-posture-row">
+          <div className="rail-posture-copy">
+            <div className="rail-posture-label">Errors / warnings</div>
+            <div className={`rail-posture-value ${errorsTone}`}>
+              {stderrHref ? "stderr available" : "None recorded"}
+            </div>
+          </div>
+          <span className={`rail-tone-dot ${errorsTone}`} aria-hidden="true"></span>
         </div>
 
         <div className="rail-posture-row">
