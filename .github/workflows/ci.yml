@@ -3,8 +3,46 @@ name: QuantLab CI
 on:
   push:
     branches: [ main, master ]
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - "landing/**"
+      - "desktop/docs/**"
+      - "docs/**/*.png"
+      - "docs/**/*.jpg"
+      - "docs/**/*.jpeg"
+      - "docs/**/*.webp"
+      - "landing/**/*.png"
+      - "landing/**/*.jpg"
+      - "landing/**/*.jpeg"
+      - "landing/**/*.webp"
+      - "desktop/docs/**/*.png"
+      - "desktop/docs/**/*.jpg"
+      - "desktop/docs/**/*.jpeg"
+      - "desktop/docs/**/*.webp"
   pull_request:
     branches: [ main, master ]
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - "landing/**"
+      - "desktop/docs/**"
+      - "docs/**/*.png"
+      - "docs/**/*.jpg"
+      - "docs/**/*.jpeg"
+      - "docs/**/*.webp"
+      - "landing/**/*.png"
+      - "landing/**/*.jpg"
+      - "landing/**/*.jpeg"
+      - "landing/**/*.webp"
+      - "desktop/docs/**/*.png"
+      - "desktop/docs/**/*.jpg"
+      - "desktop/docs/**/*.jpeg"
+      - "desktop/docs/**/*.webp"
+
+concurrency:
+  group: quantlab-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
