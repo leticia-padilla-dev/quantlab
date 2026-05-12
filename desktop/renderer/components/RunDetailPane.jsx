@@ -529,20 +529,20 @@ function EvidenceLineageRail({
     ? `${verdictStatus}${verdictGrade ? ` · ${verdictGrade}` : ""}`
     : showMissingRobustness
       ? "Missing"
-      : "Not emitted";
+      : "Unknown";
   const verdictTone = robustnessVerdict
     ? robustnessTone(robustnessVerdict.status)
     : showMissingRobustness
       ? "tone-warning"
       : "tone-neutral";
 
-  const paperLabel = paper?.available ? "Ready" : "Pending";
+  const paperLabel = paper?.available ? "Available" : "Pending";
   const paperTone = paper?.available ? "tone-positive" : "tone-warning";
 
   return (
     <section className="artifact-panel run-rail-card evidence-rail-card">
       <div className="section-label">Evidence lineage</div>
-      <h3>Run → artifacts → verdict → promotion</h3>
+      <h3>Run → artifacts → verdict → promotion/paper</h3>
       <div className="rail-posture-list">
         <div className="rail-posture-row">
           <div className="rail-posture-copy">
@@ -576,7 +576,7 @@ function EvidenceLineageRail({
             <div className="rail-posture-value">
               <span className={decisionSignal.tone}>{decisionSignal.label}</span>
               {" · "}
-              <span className={paperTone}>Paper {paperLabel}</span>
+              <span className={paperTone}>Paper health {paperLabel}</span>
             </div>
           </div>
           <span className={`rail-tone-dot ${decisionSignal.tone || "tone-neutral"}`} aria-hidden="true"></span>
