@@ -137,11 +137,11 @@ function createLocalStoreService({
     }
 
     if (base.kind === "run") {
-      if (!tab.runId || !tab.mode) return null;
+      if (!tab.runId) return null;
       return {
         ...base,
         runId: String(tab.runId),
-        mode: String(tab.mode),
+        ...(tab.mode ? { mode: String(tab.mode) } : {}),
       };
     }
 
@@ -154,17 +154,22 @@ function createLocalStoreService({
     }
 
     if (base.kind === "compare") {
+      const runIds = Array.isArray(tab.compareRunIds)
+        ? tab.compareRunIds.map((value) => String(value))
+        : (Array.isArray(tab.runIds) ? tab.runIds.map((value) => String(value)) : []);
       return {
         ...base,
-        compareRunIds: Array.isArray(tab.compareRunIds) ? tab.compareRunIds.map((value) => String(value)) : [],
+        runIds,
       };
     }
 
     if (base.kind === "job") {
-      if (!tab.jobId) return null;
+      const requestId = tab.requestId || tab.jobId;
+      if (!requestId) return null;
       return {
         ...base,
-        jobId: String(tab.jobId),
+        requestId: String(requestId),
+        jobId: String(requestId),
       };
     }
 
