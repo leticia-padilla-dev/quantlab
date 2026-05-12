@@ -22,6 +22,7 @@
     "renderer/src/**/*",
     "renderer/components/**/*.jsx",
     "renderer/components/**/*.tsx",
+    "renderer/store/**/*.ts",
     "shared/**/*.ts",
     "types/**/*.d.ts",
     "vite.config.ts"
