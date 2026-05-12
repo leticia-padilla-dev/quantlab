@@ -94,7 +94,7 @@ export function AssistantPane({ tab }) {
 
       <div className="assistant-messages" style={{ flex: 1, overflowY: 'auto', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
         {messages.length === 0 && (
-          <p style={{ color: 'var(--color-muted, #666)', fontStyle: 'italic' }}>
+          <p style={{ color: 'var(--muted)', fontStyle: 'italic' }}>
             Send a message to start a Stepbit session.
           </p>
         )}
@@ -104,7 +104,7 @@ export function AssistantPane({ tab }) {
             borderRadius: '4px',
             alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
             maxWidth: '80%',
-            background: msg.role === 'user' ? 'var(--color-accent, #1a3a5c)' : msg.role === 'error' ? 'var(--color-danger, #5c1a1a)' : 'var(--color-surface-2, #1e2a38)',
+            background: msg.role === 'user' ? 'var(--accent)' : msg.role === 'error' ? 'var(--danger)' : 'var(--bg-hover)',
           }}>
             <span style={{ fontSize: '11px', opacity: 0.6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{msg.role}</span>
             <p style={{ margin: '4px 0 0', whiteSpace: 'pre-wrap' }}>{msg.text}</p>
@@ -113,7 +113,7 @@ export function AssistantPane({ tab }) {
         <div ref={bottomRef} />
       </div>
 
-      <div className="assistant-input" style={{ display: 'flex', gap: '8px', padding: '12px 16px', borderTop: '1px solid var(--color-border, #2a3a4a)' }}>
+      <div className="assistant-input" style={{ display: 'flex', gap: '8px', padding: '12px 16px', borderTop: '1px solid var(--border)' }}>
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -121,12 +121,12 @@ export function AssistantPane({ tab }) {
           placeholder="Ask Stepbit… (Enter to send, Shift+Enter for newline)"
           disabled={sending}
           rows={2}
-          style={{ flex: 1, resize: 'none', padding: '8px', borderRadius: '4px', border: '1px solid var(--color-border, #2a3a4a)', background: 'var(--color-surface-2, #1e2a38)', color: 'inherit', fontFamily: 'inherit', fontSize: '13px' }}
+          style={{ flex: 1, resize: 'none', padding: '8px', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-hover)', color: 'inherit', fontFamily: 'inherit', fontSize: '13px' }}
         />
         <button
           onClick={sendMessage}
           disabled={sending || !input.trim()}
-          style={{ padding: '8px 16px', borderRadius: '4px', border: 'none', background: 'var(--color-accent, #1a3a5c)', color: 'inherit', cursor: sending ? 'not-allowed' : 'pointer', opacity: sending || !input.trim() ? 0.5 : 1 }}
+          style={{ padding: '8px 16px', borderRadius: '4px', border: 'none', background: 'var(--accent)', color: 'inherit', cursor: sending ? 'not-allowed' : 'pointer', opacity: sending || !input.trim() ? 0.5 : 1 }}
         >
           {sending ? '…' : 'Send'}
         </button>
