@@ -6,6 +6,7 @@ import {
   useQuantLabContextValue,
   RegistryProvider,
 } from './QuantLabContext.jsx';
+import { getQuantLabContextContractIssues } from '../modules/quantlab-context-contract.js';
 
 /**
  * AppShell — inner shell component.
@@ -46,6 +47,19 @@ function AppShell() {
     if (!window.__quantlab) return;
     window.__quantlab.currentSurface = currentSurface;
   }, [currentSurface]);
+
+  const contractIssues = getQuantLabContextContractIssues(contextValue);
+  if (contractIssues.length) {
+    return (
+      <div className="app-container loading">
+        <div className="loading-message" data-smoke="shell-contract-mismatch">
+          <div className="section-label">Shell contract mismatch</div>
+          <p>QuantLabContext is missing required contract fields.</p>
+          <div className="artifact-meta">{contractIssues.join(', ')}</div>
+        </div>
+      </div>
+    );
+  }
 
   // Loading guard — safe here because all hooks have already been called
   if (!contextValue?.state || !contextValue.state.isInitialized) {
