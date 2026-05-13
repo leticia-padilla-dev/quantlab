@@ -2,7 +2,7 @@
 
 Issue: [#669](https://github.com/Whiteks1/quantlab/issues/669)
 
-Status: `pending_operator_signature`
+Status: `partial_operator_signature_recorded`
 
 This document records the declarations required before Stage E can be considered for a separate scoping issue.
 
@@ -37,7 +37,9 @@ stage_e: blocked
 operator_declarations_complete: false
 declaration_owner: operator
 record_created_by: Codex
-record_status: pending_operator_signature
+record_status: partial_operator_signature_recorded
+last_signature_date: "2026-05-13"
+last_signature: "Leti / Whiteks1 — signed"
 ```
 
 ## Required Declarations
@@ -60,8 +62,9 @@ References:
 Status:
 
 ```yaml
-confirmed: false
-operator_signature: pending
+confirmed: true
+operator_signature: "Leti / Whiteks1 — signed"
+signature_date: "2026-05-13"
 ```
 
 ### 2. Alert Aggregation Understanding
@@ -81,8 +84,9 @@ References:
 Status:
 
 ```yaml
-confirmed: false
-operator_signature: pending
+confirmed: true
+operator_signature: "Leti / Whiteks1 — signed"
+signature_date: "2026-05-13"
 ```
 
 ### 3. Reconciliation State Understanding
