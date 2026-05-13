@@ -2,7 +2,7 @@
 
 Issue: [#669](https://github.com/Whiteks1/quantlab/issues/669)
 
-Status: `partial_operator_signature_recorded`
+Status: `operator_signature_recorded`
 
 This document records the declarations required before Stage E can be considered for a separate scoping issue.
 
@@ -34,12 +34,13 @@ outputs/hyperliquid_submits/20260502_232513_hyperliquid_submit_5d599f8
 
 ```yaml
 stage_e: blocked
-operator_declarations_complete: false
+operator_declarations_complete: true
 declaration_owner: operator
 record_created_by: Codex
-record_status: partial_operator_signature_recorded
+record_status: operator_signature_recorded
 last_signature_date: "2026-05-13"
 last_signature: "Leti / Whiteks1 — signed"
+evidence_paths_verified_on: "2026-05-13"
 ```
 
 ## Required Declarations
@@ -149,8 +150,9 @@ References:
 Status:
 
 ```yaml
-confirmed: false
-operator_signature: pending
+confirmed: true
+operator_signature: "Leti / Whiteks1 — signed"
+signature_date: "2026-05-13"
 ```
 
 ## Stage E Decision Rule
