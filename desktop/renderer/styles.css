@@ -1777,7 +1777,7 @@ button:disabled {
 #react-root:not([hidden]) .app-container {
     display: grid;
     grid-template-columns: 280px 1fr;
-    grid-template-rows: 1fr;
+    grid-template-rows: auto 1fr;
     min-height: 100vh;
     background: var(--bg);
     color: var(--text);
@@ -1785,6 +1785,67 @@ button:disabled {
 
 #react-root:not([hidden]) .app-container.sidebar-collapsed {
     grid-template-columns: 48px 1fr;
+}
+
+#react-root:not([hidden]) .status-strip {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    padding: 10px 14px;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    border-radius: 0;
+    background: rgba(10, 16, 24, 0.96);
+    box-shadow: none;
+    align-items: center;
+}
+
+#react-root:not([hidden]) .status-strip-title {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    min-width: 0;
+}
+
+#react-root:not([hidden]) .status-strip-product {
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+}
+
+#react-root:not([hidden]) .status-strip-surface {
+    color: var(--muted);
+    font-size: 0.85rem;
+    white-space: nowrap;
+}
+
+#react-root:not([hidden]) .status-strip-chips {
+    margin-top: 0;
+    justify-content: flex-end;
+    min-width: 0;
+}
+
+#react-root:not([hidden]) .status-strip-chips .topbar-status-chip {
+    padding: 6px 10px;
+    font-size: 0.72rem;
+}
+
+#react-root:not([hidden]) .topbar-toggle {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    transition: background 0.15s, color 0.15s;
+    flex-shrink: 0;
+}
+
+#react-root:not([hidden]) .topbar-toggle:hover {
+    background: var(--bg-hover);
+    color: var(--text);
 }
 
 #react-root:not([hidden]) .indicator-dot {
@@ -1830,7 +1891,7 @@ button:disabled {
 
 #react-root:not([hidden]) .sidebar {
     grid-column: 1;
-    grid-row: 1;
+    grid-row: 2;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -2025,7 +2086,7 @@ button:disabled {
 
 #react-root:not([hidden]) .main-content {
     grid-column: 2;
-    grid-row: 1;
+    grid-row: 2;
     display: flex;
     flex-direction: column;
     gap: 0;

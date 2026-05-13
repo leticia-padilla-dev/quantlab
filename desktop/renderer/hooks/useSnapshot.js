@@ -47,7 +47,6 @@ export function useSnapshot(serverUrl) {
   const consecutiveErrors = useRef(0);
 
   const refresh = useCallback(async (shouldApply = () => true) => {
-    if (!serverUrl) return;
     const bridge = window.quantlabDesktop;
     if (typeof bridge?.requestJson !== 'function') {
       if (!shouldApply()) return;
@@ -116,7 +115,6 @@ export function useSnapshot(serverUrl) {
   }, [serverUrl]);
 
   useEffect(() => {
-    if (!serverUrl) return undefined;
     let cancelled = false;
 
     const guardedRefresh = async () => {
@@ -130,7 +128,7 @@ export function useSnapshot(serverUrl) {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [refresh, serverUrl]);
+  }, [refresh]);
 
   return {
     snapshot,
