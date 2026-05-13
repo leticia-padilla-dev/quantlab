@@ -105,8 +105,9 @@ References:
 Status:
 
 ```yaml
-confirmed: false
-operator_signature: pending
+confirmed: true
+operator_signature: "Leti / Whiteks1 — signed"
+signature_date: "2026-05-13"
 ```
 
 ### 4. Stop-Control Understanding
@@ -127,8 +128,9 @@ References:
 Status:
 
 ```yaml
-confirmed: false
-operator_signature: pending
+confirmed: true
+operator_signature: "Leti / Whiteks1 — signed"
+signature_date: "2026-05-13"
 ```
 
 ### 5. Evidence Trail Durability
