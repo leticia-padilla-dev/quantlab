@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import Sidebar from './Sidebar.jsx';
 import MainContent from './MainContent.jsx';
+import Topbar from './Topbar.jsx';
 import {
   QuantLabContextProvider,
   useQuantLabContextValue,
@@ -84,6 +85,11 @@ function AppShell() {
   return (
     <QuantLabContextProvider value={contextValue}>
       <div className={`app-container ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`} data-smoke="react-shell">
+        <Topbar
+          currentSurface={currentSurface}
+          onToggleSidebar={handleToggleSidebar}
+          isSidebarCollapsed={isSidebarCollapsed}
+        />
         <Sidebar
           currentSurface={currentSurface}
           isCollapsed={isSidebarCollapsed}
