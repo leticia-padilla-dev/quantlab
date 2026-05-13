@@ -1799,6 +1799,24 @@ button:disabled {
     align-items: center;
 }
 
+#react-root:not([hidden]) .status-strip .topbar-status-chip.up {
+    color: var(--text);
+    border-color: rgba(90, 115, 143, 0.34);
+    background: rgba(8, 14, 22, 0.7);
+}
+
+#react-root:not([hidden]) .status-strip .topbar-status-chip.warn {
+    color: var(--text);
+    border-color: rgba(240, 179, 93, 0.22);
+    background: rgba(24, 20, 14, 0.58);
+}
+
+#react-root:not([hidden]) .status-strip .topbar-status-chip.down {
+    color: var(--text);
+    border-color: rgba(242, 125, 136, 0.20);
+    background: rgba(26, 14, 18, 0.55);
+}
+
 #react-root:not([hidden]) .status-strip-title {
     display: flex;
     align-items: baseline;

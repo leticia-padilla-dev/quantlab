@@ -14,33 +14,30 @@ import { useQuantLab } from './QuantLabContext';
 function corridorChip(surface) {
   if (!surface || !surface.available) {
     return {
-      label: 'No sessions',
+      label: 'Unavailable',
       cls: 'muted',
     };
   }
   const health = surface.submit_health || {};
   const rootAlert = surface.submit_alert_status || 'unknown';
   const sessions = Number(health.total_sessions || 0);
-  const rootAlertLabel = rootAlert === 'ok'
-    ? 'OK'
-    : rootAlert.charAt(0).toUpperCase() + rootAlert.slice(1);
-  const cls = surface.submit_has_alerts || rootAlert !== 'ok'
-    ? 'down'
-    : 'up';
+  const hasAlerts = Boolean(surface.submit_has_alerts) || rootAlert !== 'ok';
+  const cls = hasAlerts ? 'warn' : 'up';
+  const label = hasAlerts ? 'Alerts' : 'OK';
 
   return {
-    label: `${rootAlertLabel} · ${sessions} session${sessions === 1 ? '' : 's'}`,
+    label: `${label} · ${sessions}`,
     cls,
   };
 }
 
 function workspaceChip(workspace) {
   const status = String(workspace?.status || 'idle').toLowerCase();
-  if (status === 'ready') return { label: 'API: ready', cls: 'up' };
-  if (status === 'starting') return { label: 'API: starting', cls: 'warn' };
-  if (status === 'stopped') return { label: 'API: stopped', cls: 'down' };
-  if (status === 'error') return { label: 'API: error', cls: 'down' };
-  return { label: 'API: idle', cls: 'muted' };
+  if (status === 'ready') return { label: 'Workspace: online', cls: 'up' };
+  if (status === 'starting') return { label: 'Workspace: starting', cls: 'muted' };
+  if (status === 'stopped') return { label: 'Workspace: offline', cls: 'muted' };
+  if (status === 'error') return { label: 'Workspace: degraded', cls: 'warn' };
+  return { label: 'Workspace: idle', cls: 'muted' };
 }
 
 function registryChip({ registryLoading, registryError, runsCount }) {
@@ -52,11 +49,9 @@ function registryChip({ registryLoading, registryError, runsCount }) {
 function paperChip(paperHealth) {
   if (!paperHealth) return { label: 'Paper: —', cls: 'muted' };
   const total = Number(paperHealth.total_sessions || 0);
-  const latest = paperHealth.latest_session_status || '—';
-  const issue = String(paperHealth.latest_issue_status || '').toLowerCase();
-  if (issue === 'failed') return { label: `Paper: ${total} · ${latest}`, cls: 'down' };
-  if (issue === 'aborted' || issue === 'running') return { label: `Paper: ${total} · ${latest}`, cls: 'warn' };
-  return { label: `Paper: ${total} · ${latest}`, cls: 'up' };
+  const active = Array.isArray(paperHealth.active_sessions) ? paperHealth.active_sessions.length : 0;
+  const label = active ? `Paper: ${total} sessions · ${active} active` : `Paper: ${total} sessions`;
+  return { label, cls: 'muted' };
 }
 
 function formatSurfaceLabel(surface) {
