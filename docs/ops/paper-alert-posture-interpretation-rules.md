@@ -62,6 +62,10 @@ Governing policy:
 
 - [paper-failure-retention-and-alert-horizon-policy.md](./paper-failure-retention-and-alert-horizon-policy.md)
 
+Operator declaration surface:
+
+- [paper-alert-posture-operator-declaration.md](./paper-alert-posture-operator-declaration.md)
+
 ## Decision Procedure (Deterministic)
 
 ### Step 0 — Generate or load the snapshot
