@@ -71,6 +71,14 @@ def handle_paper_session_commands(args) -> bool:
     if getattr(args, "paper_sessions_health", None):
         root_dir = _require_directory(args.paper_sessions_health, "Paper sessions root")
         health = build_paper_sessions_health(root_dir)
+        from quantlab.reporting.paper_sessions_observability import write_paper_sessions_health
+
+        health_artifact = {
+            "artifact_type": "quantlab.paper.sessions.health",
+            "generated_at": datetime.now().replace(microsecond=0).isoformat(),
+            **health,
+        }
+        write_paper_sessions_health(root_dir, health_artifact)
 
         print(f"\nPaper session health: {root_dir}\n")
         print(f"  total_sessions      : {health['total_sessions']}")
@@ -94,6 +102,13 @@ def handle_paper_session_commands(args) -> bool:
             root_dir,
             stale_after_minutes=getattr(args, "paper_stale_minutes", DEFAULT_PAPER_STALE_MINUTES),
         )
+        from quantlab.reporting.paper_sessions_observability import write_paper_sessions_alerts
+
+        alerts_artifact = {
+            "artifact_type": "quantlab.paper.sessions.alerts",
+            **alerts,
+        }
+        write_paper_sessions_alerts(root_dir, alerts_artifact)
         print(json.dumps(alerts, indent=2, sort_keys=True))
         return True
 
