@@ -62,13 +62,13 @@ previous_failure:
 ```yaml
 quantization:
   inputs:
-    notional_usd: <fill>
-    preflight_mid_price: <fill>
-    preflight_size_decimals: <fill>
+    notional_usd: 500
+    preflight_mid_price: "2261.75"
+    preflight_size_decimals: 4
   computation:
-    raw_qty: <fill>
+    raw_qty: "0.2210677572676025201724328507"
     quantization_strategy: floor
-    quantized_qty: <fill>
+    quantized_qty: "0.221"
 ```
 
 ## Signed Action Readiness Snapshot (From Artifact)
@@ -77,13 +77,25 @@ Populate these fields from the generated `hyperliquid_signed_action.json` (local
 
 ```yaml
 signed_action_snapshot:
-  generated_at: <fill>
-  signer_backend: <fill>
-  signature_state: <fill>
-  signature_reason: <fill or null>
-  readiness_allowed: <fill>
-  readiness_reasons: <fill>
-  size_diagnostic: <fill>
+  generated_at: "2026-05-14T16:18:57"
+  signer_backend: null
+  signature_state: pending_signer_backend
+  signature_reason: signature_backend_not_implemented
+  readiness_allowed: false
+  readiness_reasons:
+    - missing_account_id
+    - missing_execution_account_id
+    - missing_signer_id
+    - missing_nonce_scope
+  size_diagnostic:
+    diagnostic_state: ok
+    size_decimals: 4
+    size_step: "0.0001"
+    formatted_size: "0.221"
+    decimal_places: 3
+    precision_ok: true
+    multiple_ok: true
+    suggested_floor_size: "0.221"
 ```
 
 ## Stop Conditions (Hard Stop)
@@ -121,10 +133,10 @@ operator_declaration:
     - "signed action generation is an envelope/signing surface test, not execution permission"
     - "invalid_size mitigation is preflight.size_decimals + floor quantization"
   decision:
-    next_action: stop | proceed_plan_only
-    rationale: ""
+    next_action: stop
+    rationale: "readiness_allowed=false; readiness_reasons=[missing_account_id, missing_execution_account_id, missing_signer_id, missing_nonce_scope]; signature_state=pending_signer_backend (signature_backend_not_implemented)."
   operator_signature:
     signed_by: Leti
-    signed_at: <fill>
-    status: pending_operator_signature
+    signed_at: "2026-05-14T16:19:49+02:00"
+    status: signed_by_operator
 ```
