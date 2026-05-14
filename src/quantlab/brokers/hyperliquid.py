@@ -98,6 +98,7 @@ class HyperliquidPreflightReport:
     matched_name: str | None
     resolved_coin: str | None
     resolved_asset: int | None
+    size_decimals: int | None
     mid_price: str | None
     best_bid: str | None
     best_ask: str | None
@@ -121,6 +122,7 @@ class HyperliquidPreflightReport:
             "matched_name": self.matched_name,
             "resolved_coin": self.resolved_coin,
             "resolved_asset": self.resolved_asset,
+            "size_decimals": self.size_decimals,
             "mid_price": self.mid_price,
             "best_bid": self.best_bid,
             "best_ask": self.best_ask,
@@ -184,6 +186,7 @@ class HyperliquidSignedActionReport:
     identity_readiness: dict[str, object]
     signing_readiness: dict[str, object]
     value_readiness: dict[str, object]
+    size_diagnostic: dict[str, object]
     action_payload: dict[str, object] | None
     readiness_allowed: bool
     readiness_reasons: tuple[str, ...]
@@ -226,6 +229,7 @@ class HyperliquidSignedActionReport:
             "identity_readiness": self.identity_readiness,
             "signing_readiness": self.signing_readiness,
             "value_readiness": self.value_readiness,
+            "size_diagnostic": self.size_diagnostic,
             "action_payload": self.action_payload,
             "readiness_allowed": self.readiness_allowed,
             "readiness_reasons": list(self.readiness_reasons),
@@ -599,6 +603,7 @@ class HyperliquidBrokerAdapter(BrokerAdapter):
         matched_name = None
         resolved_coin = None
         resolved_asset = None
+        size_decimals = None
         mid_price = None
         best_bid = None
         best_ask = None
@@ -645,6 +650,7 @@ class HyperliquidBrokerAdapter(BrokerAdapter):
             matched_name = market["matched_name"]
             resolved_coin = market["resolved_coin"]
             resolved_asset = market["resolved_asset"]
+            size_decimals = market.get("size_decimals")
             if resolved_coin and isinstance(all_mids, dict):
                 mid_price = all_mids.get(resolved_coin)
             if resolved_coin:
@@ -674,6 +680,7 @@ class HyperliquidBrokerAdapter(BrokerAdapter):
             matched_name=matched_name,
             resolved_coin=resolved_coin,
             resolved_asset=resolved_asset,
+            size_decimals=size_decimals,
             mid_price=mid_price,
             best_bid=best_bid,
             best_ask=best_ask,
@@ -800,6 +807,10 @@ class HyperliquidBrokerAdapter(BrokerAdapter):
             resolved_context=resolved_context,
             signature_envelope=signature_envelope,
         )
+        size_diagnostic = _build_hyperliquid_size_diagnostic(
+            quantity=intent.quantity,
+            size_decimals=public_preflight.size_decimals,
+        )
 
         return HyperliquidSignedActionReport(
             adapter_name=self.adapter_name,
@@ -817,6 +828,7 @@ class HyperliquidBrokerAdapter(BrokerAdapter):
             identity_readiness=identity_readiness,
             signing_readiness=signing_readiness,
             value_readiness=value_readiness,
+            size_diagnostic=size_diagnostic,
             action_payload=action_payload,
             readiness_allowed=not readiness_reasons,
             readiness_reasons=tuple(_unique_reasons(readiness_reasons)),
@@ -1968,6 +1980,20 @@ def fetch_hyperliquid_order_status(
     return payload if isinstance(payload, dict) else {"raw_response": payload}
 
 
+def _extract_hyperliquid_size_decimals(item: dict[str, object]) -> int | None:
+    value = item.get("szDecimals")
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value if value >= 0 else None
+    if isinstance(value, str):
+        stripped = value.strip()
+        if stripped.isdigit():
+            parsed = int(stripped)
+            return parsed if parsed >= 0 else None
+    return None
+
+
 def fetch_hyperliquid_perp_market(
     symbol: str,
     *,
@@ -1986,6 +2012,7 @@ def fetch_hyperliquid_perp_market(
             "matched_name": name,
             "resolved_coin": name,
             "resolved_asset": index,
+            "size_decimals": _extract_hyperliquid_size_decimals(item),
         }
     return None
 
@@ -2011,6 +2038,7 @@ def fetch_hyperliquid_spot_market(
             "matched_name": name,
             "resolved_coin": resolved_coin,
             "resolved_asset": 10000 + pair_index,
+            "size_decimals": _extract_hyperliquid_size_decimals(item),
         }
     return None
 
@@ -2344,6 +2372,77 @@ def _build_hyperliquid_value_readiness(
         "required_min_value": required_min,
         "value_sufficient": False,
         "minimum_quantity_needed": minimum_quantity_needed,
+    }
+
+
+def _decimal_places(value: str) -> int:
+    if "." not in value:
+        return 0
+    return len(value.split(".", 1)[1])
+
+
+def _format_decimal_plain(value: Decimal) -> str:
+    text = format(value, "f")
+    return text.rstrip("0").rstrip(".")
+
+
+def _build_hyperliquid_size_diagnostic(*, quantity: float, size_decimals: int | None) -> dict[str, object]:
+    formatted_size = _format_hyperliquid_size(quantity)
+    if size_decimals is None:
+        return {
+            "diagnostic_state": "constraints_unknown",
+            "size_decimals": None,
+            "size_step": None,
+            "formatted_size": formatted_size,
+            "decimal_places": _decimal_places(formatted_size),
+            "precision_ok": None,
+            "multiple_ok": None,
+            "suggested_floor_size": None,
+        }
+
+    if size_decimals < 0:
+        return {
+            "diagnostic_state": "constraints_invalid",
+            "size_decimals": size_decimals,
+            "size_step": None,
+            "formatted_size": formatted_size,
+            "decimal_places": _decimal_places(formatted_size),
+            "precision_ok": None,
+            "multiple_ok": None,
+            "suggested_floor_size": None,
+        }
+
+    step = Decimal("1").scaleb(-size_decimals)
+    try:
+        size_value = Decimal(formatted_size)
+    except InvalidOperation:
+        return {
+            "diagnostic_state": "size_parse_failed",
+            "size_decimals": size_decimals,
+            "size_step": str(step),
+            "formatted_size": formatted_size,
+            "decimal_places": _decimal_places(formatted_size),
+            "precision_ok": None,
+            "multiple_ok": None,
+            "suggested_floor_size": None,
+        }
+
+    quantized = size_value.quantize(step, rounding=ROUND_DOWN)
+    precision_ok = _decimal_places(formatted_size) <= size_decimals
+    multiple_ok = size_value == quantized
+    suggested_floor_size = None
+    if quantized > 0:
+        suggested_floor_size = _format_decimal_plain(quantized)
+
+    return {
+        "diagnostic_state": "ok" if (precision_ok and multiple_ok) else "violation",
+        "size_decimals": size_decimals,
+        "size_step": str(step),
+        "formatted_size": formatted_size,
+        "decimal_places": _decimal_places(formatted_size),
+        "precision_ok": precision_ok,
+        "multiple_ok": multiple_ok,
+        "suggested_floor_size": suggested_floor_size,
     }
 
 

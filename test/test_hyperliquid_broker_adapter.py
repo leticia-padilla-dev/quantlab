@@ -167,6 +167,7 @@ def test_hyperliquid_perp_preflight_matches_meta_and_all_mids():
     assert report["market_type"] == "perp"
     assert report["resolved_coin"] == "ETH"
     assert report["resolved_asset"] == 1
+    assert report["size_decimals"] == 4
     assert report["mid_price"] == "2450.1"
     assert report["best_bid"] == "2449.9"
     assert report["best_ask"] == "2450.2"
@@ -191,6 +192,7 @@ def test_hyperliquid_perp_preflight_records_l2_book_fallback_when_top_of_book_mi
     assert report["best_bid"] is None
     assert report["best_ask"] is None
     assert report["book_time"] == 1700000000123
+    assert report["size_decimals"] == 4
     assert "l2_book_top_of_book_unavailable" in report["errors"]
 
 
@@ -220,6 +222,7 @@ def test_hyperliquid_spot_preflight_resolves_btc_alias_to_ubtc():
     assert report["matched_name"] == "UBTC/USDC"
     assert report["resolved_coin"] == "@142"
     assert report["resolved_asset"] == 10142
+    assert report["size_decimals"] is None
     assert report["mid_price"] == "69157.5"
 
 
@@ -515,6 +518,47 @@ def test_hyperliquid_signed_action_report_builds_deterministic_payload_and_envel
     assert report["signing_readiness"]["signing_scheme"] == "hyperliquid_l1_action"
     assert report["signing_readiness"]["payload_shape_version_or_method"] == "quantlab_hyperliquid_l1_action_v1_msgpack"
     assert report["signing_readiness"]["signing_ready"] is False
+
+
+def test_hyperliquid_signed_action_size_diagnostic_flags_precision_and_step_violations():
+    adapter = HyperliquidBrokerAdapter()
+    policy = ExecutionPolicy(max_notional_per_order=1000.0)
+
+    def fake_fetch_json(payload, **kwargs):
+        if payload["type"] == "allMids":
+            return {"ETH": "2267.45"}
+        if payload["type"] == "meta":
+            return {"universe": [{"name": "ETH", "szDecimals": 4}]}
+        if payload["type"] == "l2Book":
+            return _fake_l2_book(bid="2267.4", ask="2267.5")
+        if payload["type"] == "userRole":
+            return {"role": "user"}
+        if payload["type"] in {"openOrders", "frontendOpenOrders"}:
+            return []
+        raise AssertionError(payload)
+
+    intent = _make_intent(
+        quantity=0.00661492,
+        notional=15.0,
+        side="buy",
+        strategy_id=None,
+        request_id=None,
+    )
+
+    report = adapter.build_signed_action_report(
+        intent,
+        policy,
+        fetch_json=fake_fetch_json,
+    ).to_dict()
+
+    diagnostic = report["size_diagnostic"]
+    assert diagnostic["size_decimals"] == 4
+    assert diagnostic["formatted_size"] == "0.00661492"
+    assert diagnostic["decimal_places"] == 8
+    assert diagnostic["precision_ok"] is False
+    assert diagnostic["multiple_ok"] is False
+    assert diagnostic["suggested_floor_size"] == "0.0066"
+    assert diagnostic["diagnostic_state"] == "violation"
 
 
 def test_hyperliquid_signed_action_buy_uses_ioc_buffer_before_tick_quantization():
@@ -1766,6 +1810,7 @@ def _minimal_preflight() -> HyperliquidPreflightReport:
         matched_name="ETH",
         resolved_coin="ETH",
         resolved_asset=1,
+        size_decimals=4,
         mid_price="2323.5",
         best_bid="2323.0",
         best_ask="2324.0",
