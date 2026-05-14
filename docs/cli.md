@@ -183,14 +183,38 @@ Emit a deterministic alert snapshot for paper sessions:
 python main.py --paper-sessions-alerts outputs/paper_sessions --paper-stale-minutes 60
 ```
 
-The alert snapshot is machine-readable JSON and currently makes these situations explicit:
+Optional operational horizon window (recommended default: 7 days AND 20 sessions):
+
+```bash
+python main.py --paper-sessions-alerts outputs/paper_sessions \
+  --paper-stale-minutes 60 \
+  --paper-alert-window-days 7 \
+  --paper-alert-window-sessions 20
+```
+
+The alert snapshot is machine-readable JSON and surfaces two layers:
+
+- historical (computed over all sessions under `outputs/paper_sessions/`)
+- current_window (computed over a horizon-filtered subset of sessions)
+
+The snapshot currently makes these situations explicit:
 
 - latest success visibility
 - failed sessions
 - aborted sessions
 - running sessions that have become stale relative to the chosen threshold
 
+Interpretation rule:
+
+- `alert_status` / `alerts[]` is the historical posture and must remain visible
+- `current_window_alert_status` / `current_window_alerts[]` is the operator's current operational read
+- current_window may be green while historical remains critical
+
 For the recommended operating loop and response guidance, see [paper-session-runbook.md](./paper-session-runbook.md).
+
+For the governing policy (non-negotiables and the meaning of "current window"), see:
+
+- [paper-failure-retention-and-alert-horizon-policy.md](./ops/paper-failure-retention-and-alert-horizon-policy.md)
 
 For the current supervised broker happy path and failure path, see [supervised-broker-runbook.md](./supervised-broker-runbook.md).
 
