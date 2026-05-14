@@ -204,6 +204,7 @@ a new scoping decision by the operator.
 ## 6. Related Documents
 
 - [supervised-broker-runbook.md](./supervised-broker-runbook.md) — operational runbook with D.3 completion record (§ 11) and gate rules (§ 12)
+- [d3-paper-alert-posture-alignment.md](./ops/d3-paper-alert-posture-alignment.md) — how paper alert posture influences D.3 interpretation (historical vs current window)
 - [roadmap.md](./roadmap.md) — stage definitions and promotion ladder
 - [hyperliquid-boundary-review.md](./hyperliquid-boundary-review.md) — venue contract gap analysis
 - [execution-context-layer.md](./execution-context-layer.md) — signer/routing identity model
