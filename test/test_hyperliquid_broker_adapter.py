@@ -795,6 +795,17 @@ def test_hyperliquid_signed_action_report_signs_with_local_private_key():
     assert recovered.lower() == report["signature_envelope"]["derived_signer_address"].lower()
     assert recovered.lower() == context.signer_id.lower()
 
+    reloaded = json.loads(json.dumps(report))
+    reloaded_recovered = recover_hyperliquid_l1_action_signer(
+        action_payload=reloaded["action_payload"],
+        signature=reloaded["signature_envelope"]["signature"],
+        vault_address=reloaded["signature_envelope"]["signing_payload"]["vaultAddress"],
+        nonce=reloaded["nonce"],
+        expires_after=reloaded["expires_after"],
+    )
+    assert reloaded_recovered.lower() == reloaded["signature_envelope"]["derived_signer_address"].lower()
+    assert reloaded_recovered.lower() == context.signer_id.lower()
+
 
 def test_hyperliquid_signed_action_report_flags_signer_identity_mismatch():
     adapter = HyperliquidBrokerAdapter()
