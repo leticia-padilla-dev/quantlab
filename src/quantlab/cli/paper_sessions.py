@@ -14,7 +14,7 @@ research-oriented runs navigation surface.
 from __future__ import annotations
 
 from collections import Counter
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 from pathlib import Path
 from typing import Any, Iterator
@@ -101,6 +101,8 @@ def handle_paper_session_commands(args) -> bool:
         alerts = build_paper_sessions_alerts(
             root_dir,
             stale_after_minutes=getattr(args, "paper_stale_minutes", DEFAULT_PAPER_STALE_MINUTES),
+            window_days=getattr(args, "paper_alert_window_days", 7),
+            window_sessions=getattr(args, "paper_alert_window_sessions", 20),
         )
         from quantlab.reporting.paper_sessions_observability import write_paper_sessions_alerts
 
@@ -279,6 +281,8 @@ def build_paper_sessions_alerts(
     root_dir: str | Path,
     *,
     stale_after_minutes: int = DEFAULT_PAPER_STALE_MINUTES,
+    window_days: int = 7,
+    window_sessions: int = 20,
     now: datetime | None = None,
 ) -> dict[str, Any]:
     """
@@ -286,11 +290,23 @@ def build_paper_sessions_alerts(
     """
     if stale_after_minutes <= 0:
         raise ConfigError("paper_stale_minutes must be a positive integer.")
+    if window_days <= 0:
+        raise ConfigError("paper_alert_window_days must be a positive integer.")
+    if window_sessions <= 0:
+        raise ConfigError("paper_alert_window_sessions must be a positive integer.")
 
     root = _require_directory(root_dir, "Paper sessions root")
     sessions = [load_paper_session_summary(path) for path in scan_paper_sessions(root)]
     generated_at = now or datetime.now()
     alerts: list[dict[str, Any]] = []
+
+    current_window_sessions = _filter_sessions_by_horizon(
+        sessions,
+        generated_at=generated_at,
+        window_days=window_days,
+        window_sessions=window_sessions,
+    )
+    current_window_alerts: list[dict[str, Any]] = []
 
     for session in sessions:
         status = (session.get("status") or "unknown").lower()
@@ -334,6 +350,48 @@ def build_paper_sessions_alerts(
                 )
             )
 
+    for session in current_window_sessions:
+        status = (session.get("status") or "unknown").lower()
+        activity_at = _parse_session_activity(session)
+        age_minutes = _session_age_minutes(activity_at, generated_at)
+
+        if status == "failed":
+            current_window_alerts.append(
+                _build_alert_entry(
+                    code="PAPER_SESSION_FAILED",
+                    severity="critical",
+                    session=session,
+                    activity_at=activity_at,
+                    age_minutes=age_minutes,
+                    message=session.get("message") or "Paper session failed.",
+                )
+            )
+        elif status == "aborted":
+            current_window_alerts.append(
+                _build_alert_entry(
+                    code="PAPER_SESSION_ABORTED",
+                    severity="warning",
+                    session=session,
+                    activity_at=activity_at,
+                    age_minutes=age_minutes,
+                    message=session.get("message") or "Paper session aborted.",
+                )
+            )
+        elif status == "running" and age_minutes is not None and age_minutes >= stale_after_minutes:
+            current_window_alerts.append(
+                _build_alert_entry(
+                    code="PAPER_SESSION_STALE",
+                    severity="warning",
+                    session=session,
+                    activity_at=activity_at,
+                    age_minutes=age_minutes,
+                    message=(
+                        f"Paper session has been running for {age_minutes} minute(s), "
+                        f"exceeding stale threshold of {stale_after_minutes} minute(s)."
+                    ),
+                )
+            )
+
     latest_success = _latest_by_activity(
         [
             session
@@ -351,10 +409,26 @@ def build_paper_sessions_alerts(
     else:
         alert_status = "ok"
 
+    current_window_latest_success = _latest_by_activity(
+        [
+            session
+            for session in current_window_sessions
+            if (session.get("status") or "").lower() == "success"
+        ]
+    )
+    current_window_latest_alert = (
+        max(current_window_alerts, key=_alert_sort_key) if current_window_alerts else None
+    )
+
     return {
         "root_dir": str(root),
         "generated_at": generated_at.replace(microsecond=0).isoformat(),
         "stale_after_minutes": stale_after_minutes,
+        "horizon": {
+            "mode": "and",
+            "window_days": window_days,
+            "window_sessions": window_sessions,
+        },
         "total_sessions": len(sessions),
         "status_counts": dict(Counter((session.get("status") or "unknown") for session in sessions)),
         "running_sessions": [
@@ -371,7 +445,62 @@ def build_paper_sessions_alerts(
         "latest_alert_code": latest_alert.get("alert_code") if latest_alert else None,
         "latest_alert_at": latest_alert.get("activity_at") if latest_alert else None,
         "alerts": alerts,
+        "current_window_total_sessions": len(current_window_sessions),
+        "current_window_status_counts": dict(
+            Counter((session.get("status") or "unknown") for session in current_window_sessions)
+        ),
+        "current_window_alert_status": _compute_alert_status(current_window_alerts),
+        "current_window_has_alerts": bool(current_window_alerts),
+        "current_window_alert_counts": dict(Counter(alert["severity"] for alert in current_window_alerts)),
+        "current_window_latest_success_session_id": (
+            current_window_latest_success.get("session_id") if current_window_latest_success else None
+        ),
+        "current_window_latest_success_at": _activity_at(current_window_latest_success),
+        "current_window_latest_alert_session_id": (
+            current_window_latest_alert.get("session_id") if current_window_latest_alert else None
+        ),
+        "current_window_latest_alert_code": (
+            current_window_latest_alert.get("alert_code") if current_window_latest_alert else None
+        ),
+        "current_window_latest_alert_at": (
+            current_window_latest_alert.get("activity_at") if current_window_latest_alert else None
+        ),
+        "current_window_alerts": current_window_alerts,
     }
+
+
+def _compute_alert_status(alerts: list[dict[str, Any]]) -> str:
+    alert_counts = Counter(alert["severity"] for alert in alerts)
+    if alert_counts.get("critical", 0):
+        return "critical"
+    if alerts:
+        return "warning"
+    return "ok"
+
+
+def _filter_sessions_by_horizon(
+    sessions: list[dict[str, Any]],
+    *,
+    generated_at: datetime,
+    window_days: int,
+    window_sessions: int,
+) -> list[dict[str, Any]]:
+    if not sessions:
+        return []
+
+    by_activity_desc = sorted(sessions, key=_session_activity_sort_key, reverse=True)
+    latest_n = by_activity_desc[:window_sessions]
+    latest_n_ids = {session.get("session_id") for session in latest_n}
+
+    cutoff = generated_at - timedelta(days=window_days)
+    within_days_ids = {
+        session.get("session_id")
+        for session in sessions
+        if (activity := _parse_session_activity(session)) is not None and activity >= cutoff
+    }
+
+    current_ids = latest_n_ids.intersection(within_days_ids)
+    return [session for session in by_activity_desc if session.get("session_id") in current_ids]
 
 
 def build_paper_sessions_promotion_report(root_dir: str | Path, *, max_candidates: int = 2) -> dict[str, Any]:
