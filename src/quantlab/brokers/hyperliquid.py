@@ -751,6 +751,7 @@ class HyperliquidBrokerAdapter(BrokerAdapter):
                 intent,
                 public_preflight=public_preflight,
             )
+            unblocked_action_payload = _canonicalize_hyperliquid_action_payload(unblocked_action_payload)
             action_payload = unblocked_action_payload
             effective_notional = _calculate_hyperliquid_effective_notional(
                 action_payload,
@@ -2470,7 +2471,7 @@ def _build_hyperliquid_submit_payload(
 
     signing_payload = signature_envelope.get("signing_payload", {})
     payload = {
-        "action": action_payload,
+        "action": _canonicalize_hyperliquid_action_payload(action_payload),
         "nonce": nonce,
         "signature": signature_envelope.get("signature"),
     }
@@ -2965,6 +2966,17 @@ def _safe_string(value: object) -> str | None:
     return text or None
 
 
+def _canonicalize_hyperliquid_action_payload(value: object) -> object:
+    if isinstance(value, dict):
+        canonical: dict[str, object] = {}
+        for key in sorted(value.keys(), key=lambda item: str(item)):
+            canonical[str(key)] = _canonicalize_hyperliquid_action_payload(value[key])
+        return canonical
+    if isinstance(value, list):
+        return [_canonicalize_hyperliquid_action_payload(item) for item in value]
+    return value
+
+
 def _hyperliquid_signing_dependencies_available() -> bool:
     return all(module is not None for module in (msgpack, Account, encode_typed_data, keccak, to_hex))
 
@@ -3112,7 +3124,8 @@ def _hyperliquid_action_hash(
         raise ValueError("missing_action_payload")
     if msgpack is None or keccak is None:
         raise RuntimeError("missing_signing_dependencies")
-    data = msgpack.packb(action_payload)
+    canonical_action = _canonicalize_hyperliquid_action_payload(action_payload)
+    data = msgpack.packb(canonical_action, use_bin_type=True)
     data += int(nonce).to_bytes(8, "big")
     if vault_address is None:
         data += b"\x00"
