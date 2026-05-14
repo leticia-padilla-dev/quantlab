@@ -118,6 +118,33 @@ def handle_paper_session_commands(args) -> bool:
         print(json.dumps(promotion, indent=2, sort_keys=True))
         return True
 
+    if getattr(args, "paper_promotion_handoff", None):
+        from quantlab.reporting.paper_promotion_handoff import (
+            build_paper_promotion_handoff,
+            build_paper_promotion_handoff_validation,
+            write_paper_promotion_handoff,
+            write_paper_promotion_handoff_validation,
+        )
+
+        session_dir = _require_directory(args.paper_promotion_handoff, "Paper session directory")
+        outdir_value = getattr(args, "paper_promotion_handoff_outdir", None)
+        outdir = Path(outdir_value).resolve() if isinstance(outdir_value, str) and outdir_value.strip() else session_dir
+
+        handoff = build_paper_promotion_handoff(session_dir)
+        handoff_path = write_paper_promotion_handoff(handoff, outdir=outdir)
+        validation = build_paper_promotion_handoff_validation(
+            handoff,
+            source_artifact_path=handoff_path,
+        )
+        validation_path = write_paper_promotion_handoff_validation(validation, outdir=outdir)
+
+        print("\nPaper promotion handoff generated:\n")
+        print(f"  handoff_artifact_path     : {handoff_path}")
+        print(f"  validation_artifact_path  : {validation_path}")
+        print(f"  handoff_allowed           : {handoff['handoff_readiness']['handoff_allowed']}")
+        print(f"  accepted                  : {validation['accepted']}")
+        return True
+
     if getattr(args, "paper_sessions_index", None):
         from quantlab.reporting.paper_session_index import write_paper_sessions_index
 

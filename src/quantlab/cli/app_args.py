@@ -131,6 +131,18 @@ def build_argument_parser() -> argparse.ArgumentParser:
         help="Emit a broker-promotion report for paper sessions in a directory.",
     )
     parser.add_argument(
+        "--paper-promotion-handoff",
+        metavar="SESSION_DIR",
+        default=None,
+        help="Write a deterministic paper->promotion handoff artifact for a single paper session directory.",
+    )
+    parser.add_argument(
+        "--paper-promotion-handoff-outdir",
+        metavar="DIR",
+        default=None,
+        help="Directory where QuantLab should write paper_promotion_handoff.json and its validation artifact (defaults to the session dir).",
+    )
+    parser.add_argument(
         "--paper-stale-minutes",
         type=int,
         default=60,
