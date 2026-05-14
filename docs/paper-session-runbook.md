@@ -122,6 +122,15 @@ Emit a deterministic paper-session alert snapshot:
 python main.py --paper-sessions-alerts outputs/paper_sessions --paper-stale-minutes 60
 ```
 
+Optional operational horizon window (recommended default: 7 days AND 20 sessions):
+
+```bash
+python main.py --paper-sessions-alerts outputs/paper_sessions \
+  --paper-stale-minutes 60 \
+  --paper-alert-window-days 7 \
+  --paper-alert-window-sessions 20
+```
+
 This returns machine-readable JSON and currently classifies:
 
 - `PAPER_SESSION_FAILED`
@@ -129,6 +138,20 @@ This returns machine-readable JSON and currently classifies:
 - `PAPER_SESSION_STALE`
 
 Use `--paper-stale-minutes` to tighten or relax how long a running session can remain active before it is considered stale.
+
+The alert snapshot surfaces two postures:
+
+- historical: `alert_status` / `alerts[]` (computed over all sessions; must remain visible)
+- current operational read: `current_window_alert_status` / `current_window_alerts[]` (computed over the horizon-filtered subset)
+
+Operator rule:
+
+- current_window may be green while historical remains critical
+- do not hide or delete failures to make the current window green
+
+For the governing policy and non-negotiables, see:
+
+- [paper-failure-retention-and-alert-horizon-policy.md](./ops/paper-failure-retention-and-alert-horizon-policy.md)
 
 Recommended default:
 
