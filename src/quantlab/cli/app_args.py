@@ -149,6 +149,18 @@ def build_argument_parser() -> argparse.ArgumentParser:
         help="Minutes before a running paper session is treated as stale.",
     )
     parser.add_argument(
+        "--paper-alert-window-days",
+        type=int,
+        default=7,
+        help="Operational alert window size in days (current window only; historical alerts remain unchanged).",
+    )
+    parser.add_argument(
+        "--paper-alert-window-sessions",
+        type=int,
+        default=20,
+        help="Operational alert window size in sessions (current window only; historical alerts remain unchanged).",
+    )
+    parser.add_argument(
         "--paper-sessions-index",
         metavar="ROOT_DIR",
         default=None,
