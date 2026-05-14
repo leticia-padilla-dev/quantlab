@@ -144,6 +144,10 @@ escalation:
     action: proceed_with_caution_and_document_that_history_is_critical
 ```
 
+Operator interpretation rules:
+
+- [paper-alert-posture-interpretation-rules.md](./paper-alert-posture-interpretation-rules.md)
+
 ## Follow-Up Implementation Notes (Out of Scope for This Doc)
 
 Runtime work should remain additive and report-only:
