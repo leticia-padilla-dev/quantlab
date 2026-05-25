@@ -1,0 +1,12 @@
+{
+  "name": "quantlab-landing",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/serve-static.mjs",
+    "preview": "node scripts/serve-static.mjs",
+    "build": "node scripts/validate-static.mjs",
+    "lint": "node scripts/validate-static.mjs"
+  }
+}

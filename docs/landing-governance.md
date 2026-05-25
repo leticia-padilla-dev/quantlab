@@ -39,6 +39,7 @@ If a public positioning change is required, update the brand guide first and the
 - `landing/styles.css` owns the visual tokens and layout treatment for the public web surface.
 - `landing/app.js` owns only lightweight interaction and reveal behavior.
 - `landing/README.md` owns local preview and deploy notes for contributors.
+- `landing/package.json` owns local preview and static validation commands for the landing surface.
 
 ## Anti-Duplication Rules
 
@@ -54,7 +55,9 @@ If a public positioning change is required, update the brand guide first and the
 2. Update the canonical doc first if the public position or voice changes.
 3. Update the landing surface second.
 4. Keep the change small and limited to the landing surface unless the task explicitly spans the repo.
-5. Verify the deploy path still targets `landing/` through GitHub Pages.
+5. Preview locally with `cd landing && npm run dev`.
+6. Validate locally with `cd landing && npm run build`.
+7. Verify the deploy path still targets `landing/` through GitHub Pages.
 
 ## Review Checklist
 
@@ -63,3 +66,4 @@ If a public positioning change is required, update the brand guide first and the
 - Are the copy, palette, and layout still consistent with the brand tokens?
 - Did the change avoid duplicating content that belongs in docs?
 - Is the GitHub Pages workflow still publishing `landing/` without extra plumbing?
+- Did local preview and static validation pass before PR?
