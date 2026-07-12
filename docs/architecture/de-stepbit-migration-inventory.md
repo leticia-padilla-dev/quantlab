@@ -361,6 +361,7 @@ next_slices:
     type: docs_code_tests
     status: in_progress
     issue: 848
+    canonical_language: external_consumer_provider
     generalized:
       - New canonical docs: docs/external-consumer-io-v1.md and docs/external-consumer-local-invocation-contract.md
       - Updated CLI help text for --json-request to refer to external consumers instead of Stepbit
@@ -368,10 +369,37 @@ next_slices:
       - Updated docs/cli.md examples to use outputs/external_demo instead of outputs/stepbit
       - Added new canonical test file: test/test_external_consumer_compat.py
     compatibility_aliases:
-      - Kept test/test_stepbit_external_provider_compat.py unchanged for historical compatibility
-      - Kept stepbit-io-v1.md and stepbit-local-invocation-contract.md in place (for later archival in slice 5)
+      - test/test_stepbit_external_provider_compat.py
+      - docs/stepbit-io-v1.md
+      - docs/stepbit-local-invocation-contract.md
     deprecated_identifiers:
       - No public identifiers deprecated yet; old stepbit-specific docs remain for compatibility (deferred to slice 5)
+    deferred_to_slice_5:
+      - docs/stepbit-io-v1.md
+      - docs/stepbit-local-invocation-contract.md
+      - docs/quantlab-stepbit-boundaries.md
+      - docs/stepbit-integration.md
+    residual_stepbit_identifiers:
+      - identifier: test/test_stepbit_external_provider_compat.py
+        reason: historical compatibility test file, preserved as alias for backwards compatibility
+        owner: tests
+        future_slice: 5
+      - identifier: docs/stepbit-io-v1.md
+        reason: historical documentation file, preserved temporarily for compatibility, deferred to slice 5 for archival
+        owner: docs
+        future_slice: 5
+      - identifier: docs/stepbit-local-invocation-contract.md
+        reason: historical documentation file, preserved temporarily for compatibility, deferred to slice5 for archival
+        owner: docs
+        future_slice: 5
+      - identifier: docs/architecture/de-stepbit-migration-inventory.md references to "stepbit"
+        reason: inventory file explicitly documenting the migration, contains intentional references to stepbit for inventory purposes only
+        owner: inventory
+        future_slice: final
+      - identifier: docs/json-request-contract-verification.md line 11
+        reason: historical evidence note, preserved as-is for audit trail
+        owner: docs
+        future_slice: 5
 
   5:
     title: "docs: archive obsolete Stepbit integration material"
