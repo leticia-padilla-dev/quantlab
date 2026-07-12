@@ -1,8 +1,20 @@
 # QuantLab × Stepbit: Boundaries And Integration Principles
 
-This document defines the intended architectural relationship between QuantLab and Stepbit.
+> Historical document
+>
+> This document describes the former Stepbit-specific integration model and boundaries.
+> It is retained for migration history and compatibility context.
+>
+> For current external consumer boundaries and governance, see:
+> - [De-Stepbit Migration Inventory](./architecture/de-stepbit-migration-inventory.md)
+> - [QuantLab System Governance Matrix](./architecture/quantlab-system-governance-matrix.md)
+>
+> This document must not be interpreted as current QuantLab architecture,
+> roadmap, runtime dependency, or product direction.
 
-Its purpose is to remove ambiguity about authority, ownership, and integration scope.
+This document defines the former intended architectural relationship between QuantLab and Stepbit.
+
+Its purpose was to remove ambiguity about authority, ownership, and integration scope for the historical integration.
 
 ## Core Decision
 

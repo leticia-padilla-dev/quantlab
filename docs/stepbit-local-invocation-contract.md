@@ -1,8 +1,19 @@
 # Stepbit Local Invocation Contract
 
-Issue: [#552](https://github.com/Whiteks1/quantlab/issues/552)
+> Historical document
+>
+> This document describes the former Stepbit-specific integration model.
+> It is retained for migration history and compatibility context.
+>
+> The active canonical contract is:
+> - [External Consumer Local Invocation Contract](./external-consumer-local-invocation-contract.md)
+>
+> This document must not be interpreted as current QuantLab architecture,
+> roadmap, runtime dependency, or product direction.
 
-Status: consumer contract for local Stepbit integration.
+Historical source: [#552](https://github.com/leticia-padilla-dev/quantlab/issues/552)
+
+Status: historical consumer contract for local Stepbit integration.
 
 Related evidence:
 
@@ -12,7 +23,7 @@ Related evidence:
 
 ## Purpose
 
-This document defines the QuantLab-side local invocation contract that Stepbit is allowed to consume.
+This document defines the QuantLab-side local invocation contract that Stepbit was allowed to consume.
 
 Stepbit may invoke QuantLab through a narrow CLI boundary and read canonical artifacts. Stepbit must not rely on QuantLab internals, private Python modules, Desktop renderer state, broker state, or implementation-specific stdout text.
 

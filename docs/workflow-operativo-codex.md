@@ -98,17 +98,17 @@ Principio rector:
 - `quant_lab` manda sobre su roadmap, contratos, riesgo y operación
 - integraciones externas solo justifican cambios si mejoran la frontera sin comprometer autonomía
 
-Filtro para cambios motivados por Stepbit:
+Filtro para cambios motivados por integraciones externas:
 
 - mejora la frontera externa
 - no mueve autoridad fuera de QuantLab
 - sigue siendo reversible
 
-## 6. Tratar Stepbit como consumidor externo
+## 6. Tratar consumidores externos con disciplina de frontera
 
-Para `stepbit-core` o `stepbit-app`:
+Para herramientas externas de orquestación o asistencia de IA:
 
-- no hacer cambios de código ahí salvo petición explícita
+- no hacer cambios de código en ellos salvo petición explícita
 - revisar integración solo si hace falta para entender la frontera
 - cualquier necesidad o follow-up se devuelve como issue
 
@@ -247,7 +247,7 @@ A día de hoy, el orden correcto es:
 
 Interpretación:
 
-- Stepbit no dicta el roadmap de QuantLab
+- Los consumidores externos no dictan el roadmap de QuantLab
 - la frontera externa se mejora cuando ayuda, no cuando desplaza prioridades soberanas
 - `paper` sigue siendo prerrequisito, pero ya no es el cuello principal del roadmap
 - la prioridad actual es producir evidencia real y endurecer el punto exacto que falle en los corredores supervisados existentes
@@ -262,8 +262,8 @@ Para evitar contradicciones entre capas:
 
 ## Reglas rápidas
 
-- no tocar `stepbit` sin motivo claro
-- no dejar que Stepbit dicte el roadmap de QuantLab
+- no tocar integraciones externas sin motivo claro
+- no dejar que consumidores externos dicten el roadmap de QuantLab
 - no documentar cosas rotas
 - no mezclar cambios de distinta naturaleza si complica la historia Git
 - no abrir trabajo grande sin una lista previa de alcance

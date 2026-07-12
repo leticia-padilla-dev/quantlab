@@ -3,6 +3,20 @@
 Status: draft  
 Date: 2026-03-27
 
+> Historical document
+>
+> This draft document describes the former planned Stepbit-inclusive Desktop v1 architecture (2026-03-27).
+> It is superseded by the actual Desktop target architecture decisions and the desktop platform
+> convergence work completed in Slices 2 and 4 of the de-Stepbit migration (issues #842, #848).
+> It is retained as evidence of design history and planning context only.
+>
+> For current Desktop architecture, see:
+> - [Desktop Target Architecture](./desktop-target-architecture.md)
+> - [Desktop Platform Convergence Status](./desktop-platform-convergence-status.md)
+>
+> This document must not be interpreted as current QuantLab architecture,
+> roadmap, runtime dependency, or product direction.
+
 ## Product Sentence
 
 QuantLab Desktop is the single operator workspace for quantitative research, execution review, and bounded AI assistance.

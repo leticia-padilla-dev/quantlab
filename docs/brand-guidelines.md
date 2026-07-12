@@ -224,10 +224,10 @@ Primary shell surfaces should remain QuantLab surfaces:
 
 Integrations are secondary, not protagonists.
 
-### Stepbit
+### External Integrations
 
-Stepbit may live in the shell as a support/integration boundary, not as the
-center of the product.
+External integrations may live in the shell as a support/integration boundary,
+not as the center of the product.
 
 ### Quant Pulse
 
@@ -243,17 +243,15 @@ execution-related surfaces, not as a top-level product area.
 
 Assistant must remain unified.
 
-Single Assistant pane, with selectable target:
-
-- QuantLab
-- Stepbit
+A single Assistant pane is the target. If external integrations are enabled,
+they may appear as a secondary target, but QuantLab is the default target.
 
 Default target:
 
 - QuantLab
 
-This preserves one conversational surface while allowing Stepbit integration
-without turning Stepbit into a competing product inside the shell.
+This preserves one conversational surface while keeping external integrations
+optional and non-competing with the primary QuantLab product surface.
 
 Do not create two protagonist copilots.
 

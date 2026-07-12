@@ -1,5 +1,17 @@
 # Frontend Integration: QuantLab With Optional Stepbit UI
 
+> Historical document
+>
+> This document describes a former Stepbit-specific frontend integration model.
+> It is retained for migration history and compatibility context.
+>
+> For current external consumer integration guidance, see:
+> - [External Consumer I/O Contract](./external-consumer-io-v1.md)
+> - [External Consumer Local Invocation Contract](./external-consumer-local-invocation-contract.md)
+>
+> This document must not be interpreted as current QuantLab architecture,
+> roadmap, runtime dependency, or product direction.
+
 QuantLab can be surfaced through a Stepbit UI, but that UI should be treated as an optional external experience layer, not as QuantLab's sovereign control surface.
 
 The main product authority still lives in QuantLab itself.

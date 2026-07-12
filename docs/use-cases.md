@@ -1,8 +1,10 @@
 # QuantLab Use Cases
 
-This document describes bounded use cases for QuantLab with optional Stepbit support.
+Status: active use-case guidance, generalized from the former Stepbit-specific wording in Slice 5 (#850).
 
-QuantLab remains the evidence authority. Stepbit may assist with orchestration, repeated workflows, and interpretation, but it must not become the owner of strategy validity, risk policy, broker authority, or execution decisions.
+This document describes bounded use cases for QuantLab with optional external AI assistance support.
+
+QuantLab remains the evidence authority. External AI tools may assist with orchestration, repeated workflows, and interpretation, but they must not become the owner of strategy validity, risk policy, broker authority, or execution decisions.
 
 ## 1. Supervised Strategy Research Loop
 
@@ -13,10 +15,10 @@ Goal:
 Flow:
 
 1. The operator defines a research question, for example a mean-reversion idea with RSI.
-2. Stepbit may propose candidate parameter sets or workflow steps.
+2. External AI tools may propose candidate parameter sets or workflow steps.
 3. QuantLab runs the backtests and produces canonical artifacts.
 4. The operator reviews `report.json`, run metrics, drawdown, stability, and artifacts.
-5. Stepbit may summarize trade-offs, but QuantLab artifacts remain the source of truth.
+5. External AI tools may summarize trade-offs, but QuantLab artifacts remain the source of truth.
 
 Result:
 
@@ -31,7 +33,7 @@ Goal:
 Flow:
 
 1. QuantLab produces paper-session artifacts and status files.
-2. Stepbit may watch for missing artifacts, stale status, or review tasks.
+2. External AI tools may watch for missing artifacts, stale status, or review tasks.
 3. The operator reviews the paper runbook, session status, metrics, and failure reasons.
 4. Any promotion decision remains manual and evidence-based.
 
@@ -48,7 +50,7 @@ Goal:
 Flow:
 
 1. QuantLab produces submit, reconciliation, alert, and supervision artifacts.
-2. Stepbit may summarize the latest state or route the operator to relevant files.
+2. External AI tools may summarize the latest state or route the operator to relevant files.
 3. The operator verifies ambiguity, rejected orders, fills, cancellations, and alert status.
 4. QuantLab safety policy and broker boundaries remain authoritative.
 
@@ -65,7 +67,7 @@ Goal:
 Flow:
 
 1. QuantLab generates run, comparison, paper, or broker artifacts.
-2. Stepbit may prepare a Markdown summary with links to the canonical files.
+2. External AI tools may prepare a Markdown summary with links to the canonical files.
 3. The summary must cite the source artifacts and must not invent state changes, promotions, or executions.
 
 Result:
@@ -81,7 +83,7 @@ Goal:
 Flow:
 
 1. QuantLab defines dataset, feature, model, and training-summary artifacts.
-2. Stepbit may later orchestrate build-dataset -> train -> validate -> compare workflows.
+2. External AI tools may later orchestrate build-dataset -> train -> validate -> compare workflows.
 3. QuantLab remains responsible for dataset validity, feature definitions, model evaluation, and promotion rules.
 4. Learned-model outputs cannot become paper or execution actions without downstream validation.
 
@@ -94,8 +96,8 @@ Result:
 These use cases must not become:
 
 - autonomous live trading
-- Stepbit-owned strategy authority
-- Stepbit-owned risk policy
+- external AI tool-owned strategy authority
+- external AI tool-owned risk policy
 - broker execution without QuantLab preflight and operator supervision
 - learned-model promotion without N.0/N.1/N.2 evidence discipline
 - marketing claims detached from canonical artifacts

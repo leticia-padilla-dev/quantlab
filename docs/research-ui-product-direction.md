@@ -98,7 +98,6 @@ That means:
 
 - Pre-Trade Intake
 - Paper / broker / live operational surfaces
-- Stepbit boundary visibility
 
 ### Rule
 
@@ -166,7 +165,7 @@ They should feel like:
 
 ### 5. Boundary Surfaces
 
-Pre-trade intake and Stepbit visibility should remain honest and bounded.
+Pre-trade intake should remain honest and bounded.
 
 They should communicate:
 

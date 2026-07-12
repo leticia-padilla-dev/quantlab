@@ -1,8 +1,20 @@
 # QuantLab Integration With Stepbit
 
-This document explains how QuantLab should integrate with Stepbit under the current architectural decision.
+> Historical document
+>
+> This document describes the former Stepbit-specific integration model.
+> It is retained for migration history and compatibility context.
+>
+> For current external consumer integration guidance, see:
+> - [External Consumer I/O Contract](./external-consumer-io-v1.md)
+> - [External Consumer Local Invocation Contract](./external-consumer-local-invocation-contract.md)
+>
+> This document must not be interpreted as current QuantLab architecture,
+> roadmap, runtime dependency, or product direction.
 
-The key point is:
+This document explains how QuantLab was intended to integrate with Stepbit under the historical architectural decision.
+
+The key historical points were:
 
 - Stepbit is not the control plane of QuantLab
 - QuantLab is not a subordinate runtime owned by Stepbit
