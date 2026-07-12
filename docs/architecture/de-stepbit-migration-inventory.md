@@ -441,16 +441,19 @@ follow_up:
 ### 6. Landing / Public Page References
 
 ```yaml
-classification: update_later
+classification: active_public_surface
 risk: medium
 reason: "Visible product copy should not present Stepbit as optional active product layer."
-files:
-  - landing/index.html
-follow_up:
-  issue_title: "web: remove Stepbit from public product copy"
-  required_action:
-    - remove visible Stepbit layer/tag
-    - preserve current QuantLab positioning
+public_landing_follow_up:
+  issue: 852
+  pr: 853
+  status: completed
+  path:
+    - landing/index.html
+  classification: active_public_surface
+  action: remove_stepbit_public_copy
+  residual_stepbit_references: []
+  final_audit: deferred
 ```
 
 ## Transitional Technical Identifiers Intentionally Preserved
@@ -541,6 +544,16 @@ next_slices:
     status: completed
     issue: 850
     pr: 851
+
+  public_web_follow_up:
+    title: "web: remove Stepbit from public landing copy"
+    type: web_docs
+    status: completed
+    issue: 852
+    pr: 853
+    path:
+      - landing/index.html
+    final_audit: deferred
 
   final:
     title: "audit: verify de-stepbit migration completion"
