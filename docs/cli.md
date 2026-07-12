@@ -1246,13 +1246,13 @@ outputs/forward_runs/
 Flag-driven sweep:
 
 ```bash
-python main.py --sweep configs/experiments/eth_2023_grid.yaml --sweep_outdir outputs/stepbit
+python main.py --sweep configs/experiments/eth_2023_grid.yaml --sweep_outdir outputs/external_demo
 ```
 
 Machine-facing sweep:
 
 ```bash
-python main.py --json-request "{\"schema_version\":\"1.0\",\"request_id\":\"req_sweep_001\",\"command\":\"sweep\",\"params\":{\"config_path\":\"configs/experiments/eth_2023_grid.yaml\",\"out_dir\":\"outputs/stepbit\"}}"
+python main.py --json-request "{\"schema_version\":\"1.0\",\"request_id\":\"req_sweep_001\",\"command\":\"sweep\",\"params\":{\"config_path\":\"configs/experiments/eth_2023_grid.yaml\",\"out_dir\":\"outputs/external_demo\"}}"
 ```
 
 `report.json.machine_contract` is the canonical machine-facing result surface for automated sweep consumption.

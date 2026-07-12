@@ -6,7 +6,7 @@ Date: 2026-05-09
 
 ## Purpose
 
-Verify the current `main.py --json-request` contract for local machine consumers such as Stepbit.
+Verify the current `main.py --json-request` contract for local machine consumers such as external orchestrators or AI workflow systems.
 
 This document is evidence only. It does not add a Stepbit adapter, change strategy logic, change promotion rules, or add broker/live behavior.
 
@@ -48,7 +48,7 @@ Using the global Python interpreter failed before QuantLab startup because proje
 ModuleNotFoundError: No module named 'dotenv'
 ```
 
-This is not a contract failure, but it is important for Stepbit: #552 should document interpreter resolution explicitly.
+This is not a contract failure, but it is important for external consumers: #552 should document interpreter resolution explicitly.
 
 ## Run Contract
 
@@ -215,7 +215,7 @@ The success signal emitted:
 
 The sweep contract also includes `best_result`.
 
-## Consumer-Facing Notes For Stepbit
+## Consumer-Facing Notes
 
 - Invoke QuantLab with an explicit interpreter, preferably the project venv.
 - Do not parse stdout as the primary response contract.
@@ -263,7 +263,7 @@ final_signal: SESSION_COMPLETED
 missing: run_id, artifacts_path, report_path, summary
 ```
 
-This does not block the verified success path, but it is a lifecycle correctness gap for consumers. Stepbit should require `report_path` on success and treat a completed signal without `report_path` as invalid until QuantLab hardens this path.
+This does not block the verified success path, but it is a lifecycle correctness gap for consumers. External consumers should require `report_path` on success and treat a completed signal without `report_path` as invalid until QuantLab hardens this path.
 
 ## Recommendation For #552
 

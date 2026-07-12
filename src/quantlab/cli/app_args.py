@@ -8,7 +8,7 @@ def build_argument_parser() -> argparse.ArgumentParser:
     # Global / Request params
     parser.add_argument(
         "--json-request",
-        help="Pass a V1 Stepbit Request JSON string directly.",
+        help="Pass a V1 External Consumer Request JSON string directly.",
     )
     parser.add_argument(
         "--signal-file",
