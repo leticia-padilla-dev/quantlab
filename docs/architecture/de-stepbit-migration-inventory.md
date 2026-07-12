@@ -359,6 +359,19 @@ next_slices:
   4:
     title: "contracts: generalize Stepbit contracts for external consumers"
     type: docs_code_tests
+    status: in_progress
+    issue: 848
+    generalized:
+      - New canonical docs: docs/external-consumer-io-v1.md and docs/external-consumer-local-invocation-contract.md
+      - Updated CLI help text for --json-request to refer to external consumers instead of Stepbit
+      - Updated docs/json-request-contract-verification.md to use external consumer terminology
+      - Updated docs/cli.md examples to use outputs/external_demo instead of outputs/stepbit
+      - Added new canonical test file: test/test_external_consumer_compat.py
+    compatibility_aliases:
+      - Kept test/test_stepbit_external_provider_compat.py unchanged for historical compatibility
+      - Kept stepbit-io-v1.md and stepbit-local-invocation-contract.md in place (for later archival in slice 5)
+    deprecated_identifiers:
+      - No public identifiers deprecated yet; old stepbit-specific docs remain for compatibility (deferred to slice 5)
 
   5:
     title: "docs: archive obsolete Stepbit integration material"
@@ -379,7 +392,7 @@ decision:
     desktop: removed
     research_ui: removed
   stepbit_contract_references:
-    status: pending_generalization
+    status: generalized
   stepbit_visible_surfaces:
     desktop: removed
     research_ui: removed
