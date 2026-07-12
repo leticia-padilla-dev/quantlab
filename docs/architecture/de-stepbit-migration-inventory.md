@@ -3,8 +3,9 @@
 Issue: [#840](https://github.com/leticia-padilla-dev/quantlab/issues/840)
 Epic: [#839](https://github.com/leticia-padilla-dev/quantlab/issues/839)
 
-Status: Slice 1 inventory plus Slice 2 Desktop and Slice 3 Research UI
-completion records. CLI, contracts, Core runtime, and compatibility tests remain
+Status: Slice 1 inventory, Slice 2 Desktop removal, Slice 3 Research UI removal,
+and Slice 4 external-consumer contract generalization completion records.
+Historical documentation, public landing references, and the final audit remain
 assigned to later slices.
 
 ## Canonical Decision
@@ -228,30 +229,22 @@ follow_up:
 ### 3. Contracts, CLI Examples, And Compatibility Fixtures
 
 ```yaml
-classification: generalize
-risk: medium
-reason: "The request/signal/report semantics remain useful for external consumers."
-files:
+classification: generalized
+risk: closed_for_active_contracts
+reason: "Slice 4 introduced canonical external-consumer contracts and preserved explicitly classified compatibility references."
+issue: 848
+pr: 849
+canonical_files:
+  - docs/external-consumer-io-v1.md
+  - docs/external-consumer-local-invocation-contract.md
+  - test/test_external_consumer_compat.py
+compatibility_preserved:
   - docs/stepbit-io-v1.md
   - docs/stepbit-local-invocation-contract.md
-  - docs/quantlab-stepbit-boundaries.md
-  - docs/stepbit-integration.md
-  - docs/json-request-contract-verification.md
-  - docs/cli.md
-  - docs/run-artifact-contract.md
-  - src/quantlab/cli/app_args.py
   - test/test_stepbit_external_provider_compat.py
-  - test/test_app_cli.py
-  - test/test_json_request.py
-  - test/test_integration_deterministic.py
-  - test/test_machine_sweep_smoke.py
 follow_up:
-  issue_title: "contracts: generalize Stepbit contracts for external consumers"
-  required_action:
-    - rename canonical contract language to external_consumer
-    - preserve compatibility aliases only where tests require them
-    - document alias deprecation
-    - update examples away from outputs/stepbit
+  status: complete
+  note: "Historical Stepbit documents remain assigned to Slice 5; no active contract-generalization work remains."
 ```
 
 ### 4. Active Or Semi-Active Documentation To Reclassify
@@ -322,8 +315,8 @@ follow_up:
 
 ## Transitional Technical Identifiers Intentionally Preserved
 
-These names remain outside the completed Desktop slice and require later
-dedicated migration or deletion work:
+These identifiers remain intentionally preserved after Slice 4 and are assigned
+to Slice 5 or the final audit:
 
 ```yaml
 identifiers:

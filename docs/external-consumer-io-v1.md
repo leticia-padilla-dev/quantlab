@@ -165,7 +165,7 @@ A future version may emit a structured JSON envelope to stdout on completion.
 }
 ```
 
-`[planned]` Response envelope tracked in [Issue #22](https://github.com/Whiteks1/quantlab/issues/22).
+`[planned]` A stdout JSON response envelope is not currently scheduled and has no active tracking issue.
 
 ---
 
@@ -300,6 +300,6 @@ QuantLab provides machine-verifiable flags for runtime validation.
 
 | Gap | Issue |
 |---|---|
-| JSON response envelope emitted to stdout | #22 |
+| JSON response envelope emitted to stdout | Not currently scheduled |
 | `strategy` param mapping in `run` command | #21 |
 | Webhook delivery for signals | #25 (Deferred) |

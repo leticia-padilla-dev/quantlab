@@ -1,7 +1,7 @@
 
 # External Consumer Local Invocation Contract
 
-Issue: [#552](https://github.com/Whiteks1/quantlab/issues/552)
+Historical source: [#552](https://github.com/leticia-padilla-dev/quantlab/issues/552)
 
 Status: consumer contract for local external consumer integration.
 
