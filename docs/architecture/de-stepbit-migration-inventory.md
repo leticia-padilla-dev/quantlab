@@ -446,11 +446,13 @@ risk: medium
 reason: "Visible product copy should not present Stepbit as optional active product layer."
 public_landing_follow_up:
   issue: 852
-  status: in_progress
+  pr: 853
+  status: completed
   path:
     - landing/index.html
   classification: active_public_surface
   action: remove_stepbit_public_copy
+  residual_stepbit_references: []
   final_audit: deferred
 ```
 
@@ -546,8 +548,9 @@ next_slices:
   public_web_follow_up:
     title: "web: remove Stepbit from public landing copy"
     type: web_docs
-    status: in_progress
+    status: completed
     issue: 852
+    pr: 853
     path:
       - landing/index.html
     final_audit: deferred
