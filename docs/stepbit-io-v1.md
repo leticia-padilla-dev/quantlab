@@ -1,5 +1,16 @@
 # Stepbit I/O Contract — Version 1.0
 
+> Historical document
+>
+> This document describes the former Stepbit-specific integration model.
+> It is retained for migration history and compatibility context.
+>
+> The active canonical contract is:
+> - [External Consumer I/O Contract](./external-consumer-io-v1.md)
+>
+> This document must not be interpreted as current QuantLab architecture,
+> roadmap, runtime dependency, or product direction.
+
 ## Purpose
 
 This document defines the formal communication contract between **Stepbit-core** (external AI/workflow consumer) and **QuantLab** (research and execution system).

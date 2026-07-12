@@ -1,8 +1,16 @@
 # QuantLab Integration With Stepbit
 
-This document explains how QuantLab should integrate with Stepbit under the current architectural decision.
+> Historical document
+>
+> This document describes the former Stepbit-specific integration model.
+> It is retained for migration history and compatibility context.
+>
+> This document must not be interpreted as current QuantLab architecture,
+> roadmap, runtime dependency, or product direction.
 
-The key point is:
+This document explains how QuantLab was intended to integrate with Stepbit under the historical architectural decision.
+
+The key historical points were:
 
 - Stepbit is not the control plane of QuantLab
 - QuantLab is not a subordinate runtime owned by Stepbit

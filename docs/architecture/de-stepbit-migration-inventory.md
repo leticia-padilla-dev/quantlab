@@ -179,6 +179,85 @@ research_ui_slice:
 Slice 3 deliberately did not edit Desktop, Core, CLI/json-request contracts,
 or provider compatibility contracts. Those remain assigned to later slices.
 
+## Slice 5 Actions In Progress
+
+```yaml
+slice_5:
+  issue: 850
+  status: in_progress
+
+  canonical_docs_preserved:
+    - docs/external-consumer-io-v1.md
+    - docs/external-consumer-local-invocation-contract.md
+
+  marked_historical:
+    - docs/stepbit-io-v1.md
+    - docs/stepbit-local-invocation-contract.md
+    - docs/quantlab-stepbit-boundaries.md
+    - docs/stepbit-integration.md
+    - docs/advantages-and-future.md
+  marked_generalized:
+    - docs/use-cases.md
+
+  marked_superseded:
+    - docs/stepbit-io-v1.md
+    - docs/stepbit-local-invocation-contract.md
+
+  archived_or_moved: []
+
+  active_navigation_removed: []
+
+  negative_references_preserved:
+    - docs/ops/stage-e-broker-live-scoping-prerequisites.md
+    - docs/ops/stage-e-broker-live-prerequisite-gap-review.md
+    - docs/ops/signed-action-roundtrip-validation.md
+    - docs/ops/broker-no-submit-evidence-review.md
+    - docs/ops/broker-reconciliation-evidence-pack.md
+    - docs/ops/paper-live-repeatability-reaudit-after-session-03.md
+    - docs/ops/supervised-paper-live-operating-cadence.md
+    - docs/ops/supervised-paper-readiness-audit.md
+
+  deferred:
+    - path: landing/index.html
+      reason: public landing page references, deferred to future slice
+      owner: web
+      future_slice: 6
+    - path: .agents/**
+      reason: historical agent task files, preserved for audit trail
+      owner: agents
+      future_slice: final
+
+  residual_stepbit_identifiers:
+    - identifier: test/test_stepbit_external_provider_compat.py
+      reason: historical compatibility test file, preserved as alias for backwards compatibility
+      owner: tests
+      future_slice: 5
+    - identifier: docs/stepbit-io-v1.md
+      reason: historical documentation file, preserved with historical notice
+      owner: docs
+      future_slice: 5
+    - identifier: docs/stepbit-local-invocation-contract.md
+      reason: historical documentation file, preserved with historical notice
+      owner: docs
+      future_slice:5
+    - identifier: docs/quantlab-stepbit-boundaries.md
+      reason: historical boundary documentation, preserved with historical notice
+      owner: docs
+      future_slice:5
+    - identifier: docs/stepbit-integration.md
+      reason: historical integration documentation, preserved with historical notice
+      owner: docs
+      future_slice:5
+    - identifier: docs/architecture/de-stepbit-migration-inventory.md references to "stepbit"
+      reason: inventory file explicitly documenting the migration, contains intentional references to stepbit for inventory purposes only
+      owner: inventory
+      future_slice: final
+    - identifier: docs/json-request-contract-verification.md line 11
+      reason: historical evidence note, preserved as-is for audit trail
+      owner: docs
+      future_slice:5
+```
+
 ## Remaining Reference Classes
 
 ### 1. Desktop Runtime And UI
@@ -398,6 +477,8 @@ next_slices:
   5:
     title: "docs: archive obsolete Stepbit integration material"
     type: docs_only
+    status: in_progress
+    issue: 850
 
   final:
     title: "audit: verify de-stepbit migration completion"

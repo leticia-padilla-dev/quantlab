@@ -1,17 +1,25 @@
-# Stepbit As Optional AI Augmentation For QuantLab
+# Optional External AI Augmentation For QuantLab
 
-This document describes the value Stepbit can add to QuantLab without becoming its controlling authority.
+> Historical document
+>
+> This document describes the former Stepbit-specific integration model.
+> It is retained for migration history and compatibility context.
+>
+> This document must not be interpreted as current QuantLab architecture,
+> roadmap, runtime dependency, or product direction.
 
-The architectural rule is:
+This document describes the value optional external AI tools can add to QuantLab without becoming its controlling authority.
 
-- Stepbit may amplify QuantLab
-- Stepbit must not define QuantLab
+The historical architectural rule was:
 
-## 1. Current Benefits Of Connecting Stepbit
+- External AI tools may amplify QuantLab
+- External AI tools must not define QuantLab
+
+## 1. Current Benefits Of Connecting Optional External AI Tools
 
 ### A. Reasoning-Assisted Analysis
 
-Stepbit can help interpret QuantLab outputs:
+External AI tools can help interpret QuantLab outputs:
 
 - compare competing runs
 - explain trade-offs between return, drawdown, and stability
@@ -23,7 +31,7 @@ Impact:
 
 ### B. Workflow Assistance
 
-Stepbit can automate auxiliary workflows around QuantLab:
+External AI tools can automate auxiliary workflows around QuantLab:
 
 - post-run analysis
 - report interpretation
@@ -36,7 +44,7 @@ Impact:
 
 ### C. MCP-Based Access To Stable Artifacts
 
-Stepbit can consume QuantLab's machine-facing surfaces:
+External AI tools can consume QuantLab's machine-facing surfaces:
 
 - canonical artifacts
 - `report.json.machine_contract`
@@ -45,11 +53,11 @@ Stepbit can consume QuantLab's machine-facing surfaces:
 
 Impact:
 
-- cleaner external consumption without making QuantLab dependent on Stepbit
+- cleaner external consumption without making QuantLab dependent on any single tool
 
 ## 2. What This Integration Should Not Become
 
-Stepbit should not:
+External AI tools should not:
 
 - own QuantLab's internal lifecycle
 - own QuantLab's risk logic
@@ -88,14 +96,14 @@ Future integration work is good when it:
 
 Future integration work is bad when it:
 
-- makes QuantLab dependent on Stepbit to remain coherent
+- makes QuantLab dependent on any single external tool to remain coherent
 - relocates core authority away from QuantLab
 - turns MCP into a total-control channel
 
 ## 5. Strategic Conclusion
 
-The strongest future for both systems is:
+The strongest future for QuantLab is:
 
 - QuantLab continues to mature as an autonomous research, paper-trading, and future broker-execution system
-- Stepbit remains an optional AI and workflow augmentation layer
-- the integration stays contract-based, reversible, and non-invasive
+- optional external AI and workflow augmentation layers remain available
+- any integration stays contract-based, reversible, and non-invasive
