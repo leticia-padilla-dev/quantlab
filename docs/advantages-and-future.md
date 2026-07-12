@@ -1,16 +1,10 @@
 # Optional External AI Augmentation For QuantLab
 
-> Historical document
->
-> This document describes the former Stepbit-specific integration model.
-> It is retained for migration history and compatibility context.
->
-> This document must not be interpreted as current QuantLab architecture,
-> roadmap, runtime dependency, or product direction.
+Status: active guidance, generalized from the former Stepbit-specific model in Slice 5 (#850).
 
 This document describes the value optional external AI tools can add to QuantLab without becoming its controlling authority.
 
-The historical architectural rule was:
+The architectural rules are:
 
 - External AI tools may amplify QuantLab
 - External AI tools must not define QuantLab

@@ -1,5 +1,7 @@
 # QuantLab Use Cases
 
+Status: active use-case guidance, generalized from the former Stepbit-specific wording in Slice 5 (#850).
+
 This document describes bounded use cases for QuantLab with optional external AI assistance support.
 
 QuantLab remains the evidence authority. External AI tools may assist with orchestration, repeated workflows, and interpretation, but they must not become the owner of strategy validity, risk policy, broker authority, or execution decisions.

@@ -190,14 +190,15 @@ slice_5:
     - docs/external-consumer-io-v1.md
     - docs/external-consumer-local-invocation-contract.md
 
+  generalized_active_docs:
+    - docs/advantages-and-future.md
+    - docs/use-cases.md
+
   marked_historical:
     - docs/stepbit-io-v1.md
     - docs/stepbit-local-invocation-contract.md
     - docs/quantlab-stepbit-boundaries.md
     - docs/stepbit-integration.md
-    - docs/advantages-and-future.md
-  marked_generalized:
-    - docs/use-cases.md
 
   marked_superseded:
     - docs/stepbit-io-v1.md
@@ -219,43 +220,102 @@ slice_5:
 
   deferred:
     - path: landing/index.html
-      reason: public landing page references, deferred to future slice
+      reason: public landing page references, deferred to a separate web follow-up
       owner: web
-      future_slice: 6
+      deferred_to: separate_web_follow_up
     - path: .agents/**
       reason: historical agent task files, preserved for audit trail
       owner: agents
-      future_slice: final
+      deferred_to: final_audit_or_dedicated_technical_follow_up
+
+  technical_compatibility_identifiers:
+    - identifier: test/test_stepbit_external_provider_compat.py
+      classification: technical_compatibility_identifier
+      reason: "Compatibility test intentionally preserved; outside the docs-only scope of Slice 5."
+      owner: tests
+      deferred_to: final_audit_or_dedicated_technical_follow_up
+
+  retained_historical_stepbit_docs:
+    - identifier: docs/stepbit-io-v1.md
+      classification: intentional_historical_reference
+      status: resolved_in_slice_5
+    - identifier: docs/stepbit-local-invocation-contract.md
+      classification: intentional_historical_reference
+      status: resolved_in_slice_5
+    - identifier: docs/quantlab-stepbit-boundaries.md
+      classification: intentional_historical_reference
+      status: resolved_in_slice_5
+    - identifier: docs/stepbit-integration.md
+      classification: intentional_historical_reference
+      status: resolved_in_slice_5
 
   residual_stepbit_identifiers:
-    - identifier: test/test_stepbit_external_provider_compat.py
-      reason: historical compatibility test file, preserved as alias for backwards compatibility
-      owner: tests
-      future_slice: 5
-    - identifier: docs/stepbit-io-v1.md
-      reason: historical documentation file, preserved with historical notice
-      owner: docs
-      future_slice: 5
-    - identifier: docs/stepbit-local-invocation-contract.md
-      reason: historical documentation file, preserved with historical notice
-      owner: docs
-      future_slice:5
-    - identifier: docs/quantlab-stepbit-boundaries.md
-      reason: historical boundary documentation, preserved with historical notice
-      owner: docs
-      future_slice:5
-    - identifier: docs/stepbit-integration.md
-      reason: historical integration documentation, preserved with historical notice
-      owner: docs
-      future_slice:5
     - identifier: docs/architecture/de-stepbit-migration-inventory.md references to "stepbit"
       reason: inventory file explicitly documenting the migration, contains intentional references to stepbit for inventory purposes only
       owner: inventory
-      future_slice: final
+      deferred_to: final_audit_or_dedicated_technical_follow_up
     - identifier: docs/json-request-contract-verification.md line 11
       reason: historical evidence note, preserved as-is for audit trail
       owner: docs
-      future_slice:5
+      deferred_to: final_audit_or_dedicated_technical_follow_up
+
+  classified_documents:
+    - path: docs/advantages-and-future.md
+      classification: active_canonical
+      action: generalize_active_wording
+      reason: "Active guidance generalized from former Stepbit-specific model; historical block replaced with active status line."
+    - path: docs/use-cases.md
+      classification: active_canonical
+      action: generalize_active_wording
+      reason: "Active use-case guidance; status line added, no Stepbit-specific wording in body."
+    - path: docs/brand-guidelines.md
+      classification: active_but_stale
+      action: generalize_active_wording
+      reason: "Binding source of truth; sections 9 and 10 contained active normative Stepbit product claims, generalized to external integrations."
+    - path: docs/desktop-target-architecture.md
+      classification: active_canonical
+      action: generalize_active_wording
+      reason: "Active ADR; three normative Stepbit claims removed or generalized to external consumer language."
+    - path: docs/research-ui-product-direction.md
+      classification: active_canonical
+      action: generalize_active_wording
+      reason: "Active product direction; two Stepbit product-surface claims removed."
+    - path: docs/frontend-integration.md
+      classification: obsolete_integration_plan
+      action: mark_historical
+      reason: "Describes former Stepbit-specific frontend integration model, superseded by external-consumer-io-v1.md."
+    - path: docs/quantlab-desktop-v1.md
+      classification: historical_evidence
+      action: mark_historical
+      reason: "Draft 2026-03-27 planning document describing Stepbit-inclusive desktop architecture, superseded by actual Desktop ADR and convergence work."
+    - path: docs/desktop-v0.1-april-sprint.md
+      classification: historical_evidence
+      action: preserve_unchanged
+      reason: "Sprint freeze scope document; Stepbit references are dated negative/out-of-scope items and do not imply current architecture."
+    - path: docs/desktop-platform-convergence-status.md
+      classification: historical_evidence
+      action: preserve_unchanged
+      reason: "Factual convergence completion record; all Stepbit references are dated traceability records of ported files and source snapshots."
+    - path: docs/desktop-platform-convergence-inventory.md
+      classification: historical_evidence
+      action: preserve_unchanged
+      reason: "Factual inventory of source snapshot; all Stepbit references are dated traceability hashes and source repository records."
+    - path: docs/desktop-package-lock-policy.md
+      classification: historical_evidence
+      action: preserve_unchanged
+      reason: "Policy decision document; Stepbit references are dated source repository traceability only."
+    - path: docs/desktop-candidates-shortlist-v1.md
+      classification: active_but_stale
+      action: preserve_unchanged
+      reason: "Plan-only document for a QuantLab Desktop feature; sole Stepbit reference is a negative out-of-scope item."
+    - path: docs/workflow-operativo-codex.md
+      classification: active_canonical
+      action: generalize_active_wording
+      reason: "Active governance document; sections 5, 6, and Reglas rapidas contained Stepbit-specific normative rules, generalized to external consumer/integration language."
+    - path: docs/v0.1-evidence.md
+      classification: historical_evidence
+      action: mark_historical
+      reason: "Release evidence record for v0.1 April 2026; Stepbit boundary status reference is an accurate historical evidence record, now marked with historical notice."
 ```
 
 ## Remaining Reference Classes

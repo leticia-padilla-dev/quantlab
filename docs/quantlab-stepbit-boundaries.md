@@ -5,6 +5,10 @@
 > This document describes the former Stepbit-specific integration model and boundaries.
 > It is retained for migration history and compatibility context.
 >
+> For current external consumer boundaries and governance, see:
+> - [De-Stepbit Migration Inventory](./architecture/de-stepbit-migration-inventory.md)
+> - [QuantLab System Governance Matrix](./architecture/quantlab-system-governance-matrix.md)
+>
 > This document must not be interpreted as current QuantLab architecture,
 > roadmap, runtime dependency, or product direction.
 
