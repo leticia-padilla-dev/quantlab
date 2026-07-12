@@ -3,8 +3,9 @@
 Issue: [#840](https://github.com/leticia-padilla-dev/quantlab/issues/840)
 Epic: [#839](https://github.com/leticia-padilla-dev/quantlab/issues/839)
 
-Status: Slice 1 inventory. Documentation and architecture only. No Desktop,
-Research UI, IPC, CLI, runtime, service, or test code was changed.
+Status: Slice 1 inventory plus Slice 2 Desktop completion record.
+Research UI, CLI, contracts, Python runtime, and Python tests remain untouched
+by the Desktop slice.
 
 ## Canonical Decision
 
@@ -106,41 +107,64 @@ not_touched:
   - contract files
 ```
 
+## Slice 2 Desktop Actions Taken
+
+```yaml
+desktop_slice:
+  issue: 842
+  pr: 843
+  merge_commit: 127c48228466e8f4914a431f5f48d96438828ce4
+  status: completed
+
+  removed:
+    - visible_workspace_surfaces
+    - assistant_adapter
+    - preload_bridge_API
+    - IPC_channel
+    - IPC_handler
+    - stepbit_service
+    - STEPBIT_configuration
+    - runtime_status_fields
+    - renderer_actions_and_copy
+
+  residual_stepbit_identifiers_in_desktop: []
+
+  validation:
+    typecheck: pass
+    build: pass
+    smoke_fallback: pass
+    smoke_real_path: pass
+    CI: pass
+    reference_search: zero_matches
+
+  tests:
+    modified: false
+    justification: "Existing Desktop typecheck, build, fallback smoke, and real-path smoke exercised the affected startup, preload, IPC, and renderer paths."
+```
+
+Slice 2 deliberately did not edit `research_ui`, CLI contracts, Python code,
+or Python tests. Those remain assigned to later slices.
+
 ## Remaining Reference Classes
 
 ### 1. Desktop Runtime And UI
 
 ```yaml
-classification: preserve_temporarily
-risk: high
-reason: "Immediate removal affects Electron main/preload/renderer IPC and tests."
-files:
-  - desktop/main.js
-  - desktop/preload.js
-  - desktop/main/register-ipc.js
-  - desktop/main/config.js
-  - desktop/main/ipc-request-path.js
-  - desktop/main/stepbit-service.js
-  - desktop/shared/ipc/channels.ts
-  - desktop/shared/ipc/bridge.ts
-  - desktop/shared/models/runtime.ts
-  - desktop/renderer/components/SystemPane.tsx
-  - desktop/renderer/components/AssistantPane.jsx
-  - desktop/renderer/components/QuantLabContext.jsx
-  - desktop/renderer/components/PaperOpsPane.tsx
-  - desktop/renderer/modules/shell-chrome.js
-  - desktop/renderer/modules/tab-renderers.js
-  - desktop/README.md
-  - desktop/docs/PRODUCT_SURFACES.md
-  - docs/desktop-target-architecture.md
+classification: removed
+risk: closed_for_desktop
+reason: "PR #843 removed Desktop-side visible surfaces, bridge/API, IPC, service, config, and renderer copy."
+issue: 842
+pr: 843
+residual_identifiers: []
+validated_by:
+  - "cd desktop && npm run typecheck"
+  - "cd desktop && npm run build"
+  - "cd desktop && npm run smoke:fallback"
+  - "cd desktop && npm run smoke:real-path"
+  - "rg Stepbit/stepbit patterns under desktop returned zero matches"
 follow_up:
-  issue_title: "desktop: remove Stepbit workspace surfaces"
-  required_action:
-    - remove visible surfaces
-    - remove or replace preload APIs
-    - remove IPC handlers
-    - remove service startup/config
-    - update Desktop tests
+  status: complete
+  note: "No Desktop-specific follow-up remains in this inventory."
 ```
 
 ### 2. Research UI Runtime And Controls
@@ -204,6 +228,7 @@ files:
   - docs/advantages-and-future.md
   - docs/use-cases.md
   - docs/brand-guidelines.md
+  - docs/desktop-target-architecture.md
   - docs/research-ui-product-direction.md
   - docs/frontend-integration.md
   - docs/quantlab-desktop-v1.md
@@ -261,20 +286,14 @@ follow_up:
 
 ## Transitional Technical Identifiers Intentionally Preserved
 
-These names remain only to avoid unsafe removal in Slice 1:
+These names remain outside the completed Desktop slice and require later
+dedicated migration or deletion work:
 
 ```yaml
 identifiers:
-  ipc:
-    - quantlab:ask-stepbit-chat
-    - /api/stepbit-workspace/start
+  research_ui_endpoints:
     - /api/stepbit-workspace
-  services:
-    - createStepbitService
-    - stepbit-service.js
-  config:
-    - STEPBIT_APP_ROOT
-    - STEPBIT_APP_CONFIG_PATH
+    - /api/stepbit-workspace/start
   tests:
     - test_stepbit_external_provider_compat.py
     - test_build_stepbit_workspace_payload_detects_local_repos
@@ -295,6 +314,9 @@ next_slices:
   2:
     title: "desktop: remove Stepbit workspace surfaces"
     type: code_and_tests
+    status: completed
+    issue: 842
+    pr: 843
 
   3:
     title: "research-ui: remove Stepbit workspace controls"
@@ -313,16 +335,18 @@ next_slices:
     type: audit
 ```
 
-## Slice 1 Decision
+## Current Decision
 
 ```yaml
 decision:
   stepbit_active_architecture: false
   stepbit_active_roadmap: false
   stepbit_runtime_references:
-    status: transitional_inventory_created
+    desktop: removed
+    research_ui: pending_slice_3
   stepbit_contract_references:
     status: pending_generalization
   stepbit_visible_surfaces:
-    status: pending_desktop_and_research_ui_slices
+    desktop: removed
+    research_ui: pending_slice_3
 ```
