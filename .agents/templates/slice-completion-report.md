@@ -16,7 +16,7 @@ Keep it factual, short, and tied to the actual repo boundary.
 ## Roadmap Stage
 
 - Stage affected: `<roadmap stage or boundary>`
-- Boundary preserved: `<core / cli / paper / broker / landing / docs / stepbit>`
+- Boundary preserved: `<core / cli / paper / broker / landing / docs / external-consumer>`
 
 ## Exact Files Changed
 

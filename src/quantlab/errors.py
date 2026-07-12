@@ -1,6 +1,6 @@
 """
 errors.py — Centralized exception hierarchy for QuantLab.
-Defines base and specific errors used to communicate failures to callers (e.g. CLI, Stepbit).
+Defines base and specific errors used to communicate failures to callers (e.g. CLI, external consumers).
 """
 
 class QuantLabError(Exception):

@@ -558,6 +558,12 @@ next_slices:
   final:
     title: "audit: verify de-stepbit migration completion"
     type: audit
+    status: completed
+    issue: 854
+    pr: 855
+    report: docs/architecture/de-stepbit-final-audit.md
+    epic: 839
+    epic_ready_to_close_after_merge: true
 ```
 
 ## Current Decision

@@ -175,7 +175,7 @@ def build_report(run_dir: str) -> Dict[str, Any]:
             })
     report["artifacts"] = sorted(artifacts, key=lambda x: x["file_name"])
             
-    # Standardized summary for Stepbit.
+    # Standardized summary for external consumers.
     # For plain `run`, prefer the already-persisted metrics payload so the
     # top-level `summary` mirrors the canonical machine-facing KPI block.
     summary_source = metrics if command == "run" else report

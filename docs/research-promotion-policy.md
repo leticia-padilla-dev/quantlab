@@ -133,4 +133,4 @@ This policy governs the promotion logic up to the decision gates. It does not di
 - Execution code or runtime behavior.
 - Specific config generation or variant creation.
 - The technical implementation of D.2, D.3, or Stage E.
-- External systems like Stepbit or the Desktop UI.
+- External AI systems or the Desktop UI.

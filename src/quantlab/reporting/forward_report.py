@@ -236,7 +236,7 @@ def build_forward_report(out_dir: str | Path) -> Dict[str, Any]:
         }
     }
 
-    # Add standard summary for Stepbit
+    # Add standard summary for external consumers.
     legacy_summary = payload.get("summary", {})
     standard_summary = build_standard_summary(payload)
     payload["summary"] = {

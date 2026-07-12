@@ -1,5 +1,12 @@
 # Research Quality and C.1 Closure Audit
 
+> Historical audit document
+>
+> This document records the architecture, terminology, issues, and future work
+> considered at the time of the original review. Its Stepbit references are
+> preserved as historical evidence and must not be interpreted as current
+> QuantLab architecture or active delivery planning.
+
 **Date:** 2026-05-05  
 **Issue:** #414  
 **Scope:** QuantLab-only documentation and audit; no runtime implementation

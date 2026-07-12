@@ -12,7 +12,7 @@ import main as main_module
 def test_machine_facing_sweep_smoke_validates_canonical_contract(
     monkeypatch, tmp_path
 ):
-    out_dir = tmp_path / "stepbit_outputs"
+    out_dir = tmp_path / "external_consumer_outputs"
     out_dir.mkdir()
     run_dir = out_dir / "20260323_120000_grid_deadbee"
     run_dir.mkdir()
