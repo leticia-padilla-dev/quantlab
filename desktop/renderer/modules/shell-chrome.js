@@ -1,9 +1,9 @@
 export const SHELL_COPY = {
   topbarEyebrow: "QuantLab Research workstation",
   assistantWelcome:
-    "QuantLab Desktop is now workstation-first.\n\nUse the assistant as support when needed:\n- open system\n- open experiments\n- launch run ticker ETH-USD start 2023-01-01 end 2024-01-01\n- open latest run\n- compare selected\n- show artifacts\n- open latest failed launch\n- explain latest failure\n- ask stepbit explain the latest failed launch",
+    "QuantLab Desktop is now workstation-first.\n\nUse the assistant as support when needed:\n- open system\n- open experiments\n- launch run ticker ETH-USD start 2023-01-01 end 2024-01-01\n- open latest run\n- compare selected\n- show artifacts\n- open latest failed launch\n- explain latest failure",
   assistantHelp:
-    "This shell now supports real backend-backed actions. Try:\n- open system\n- open experiments\n- open sweep handoff\n- launch run ticker ETH-USD start 2023-01-01 end 2024-01-01\n- launch sweep config configs/experiments/eth_2023_grid.yaml\n- open candidates\n- mark candidate <run_id>\n- mark baseline <run_id>\n- open latest run\n- compare selected\n- show artifacts\n- open latest failed launch\n- explain latest failure\n- ask stepbit explain the latest failed launch",
+    "This shell now supports real backend-backed actions. Try:\n- open system\n- open experiments\n- open sweep handoff\n- launch run ticker ETH-USD start 2023-01-01 end 2024-01-01\n- launch sweep config configs/experiments/eth_2023_grid.yaml\n- open candidates\n- mark candidate <run_id>\n- mark baseline <run_id>\n- open latest run\n- compare selected\n- show artifacts\n- open latest failed launch\n- explain latest failure",
   emptyWorksurface:
     "No focused work surface is open yet.\n\nUse the sidebar, workflow panel, or assistant support to open runs, compare candidates, inspect artifacts, or review runtime state.",
   paletteEmptyState: "No matching action. Try shortlist, baseline, compare, or paper.",
@@ -102,12 +102,6 @@ export const PALETTE_ACTION_SPECS = [
     label: "Explain Latest Failure",
     description: "Summarize the latest failed launch from stderr and job state.",
     handler: "explainLatestFailureInChat",
-  },
-  {
-    id: "stepbit-failure",
-    label: "Ask Stepbit About Failure",
-    description: "Use the Stepbit-backed adapter to inspect the latest failed launch.",
-    handler: "askStepbitAboutLatestFailure",
   },
   {
     id: "artifacts",

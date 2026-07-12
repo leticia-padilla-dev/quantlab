@@ -22,7 +22,6 @@ const { contextBridge, ipcRenderer } = require("electron");
 /** @typedef {import("./shared/ipc/channels").OpenExternalChannel} OpenExternalChannel */
 /** @typedef {import("./shared/ipc/channels").OpenPathChannel} OpenPathChannel */
 /** @typedef {import("./shared/ipc/channels").RestartWorkspaceServerChannel} RestartWorkspaceServerChannel */
-/** @typedef {import("./shared/ipc/channels").AskStepbitChatChannel} AskStepbitChatChannel */
 
 /** @type {WorkspaceStateEventChannel} */
 const WORKSPACE_STATE_EVENT = "quantlab:workspace-state";
@@ -58,8 +57,6 @@ const OPEN_EXTERNAL_CHANNEL = "quantlab:open-external";
 const OPEN_PATH_CHANNEL = "quantlab:open-path";
 /** @type {RestartWorkspaceServerChannel} */
 const RESTART_WORKSPACE_SERVER_CHANNEL = "quantlab:restart-workspace-server";
-/** @type {AskStepbitChatChannel} */
-const ASK_STEPBIT_CHAT_CHANNEL = "quantlab:ask-stepbit-chat";
 
 async function unwrapInvokeResult(channel, ...args) {
   const result = await ipcRenderer.invoke(channel, ...args);
@@ -85,7 +82,6 @@ const desktopBridge = {
   readProjectJson: (targetPath) => ipcRenderer.invoke(READ_PROJECT_JSON_CHANNEL, targetPath),
   postJson: (relativePath, payload) => unwrapInvokeResult(POST_JSON_CHANNEL, relativePath, payload),
   restartWorkspaceServer: () => ipcRenderer.invoke(RESTART_WORKSPACE_SERVER_CHANNEL),
-  askStepbitChat: (payload) => ipcRenderer.invoke(ASK_STEPBIT_CHAT_CHANNEL, payload),
   openExternal: (url) => ipcRenderer.invoke(OPEN_EXTERNAL_CHANNEL, url),
   openPath: (targetPath) => ipcRenderer.invoke(OPEN_PATH_CHANNEL, targetPath),
   /**

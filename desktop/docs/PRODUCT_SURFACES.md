@@ -67,7 +67,7 @@ These surfaces exist but should be migrated, replaced, or eliminated in the curr
 
 - real-path smoke and runtime reachability checks
 - launch/job execution APIs that do not yet have a native replacement
-- paper, broker, Stepbit, and launch-control payloads while the desktop still reads them through server endpoints
+- paper, broker, and launch-control payloads while the desktop still reads them through server endpoints
 - browser-backed fallback links during the transition
 
 `research_ui` must not be treated as:
@@ -140,5 +140,5 @@ Current backlog classification for Desktop v1 closure:
 
 - No UI code is changed here.
 - No renderer architecture is changed.
-- No Stepbit contract work.
+- No external-consumer contract work.
 - No shell architecture changes.

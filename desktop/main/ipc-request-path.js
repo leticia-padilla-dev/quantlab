@@ -55,10 +55,7 @@ function normalizeRelativePath(relativePath) {
  * @returns {boolean}
  */
 function isSensitiveResearchUiPostPath(normalizedPath) {
-  return (
-    normalizedPath === "/api/launch-control" ||
-    normalizedPath === "/api/stepbit-workspace/start"
-  );
+  return normalizedPath === "/api/launch-control";
 }
 
 module.exports = {

@@ -1461,8 +1461,6 @@ export function renderSystemTab(ctx) {
   const launchControl = snapshot.launchControl || null;
   const paper = snapshot.paperHealth || null;
   const broker = snapshot.brokerHealth || null;
-  const stepbit = snapshot.stepbitWorkspace || null;
-  const liveUrls = stepbit?.live_urls || {};
   const runs = ctx.getRuns?.() || [];
   const jobs = Array.isArray(launchControl?.jobs) ? launchControl.jobs.slice(0, 5) : [];
   const latestRun = ctx.getLatestRun?.() || null;
@@ -1470,7 +1468,7 @@ export function renderSystemTab(ctx) {
   const candidateEntries = ctx.decision.getCandidateEntriesResolved(ctx.store, ctx.findRun);
   const shortlistCount = candidateEntries.filter((entry) => entry.shortlisted && entry.run).length;
   const brokerAlerts = Array.isArray(broker?.alerts) ? broker.alerts : [];
-  const systemUrls = collectSystemUrls(workspace, liveUrls);
+  const systemUrls = collectSystemUrls(workspace);
   const logPreview = collectSystemLogPreview(workspace.logs, ctx.maxLogPreviewChars);
   const refreshState = describeSnapshotRefresh(snapshotStatus);
   const launchSurfaceState = workspace.serverUrl
@@ -1482,7 +1480,6 @@ export function renderSystemTab(ctx) {
     brokerAlerts,
     latestFailedJob,
     launchJobs: jobs,
-    liveUrls,
     latestRun,
   });
 
@@ -1509,8 +1506,6 @@ export function renderSystemTab(ctx) {
         ${renderSummaryCard("Paper state", paper?.available ? "Ready" : "Pending", paper?.available ? "tone-positive" : "tone-warning")}
         ${renderSummaryCard("Broker alerts", formatCount(brokerAlerts.length), brokerAlerts.length ? "tone-negative" : broker?.available ? "tone-positive" : "tone-warning")}
         ${renderSummaryCard("Launch browser", workspace.serverUrl ? "Available" : "Unavailable", workspace.serverUrl ? "tone-positive" : "tone-warning")}
-        ${renderSummaryCard("Stepbit frontend", liveUrls.frontend_reachable ? "Attached" : "Detached", liveUrls.frontend_reachable ? "tone-positive" : "tone-warning")}
-        ${renderSummaryCard("Stepbit core", liveUrls.core_ready ? "Ready" : liveUrls.core_reachable ? "Partial" : "Detached", liveUrls.core_ready ? "tone-positive" : liveUrls.core_reachable ? "tone-warning" : "tone-negative")}
       </div>
       <div class="artifact-grid system-grid">
         <section class="artifact-panel system-stack">
@@ -1599,7 +1594,6 @@ export function renderSystemTab(ctx) {
 export function renderPaperOpsTab(ctx) {
   const paper = ctx.snapshot?.paperHealth || null;
   const broker = ctx.snapshot?.brokerHealth || null;
-  const stepbit = ctx.snapshot?.stepbitWorkspace || null;
   const latestJob = ctx.getJobs()[0] || null;
   const latestFailedJob = ctx.getLatestFailedJob?.() || null;
   const latestRun = ctx.getLatestRun?.() || null;
@@ -1610,7 +1604,6 @@ export function renderPaperOpsTab(ctx) {
   const paperReady = Boolean(paper?.available && paper?.total_sessions);
   const brokerReady = Boolean(broker?.available);
   const brokerHasAlerts = Boolean(broker?.has_alerts);
-  const stepbitLive = Boolean(stepbit?.live_urls?.frontend_reachable && stepbit?.live_urls?.backend_reachable);
 
   const nowItems = [
     {
@@ -1673,15 +1666,6 @@ export function renderPaperOpsTab(ctx) {
           label: "Launch failure watch",
           body: "No failed launch job is currently visible in the recent job window.",
         },
-    {
-      tone: stepbit?.live_urls?.core_ready ? "positive" : stepbitLive ? "warning" : "",
-      label: "Optional Stepbit boundary",
-      body: stepbit?.live_urls?.core_ready
-        ? "Stepbit app and core are available as an optional copiloted layer."
-        : stepbitLive
-          ? "Stepbit app is reachable but chat is not ready because core is unavailable."
-          : "Stepbit remains optional and currently inactive from the shell perspective.",
-    },
   ];
 
   const nextAction = selectPaperOpsNextAction({
@@ -1716,8 +1700,6 @@ export function renderPaperOpsTab(ctx) {
         ${renderSummaryCard("Broker alerts", broker?.has_alerts ? "Review required" : "Clear", broker?.has_alerts ? "tone-negative" : "tone-positive")}
         ${renderSummaryCard("Decision compare", decisionCompareRunIds.length >= 2 ? "Ready" : "Incomplete", decisionCompareRunIds.length >= 2 ? "tone-positive" : "tone-warning")}
         ${renderSummaryCard("Latest failed launch", latestFailedJob ? "Review required" : "Clear", latestFailedJob ? "tone-warning" : "tone-positive")}
-        ${renderSummaryCard("Stepbit frontend", stepbit?.live_urls?.frontend_reachable ? "Attached" : "Detached", stepbit?.live_urls?.frontend_reachable ? "tone-positive" : "tone-negative")}
-        ${renderSummaryCard("Stepbit core", stepbit?.live_urls?.core_ready ? "Ready" : stepbit?.live_urls?.core_reachable ? "Partial" : "Detached", stepbit?.live_urls?.core_ready ? "tone-positive" : stepbit?.live_urls?.core_reachable ? "tone-warning" : "tone-negative")}
       </div>
       <div class="artifact-grid">
         <section class="artifact-panel">
@@ -1784,30 +1766,18 @@ export function renderPaperOpsTab(ctx) {
           ${renderOpsChipRow("Alert counts", broker?.alert_counts)}
         </section>
       </div>
-      <div class="artifact-grid">
-        <section class="artifact-panel">
-          <div class="section-label">Launch continuity</div>
-          <h3>Recent launch job</h3>
-          ${latestJob ? `
-            <dl class="metric-list compact">
-              ${compareMetric("Request", latestJob.request_id || "-", "")}
-              ${compareMetric("Command", titleCase(latestJob.command || "unknown"), "")}
-              ${compareMetric("Launch state", resolveLaunchSignal(latestJob.status, { emptyLabel: "Launch pending" }).label, resolveLaunchSignal(latestJob.status, { emptyLabel: "Launch pending" }).tone)}
-              ${compareMetric("Run id", latestJob.run_id || "-", "")}
-            </dl>
-          ` : `<div class="empty-state">No launch jobs are available yet. This is expected before the first launch request.</div>`}
-        </section>
-        <section class="artifact-panel">
-          <div class="section-label">Stepbit boundary</div>
-          <h3>Optional copiloted runtime</h3>
+      <section class="artifact-panel">
+        <div class="section-label">Launch continuity</div>
+        <h3>Recent launch job</h3>
+        ${latestJob ? `
           <dl class="metric-list compact">
-            ${compareMetric("Boundary note", stepbit?.boundary_note || "-", "")}
-            ${compareMetric("Frontend", stepbit?.live_urls?.frontend_reachable ? "reachable" : "down", "")}
-            ${compareMetric("Backend", stepbit?.live_urls?.backend_reachable ? "reachable" : "down", "")}
-            ${compareMetric("Core", stepbit?.live_urls?.core_ready ? "ready" : stepbit?.live_urls?.core_reachable ? "up" : "down", "")}
+            ${compareMetric("Request", latestJob.request_id || "-", "")}
+            ${compareMetric("Command", titleCase(latestJob.command || "unknown"), "")}
+            ${compareMetric("Launch state", resolveLaunchSignal(latestJob.status, { emptyLabel: "Launch pending" }).label, resolveLaunchSignal(latestJob.status, { emptyLabel: "Launch pending" }).tone)}
+            ${compareMetric("Run id", latestJob.run_id || "-", "")}
           </dl>
-        </section>
-      </div>
+        ` : `<div class="empty-state">No launch jobs are available yet. This is expected before the first launch request.</div>`}
+      </section>
     </div>
   `;
 }
@@ -1854,18 +1824,11 @@ export function describeSnapshotRefresh(snapshotStatus) {
   };
 }
 
-function collectSystemUrls(workspace, liveUrls) {
+function collectSystemUrls(workspace) {
   const entries = [];
   if (workspace?.serverUrl) {
     entries.push({ label: "Research UI", url: `${workspace.serverUrl.replace(/\/$/, "")}/research_ui/index.html` });
   }
-  Object.entries(liveUrls || {}).forEach(([key, value]) => {
-    if (typeof value !== "string" || !/^https?:\/\//i.test(value)) return;
-    entries.push({
-      label: titleCase(String(key).replace(/_/g, " ")),
-      url: value,
-    });
-  });
   return entries;
 }
 
@@ -1875,7 +1838,7 @@ function collectSystemLogPreview(logs, maxChars) {
   return formatLogPreview(lines.slice(-12).join("\n"), maxChars);
 }
 
-function buildSystemWatchItems({ workspace, snapshotStatus, brokerAlerts, latestFailedJob, launchJobs, liveUrls, latestRun }) {
+function buildSystemWatchItems({ workspace, snapshotStatus, brokerAlerts, latestFailedJob, launchJobs, latestRun }) {
   const items = [];
   const localFallbackActive = snapshotStatus?.source === "local";
   if (workspace?.error) {
@@ -1928,15 +1891,6 @@ function buildSystemWatchItems({ workspace, snapshotStatus, brokerAlerts, latest
       body: "No broker alerts are currently surfaced.",
     });
   }
-  items.push({
-    tone: liveUrls?.core_ready ? "positive" : liveUrls?.frontend_reachable || liveUrls?.backend_reachable ? "warning" : "neutral",
-    label: "Optional Stepbit boundary",
-    body: liveUrls?.core_ready
-      ? "Frontend, backend, and core are available."
-      : liveUrls?.frontend_reachable || liveUrls?.backend_reachable
-        ? "Some Stepbit surfaces are reachable, but the core is not ready."
-        : "Stepbit is currently offline; this does not block QuantLab workstation usage.",
-  });
   if (latestRun?.run_id) {
     items.push({
       tone: "neutral",

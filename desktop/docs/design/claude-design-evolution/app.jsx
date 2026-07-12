@@ -104,7 +104,7 @@ function App() {
             {surface === "experiments" && <StubSurface       title="Experiments" note="Sweep configs (configs/experiments) and recent sweep outputs (outputs/sweeps). Sweep decision handoff preserved; visuals harmonised with the new token set." />}
             {surface === "launch"      && <StubSurface       title="Launch" note="Primary launch workspace. Form layout converges to the same panel/eyebrow vocabulary as Runs and Compare." />}
             {surface === "candidates"  && <StubSurface       title="Candidates" note="Shortlist + baseline editor. Shares spotlight + decision-queue components with Runs to remove cross-surface fragmentation." />}
-            {surface === "assistant"   && <StubSurface       title="Assistant" note="Deterministic QuantLab command lane. Stepbit-backed adapter routed via explicit `ask stepbit …`. Visual chrome converges with main shell." />}
+            {surface === "assistant"   && <StubSurface       title="Assistant" note="Deterministic QuantLab command lane. External assistant adapters are not part of the active Desktop architecture." />}
           </div>
         </div>
       </div>

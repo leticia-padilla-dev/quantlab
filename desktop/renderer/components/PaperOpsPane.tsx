@@ -102,8 +102,6 @@ export function PaperOpsPane({ tab: _tab }: { tab: PaperTab }) {
   const snapshot = state.snapshot ?? native.snapshot ?? {};
   const paper = (snapshot as any).paperHealth ?? null;
   const broker = (snapshot as any).brokerHealth ?? null;
-  const stepbit = (snapshot as any).stepbitWorkspace ?? null;
-  const liveUrls = stepbit?.live_urls ?? {};
   const store = state.candidatesStore ?? {};
 
   const jobs: any[] = Array.isArray((snapshot as any).launchControl?.jobs)
@@ -120,7 +118,6 @@ export function PaperOpsPane({ tab: _tab }: { tab: PaperTab }) {
   const paperReady = Boolean(paper?.available && paper?.total_sessions);
   const brokerReady = Boolean(broker?.available);
   const brokerHasAlerts = Boolean(broker?.has_alerts);
-  const stepbitLive = Boolean(liveUrls?.frontend_reachable && liveUrls?.backend_reachable);
 
   const nowItems = useMemo(() => [
     {
@@ -169,16 +166,7 @@ export function PaperOpsPane({ tab: _tab }: { tab: PaperTab }) {
     latestFailedJob
       ? { tone: 'warning', label: 'Latest failed launch', body: `${latestFailedJob.request_id || '-'} · ${titleCase(latestFailedJob.command || 'unknown')}${latestFailedJob?.ended_at ? ` · ${formatDateTime(latestFailedJob.ended_at)}` : ''}` }
       : { tone: 'positive', label: 'Launch failure watch', body: 'No failed launch job is currently visible in the recent job window.' },
-    {
-      tone: liveUrls?.core_ready ? 'positive' : stepbitLive ? 'warning' : '',
-      label: 'Optional Stepbit boundary',
-      body: liveUrls?.core_ready
-        ? 'Stepbit app and core are available as an optional copiloted layer.'
-        : stepbitLive
-          ? 'Stepbit app is reachable but chat is not ready because core is unavailable.'
-          : 'Stepbit remains optional and currently inactive from the shell perspective.',
-    },
-  ], [paper, broker, brokerReady, brokerHasAlerts, latestFailedJob, liveUrls, stepbitLive]);
+  ], [paper, broker, brokerReady, brokerHasAlerts, latestFailedJob]);
 
   const nextAction = useMemo(() => selectNextAction({
     paper, broker, latestFailedJob, latestJob, latestRun, decisionCompareRunIds, baselineRunId,
@@ -235,8 +223,6 @@ export function PaperOpsPane({ tab: _tab }: { tab: PaperTab }) {
         <SummaryCard label="Broker alerts" value={broker?.has_alerts ? 'Review required' : 'Clear'} tone={broker?.has_alerts ? 'tone-negative' : 'tone-positive'} />
         <SummaryCard label="Decision compare" value={decisionCompareRunIds.length >= 2 ? 'Ready' : 'Incomplete'} tone={decisionCompareRunIds.length >= 2 ? 'tone-positive' : 'tone-warning'} />
         <SummaryCard label="Latest failed launch" value={latestFailedJob ? 'Review required' : 'Clear'} tone={latestFailedJob ? 'tone-warning' : 'tone-positive'} />
-        <SummaryCard label="Stepbit frontend" value={liveUrls?.frontend_reachable ? 'Attached' : 'Detached'} tone={liveUrls?.frontend_reachable ? 'tone-positive' : 'tone-negative'} />
-        <SummaryCard label="Stepbit core" value={liveUrls?.core_ready ? 'Ready' : liveUrls?.core_reachable ? 'Partial' : 'Detached'} tone={liveUrls?.core_ready ? 'tone-positive' : liveUrls?.core_reachable ? 'tone-warning' : 'tone-negative'} />
       </div>
 
       {/* Now / Watch */}
@@ -321,35 +307,22 @@ export function PaperOpsPane({ tab: _tab }: { tab: PaperTab }) {
         </section>
       </div>
 
-      {/* Launch + Stepbit */}
-      <div className="artifact-grid">
-        <section className="artifact-panel">
-          <div className="section-label">Launch continuity</div>
-          <h3>Recent launch job</h3>
-          {latestJob ? (
-            <dl className="metric-list compact">
-              <MetricRow label="Request" value={latestJob.request_id || '-'} />
-              <MetricRow label="Command" value={titleCase(latestJob.command || 'unknown')} />
-              <MetricRow label="Launch state" value={launchSig.label} tone={launchSig.tone} />
-              <MetricRow label="Run id" value={latestJob.run_id || '-'} />
-            </dl>
-          ) : (
-            <div className="empty-state">
-              No launch jobs are available yet. This is expected before the first launch request.
-            </div>
-          )}
-        </section>
-        <section className="artifact-panel">
-          <div className="section-label">Stepbit boundary</div>
-          <h3>Optional copiloted runtime</h3>
+      <section className="artifact-panel">
+        <div className="section-label">Launch continuity</div>
+        <h3>Recent launch job</h3>
+        {latestJob ? (
           <dl className="metric-list compact">
-            <MetricRow label="Boundary note" value={stepbit?.boundary_note || '-'} />
-            <MetricRow label="Frontend" value={liveUrls?.frontend_reachable ? 'reachable' : 'down'} />
-            <MetricRow label="Backend" value={liveUrls?.backend_reachable ? 'reachable' : 'down'} />
-            <MetricRow label="Core" value={liveUrls?.core_ready ? 'ready' : liveUrls?.core_reachable ? 'up' : 'down'} />
+            <MetricRow label="Request" value={latestJob.request_id || '-'} />
+            <MetricRow label="Command" value={titleCase(latestJob.command || 'unknown')} />
+            <MetricRow label="Launch state" value={launchSig.label} tone={launchSig.tone} />
+            <MetricRow label="Run id" value={latestJob.run_id || '-'} />
           </dl>
-        </section>
-      </div>
+        ) : (
+          <div className="empty-state">
+            No launch jobs are available yet. This is expected before the first launch request.
+          </div>
+        )}
+      </section>
     </div>
   );
 }

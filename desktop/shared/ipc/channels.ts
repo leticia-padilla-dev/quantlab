@@ -15,7 +15,6 @@ export const QUANTLAB_POST_JSON_CHANNEL = "quantlab:post-json" as const;
 export const QUANTLAB_OPEN_EXTERNAL_CHANNEL = "quantlab:open-external" as const;
 export const QUANTLAB_OPEN_PATH_CHANNEL = "quantlab:open-path" as const;
 export const QUANTLAB_RESTART_WORKSPACE_SERVER_CHANNEL = "quantlab:restart-workspace-server" as const;
-export const QUANTLAB_ASK_STEPBIT_CHAT_CHANNEL = "quantlab:ask-stepbit-chat" as const;
 
 export const QUANTLAB_IPC_CHANNELS = {
   workspaceStateEvent: QUANTLAB_WORKSPACE_STATE_EVENT,
@@ -35,7 +34,6 @@ export const QUANTLAB_IPC_CHANNELS = {
   openExternal: QUANTLAB_OPEN_EXTERNAL_CHANNEL,
   openPath: QUANTLAB_OPEN_PATH_CHANNEL,
   restartWorkspaceServer: QUANTLAB_RESTART_WORKSPACE_SERVER_CHANNEL,
-  askStepbitChat: QUANTLAB_ASK_STEPBIT_CHAT_CHANNEL,
 } as const;
 
 export type WorkspaceStateEventChannel = typeof QUANTLAB_WORKSPACE_STATE_EVENT;
@@ -55,4 +53,3 @@ export type PostJsonChannel = typeof QUANTLAB_POST_JSON_CHANNEL;
 export type OpenExternalChannel = typeof QUANTLAB_OPEN_EXTERNAL_CHANNEL;
 export type OpenPathChannel = typeof QUANTLAB_OPEN_PATH_CHANNEL;
 export type RestartWorkspaceServerChannel = typeof QUANTLAB_RESTART_WORKSPACE_SERVER_CHANNEL;
-export type AskStepbitChatChannel = typeof QUANTLAB_ASK_STEPBIT_CHAT_CHANNEL;
