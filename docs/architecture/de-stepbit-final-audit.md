@@ -90,7 +90,7 @@ The following active stale references were generalized or clarified:
 - `docs/paper-session-runbook.md`: external-consumer wording replaces Stepbit-specific wording.
 - `docs/research-promotion-policy.md`: external AI/Desktop wording replaces Stepbit-specific wording.
 - `docs/broker-safety-boundary.md`: boundary reference now links to the governance matrix, not the deprecated Stepbit boundary doc.
-- `docs/research-quality-audit.md`: historical notice added and future integration language generalized.
+- `docs/research-quality-audit.md`: added an explicit historical notice while preserving the original dated terminology, issue references, and planning statements as audit evidence.
 
 ## Validation Summary
 
@@ -145,7 +145,7 @@ validation:
 
 ```yaml
 tracked_stepbit_search:
-  content_matches: 579
+  content_matches: 584
   content_paths: 79
   filename_matches: 27
 
