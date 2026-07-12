@@ -2,7 +2,7 @@
 
 ## Active Stage
 - **Stage**: Stage D.3 — Micro-Live Promotion Gate (hardening)
-- **Last Updated**: 2026-05-05
+- **Last Updated**: 2026-07-12
 - **Focus**: D.3 initial micro-live gate passed bounded validation (#413 closed). Legacy renderer retired (#539). Hardening criteria and Stage E promotion gate documented in `docs/d3-hardening-and-promotion-criteria.md` (#542/#543). Stage E remains explicitly blocked by design until the operator declares hardening complete. Current work is `post-D.3 initial validation hardening` — no new live execution, no Stage E issue open.
 
 ### Desktop Operator Workspace
@@ -12,7 +12,7 @@
 - **remaining_work**: normal polish, surface docs, future hardening
 - **no_longer_blocking**: legacy renderer migration
 - **rollback**: no runtime fallback; rollback requires git revert / restore from Git history
-- **Authority Note**: Stepbit-facing integration remains a secondary boundary track. QuantLab stays autonomous and external consumer needs do not override QuantLab-owned priorities.
+- **Authority Note**: Stepbit is retired from the active QuantLab architecture. QuantLab Core remains the quantitative, execution, and evidence authority; external consumers may use stable contracts only where explicitly maintained and must not override QuantLab-owned priorities.
 - **Signal Intake Note**: Quant Pulse is an upstream signal layer, not a controller. QuantLab should only consume Quant Pulse output when it can be translated into a research intent, risk filter, or product priority.
 - **Product Identity Note**: Publicly, QuantLab should now be described as a `web3 app` in direction, but still as a supervised and safety-first execution system in current maturity.
 - **Performance Note**: QuantLab remains Python-first. Native acceleration is now treated as a measured hotspot tactic, with the backtest engine as the first realistic candidate if profiling justifies escalation.
@@ -52,7 +52,7 @@
 | M.4 | Portfolio Mode Comparison | ✅ Done |
 | N | Run Lifecycle Management (`quantlab runs`) | ✅ Done |
 | C.1 | Paper Trading Operationalization | ✅ Done |
-| O | Stepbit Automation Readiness (I/O & CLI Stability) | 🟨 In Progress |
+| External Consumer | Contract Stability (formerly Stepbit-facing) | ✅ Retired as active architecture; reusable contract semantics remain |
 
 ## Active Work
 - **Stage Open**: Stage D.3 initial micro-live gate passed bounded validation (2026-05-05). #413 closed as completed. Legacy renderer retired (#539). D.3 hardening criteria and Stage E promotion gate documented (#542/#543).
@@ -65,6 +65,7 @@
   - keep Hyperliquid as the active execution boundary; Kraken remains legacy compatibility
   - treat Bitget as a later optional venue after Hyperliquid, not a current priority
   - Quant Pulse intake is valid only when it improves research, validation, or product priorities
+  - keep Stepbit retired from active roadmap, runtime authority, and future delivery planning
   - prefer operator-visible hardening and regression coverage over new execution breadth
 - **Implemented Direction**:
   - canonical run artifacts now center on `metadata.json`, `config.json`, `metrics.json`, and `report.json`
