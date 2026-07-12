@@ -3,9 +3,9 @@
 Issue: [#840](https://github.com/leticia-padilla-dev/quantlab/issues/840)
 Epic: [#839](https://github.com/leticia-padilla-dev/quantlab/issues/839)
 
-Status: Slice 1 inventory plus Slice 2 Desktop completion record.
-Research UI, CLI, contracts, Python runtime, and Python tests remain untouched
-by the Desktop slice.
+Status: Slice 1 inventory plus Slice 2 Desktop and Slice 3 Research UI
+completion records. CLI, contracts, Core runtime, and compatibility tests remain
+assigned to later slices.
 
 ## Canonical Decision
 
@@ -145,6 +145,39 @@ desktop_slice:
 Slice 2 deliberately did not edit `research_ui`, CLI contracts, Python code,
 or Python tests. Those remain assigned to later slices.
 
+## Slice 3 Research UI Actions Taken
+
+```yaml
+research_ui_slice:
+  issue: 846
+  pr: 847
+  status: completed
+
+  removed:
+    - visible_workspace_controls
+    - frontend_state_and_fetches
+    - workspace_state_cards
+    - start_buttons_and_open_links
+    - /api/stepbit-workspace
+    - /api/stepbit-workspace/start
+    - server_workspace_payload_builder
+    - server_start_helper
+    - start_state_and_live_url_detection
+    - research_ui_stepbit_tests
+    - research_ui_stepbit_readme_copy
+
+  residual_stepbit_identifiers_in_research_ui: []
+
+  validation:
+    targeted_research_ui_tests: pass
+    server_compile: pass
+    startup_smoke: pass
+    reference_search: zero_matches
+```
+
+Slice 3 deliberately did not edit Desktop, Core, CLI/json-request contracts,
+or provider compatibility contracts. Those remain assigned to later slices.
+
 ## Remaining Reference Classes
 
 ### 1. Desktop Runtime And UI
@@ -170,23 +203,26 @@ follow_up:
 ### 2. Research UI Runtime And Controls
 
 ```yaml
-classification: preserve_temporarily
-risk: high
-reason: "Immediate removal affects server endpoints, frontend state, visible controls, and tests."
+classification: removed
+risk: closed_for_research_ui
+reason: "Slice 3 removed Research UI visible controls, frontend state, fetches, endpoints, start helpers, and targeted tests."
 files:
   - research_ui/server.py
   - research_ui/app.js
   - research_ui/index.html
   - research_ui/styles.css
   - research_ui/README.md
+  - test/test_research_ui_server.py
+issue: 846
+residual_identifiers: []
+validated_by:
+  - "python -m py_compile research_ui/server.py"
+  - "python -m pytest -q test/test_research_ui_server.py"
+  - "Research UI startup smoke"
+  - "rg Stepbit/stepbit patterns under research_ui and test/test_research_ui_server.py returned zero matches"
 follow_up:
-  issue_title: "research-ui: remove Stepbit workspace controls"
-  required_action:
-    - remove endpoints
-    - remove start controls
-    - remove state cards
-    - remove frontend text and buttons
-    - update test/test_research_ui_server.py
+  status: complete
+  note: "No Research UI-specific follow-up remains in this inventory."
 ```
 
 ### 3. Contracts, CLI Examples, And Compatibility Fixtures
@@ -291,13 +327,8 @@ dedicated migration or deletion work:
 
 ```yaml
 identifiers:
-  research_ui_endpoints:
-    - /api/stepbit-workspace
-    - /api/stepbit-workspace/start
   tests:
     - test_stepbit_external_provider_compat.py
-    - test_build_stepbit_workspace_payload_detects_local_repos
-    - test_start_stepbit_workspace_starts_missing_services
   docs:
     - stepbit-io-v1.md
     - stepbit-local-invocation-contract.md
@@ -321,6 +352,9 @@ next_slices:
   3:
     title: "research-ui: remove Stepbit workspace controls"
     type: code_and_tests
+    status: completed
+    issue: 846
+    pr: 847
 
   4:
     title: "contracts: generalize Stepbit contracts for external consumers"
@@ -343,10 +377,10 @@ decision:
   stepbit_active_roadmap: false
   stepbit_runtime_references:
     desktop: removed
-    research_ui: pending_slice_3
+    research_ui: removed
   stepbit_contract_references:
     status: pending_generalization
   stepbit_visible_surfaces:
     desktop: removed
-    research_ui: pending_slice_3
+    research_ui: removed
 ```

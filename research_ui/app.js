@@ -6,7 +6,6 @@ const CONFIG = {
     brokerHealthPath: "/api/broker-submissions-health",
     hyperliquidSurfacePath: "/api/hyperliquid-surface",
     pretradeHandoffPath: "/api/pretrade-handoff-intake",
-    stepbitWorkspacePath: "/api/stepbit-workspace",
     metaTradeWorkspacePath: "/api/meta-trade-workspace",
     detailArtifacts: ["report.json", "run_report.json"],
     refreshIntervalMs: 30000,
@@ -29,7 +28,6 @@ const state = {
     brokerHealth: null,
     hyperliquidSurface: null,
     pretradeIntake: null,
-    stepbitWorkspace: null,
     metaTradeWorkspace: null,
     launchControl: null,
     lastSyncAt: null,
@@ -61,11 +59,7 @@ const elements = {
     launchOutDir: document.getElementById("launch-out-dir"),
     launchPaper: document.getElementById("launch-paper"),
     launchSubmit: document.getElementById("launch-submit"),
-    launchStepbitBtn: document.getElementById("launch-stepbit"),
     launchFeedback: document.getElementById("launch-feedback"),
-    launchStepbitMeta: document.getElementById("launch-stepbit-meta"),
-    launchStepbitRuntime: document.getElementById("launch-stepbit-runtime"),
-    openStepbitLink: document.getElementById("open-stepbit"),
     launchJobsMeta: document.getElementById("launch-jobs-meta"),
     launchJobsBody: document.getElementById("launch-jobs-body"),
     runsSummary: document.getElementById("runs-summary"),
@@ -93,8 +87,6 @@ const elements = {
     brokerHealthMeta: document.getElementById("broker-health-meta"),
     hyperliquidState: document.getElementById("hyperliquid-state"),
     hyperliquidMeta: document.getElementById("hyperliquid-meta"),
-    stepbitState: document.getElementById("stepbit-state"),
-    stepbitMeta: document.getElementById("stepbit-meta"),
     metaTradeState: document.getElementById("meta-trade-state"),
     metaTradeMeta: document.getElementById("meta-trade-meta"),
     detailBody: document.getElementById("detail-body"),
@@ -126,7 +118,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     elements.launchCommand.addEventListener("change", renderLaunch);
     elements.launchForm.addEventListener("submit", submitLaunch);
-    elements.launchStepbitBtn.addEventListener("click", startStepbitWorkspace);
     elements.clearFiltersBtn.addEventListener("click", resetFilters);
     elements.clearCompareBtn.addEventListener("click", clearCompareSelection);
     elements.openCompareLink.addEventListener("click", (event) => {
@@ -173,7 +164,7 @@ async function fetchAll(showNotice = false, silent = false) {
 
     try {
         const registryResponse = await fetchJson(CONFIG.registryPath);
-        const [launchControl, paperHealth, paperAlerts, brokerHealth, hyperliquidSurface, pretradeIntake, stepbitWorkspace, metaTradeWorkspace] = await Promise.all([
+        const [launchControl, paperHealth, paperAlerts, brokerHealth, hyperliquidSurface, pretradeIntake, metaTradeWorkspace] = await Promise.all([
             fetchJsonSafe(CONFIG.launchControlPath, {
                 status: "error",
                 available: false,
@@ -221,16 +212,6 @@ async function fetchAll(showNotice = false, silent = false) {
                 reasons: [],
                 message: "Pre-trade intake unavailable.",
             }),
-            fetchJsonSafe(CONFIG.stepbitWorkspacePath, {
-                status: "error",
-                available: false,
-                live_urls: {},
-                start_support: {},
-                start_state: { status: "idle", actions: [] },
-                repos: {},
-                workspace_summary: {},
-                boundary_note: "Stepbit workspace unavailable.",
-            }),
             fetchJsonSafe(CONFIG.metaTradeWorkspacePath, {
                 status: "error",
                 available: false,
@@ -248,7 +229,6 @@ async function fetchAll(showNotice = false, silent = false) {
         state.brokerHealth = brokerHealth;
         state.hyperliquidSurface = hyperliquidSurface;
         state.pretradeIntake = pretradeIntake;
-        state.stepbitWorkspace = stepbitWorkspace;
         state.metaTradeWorkspace = metaTradeWorkspace;
         state.detailCache.clear();
         state.selectedRunIds = state.selectedRunIds.filter((runId) => state.runs.some((run) => run.run_id === runId));
@@ -534,46 +514,11 @@ function renderLaunch() {
 
     const launchControl = state.launchControl;
     const jobs = Array.isArray(launchControl?.jobs) ? launchControl.jobs : [];
-    const stepbit = state.stepbitWorkspace || {};
-    const liveUrls = stepbit.live_urls || {};
-    const startSupport = stepbit.start_support || {};
-    const startState = stepbit.start_state || {};
-    const stepbitReachable = Boolean(liveUrls.reachable);
-    const frontendUp = Boolean(liveUrls.frontend_reachable);
-    const backendUp = Boolean(liveUrls.backend_reachable);
-    const coreUp = Boolean(liveUrls.core_reachable);
-    const coreReady = Boolean(liveUrls.core_ready);
-    const preferredStepbitUrl = liveUrls.preferred_url || stepbit.live_preview_url || "#";
-    const canLaunchStepbit = Boolean(stepbit.available && (startSupport.can_start_backend || startSupport.can_start_frontend));
-    const stepbitStarting = startState.status === "starting";
-    const runtimeSummary = [
-        `Frontend ${frontendUp ? "up" : "down"}`,
-        `Backend ${backendUp ? "up" : "down"}`,
-        `Core ${coreUp ? (coreReady ? "ready" : "up") : "unavailable"}`,
-    ].join(" · ");
 
     elements.launchSummary.textContent = launchControl
-        ? `Launch ${launchControl.supported_commands.join(" or ")} from QuantLab, then use Stepbit as planner or analysis support.`
+        ? `Launch ${launchControl.supported_commands.join(" or ")} from QuantLab with backend-supported jobs.`
         : "Loading launcher state...";
     elements.launchJobsMeta.textContent = jobs.length ? `${jobs.length} recent jobs` : "No launches recorded yet";
-    elements.launchStepbitMeta.textContent = stepbitReachable
-        ? `Stepbit workspace reachable at ${preferredStepbitUrl}`
-        : (stepbitStarting
-            ? "Stepbit AI is starting. Give it a few seconds before retrying."
-            : canLaunchStepbit
-            ? "Stepbit is optional. QuantLab can start the local app surface for you."
-            : "Stepbit is optional. This machine is missing the commands needed to auto-start it.");
-    elements.launchStepbitRuntime.innerHTML = [
-        renderRuntimeChip("Frontend", frontendUp ? "up" : "down", frontendUp ? "up" : "down"),
-        renderRuntimeChip("Backend", backendUp ? "up" : "down", backendUp ? "up" : "down"),
-        renderRuntimeChip("Core", coreUp ? (coreReady ? "ready" : "up") : "unavailable", coreUp ? (coreReady ? "up" : "warn") : "down"),
-    ].join("");
-    elements.openStepbitLink.href = preferredStepbitUrl;
-    elements.openStepbitLink.classList.toggle("is-disabled", !stepbitReachable);
-    elements.openStepbitLink.setAttribute("aria-disabled", stepbitReachable ? "false" : "true");
-    elements.launchStepbitBtn.disabled = !canLaunchStepbit || stepbitReachable || stepbitStarting;
-    elements.launchStepbitBtn.textContent = stepbitStarting ? `Starting Stepbit AI · ${runtimeSummary}` : `Launch Stepbit AI · ${runtimeSummary}`;
-    elements.openStepbitLink.textContent = `Open Stepbit AI · ${runtimeSummary}`;
     elements.launchSubmit.disabled = state.isSubmittingLaunch;
     elements.launchSubmit.textContent = state.isSubmittingLaunch ? "Launching..." : "Launch in QuantLab";
 
@@ -656,32 +601,6 @@ async function submitLaunch(event) {
     }
 }
 
-async function startStepbitWorkspace() {
-    elements.launchFeedback.textContent = "Starting Stepbit AI...";
-    elements.launchStepbitBtn.disabled = true;
-
-    try {
-        const response = await fetch("/api/stepbit-workspace/start", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ source: "quantlab_research_ui" }),
-        });
-        const result = await response.json();
-        if (!response.ok) {
-            throw new Error(result.message || `Stepbit start failed with ${response.status}`);
-        }
-
-        elements.launchFeedback.textContent = result.message || "Stepbit launch requested.";
-        renderLaunch();
-        window.setTimeout(() => fetchAll(false, true), 1200);
-        window.setTimeout(() => fetchAll(false, true), 4000);
-        window.setTimeout(() => fetchAll(false, true), 8000);
-    } catch (error) {
-        elements.launchFeedback.textContent = error.message || "Stepbit launch failed.";
-        renderLaunch();
-    }
-}
-
 function compareMetric(label, value, extraClass) {
     return `
         <div class="compare-metric ${extraClass}">
@@ -691,22 +610,12 @@ function compareMetric(label, value, extraClass) {
     `;
 }
 
-function renderRuntimeChip(label, value, tone) {
-    return `
-        <span class="runtime-chip runtime-${escapeHtml(tone)}">
-            <strong>${escapeHtml(label)}</strong>
-            <span>${escapeHtml(value)}</span>
-        </span>
-    `;
-}
-
 function renderOps() {
     const paperHealth = state.paperHealth || {};
     const paperAlerts = state.paperAlerts || {};
     const brokerHealth = state.brokerHealth || {};
     const hyperliquidSurface = state.hyperliquidSurface || {};
     const pretradeIntake = state.pretradeIntake || {};
-    const stepbitWorkspace = state.stepbitWorkspace || {};
     const metaTradeWorkspace = state.metaTradeWorkspace || {};
 
     elements.paperTotalSessions.textContent = String(paperHealth.total_sessions || 0);
@@ -719,13 +628,10 @@ function renderOps() {
     elements.hyperliquidMeta.textContent = buildHyperliquidMeta(hyperliquidSurface);
     elements.pretradeSummary.textContent = buildPretradeSummary(pretradeIntake);
     elements.pretradePanelBody.innerHTML = buildPretradePanel(pretradeIntake);
-    elements.stepbitState.textContent = stepbitWorkspace.live_urls?.reachable ? "Live" : (stepbitWorkspace.available ? "Attached" : "Boundary");
-    elements.stepbitMeta.textContent = buildStepbitMeta(stepbitWorkspace);
     elements.metaTradeState.textContent = metaTradeWorkspace.available ? "Ready" : "Boundary";
     elements.metaTradeMeta.textContent = buildMetaTradeMeta(metaTradeWorkspace);
     elements.opsSummary.textContent = buildOpsSummary(paperHealth, paperAlerts, brokerHealth, hyperliquidSurface, pretradeIntake);
     elements.sidebarBoundaryMeta.textContent = [
-        stepbitWorkspace.available ? "Stepbit connected" : "Stepbit boundary",
         metaTradeWorkspace.available ? "Meta Trade connected" : "Meta Trade boundary",
     ].join(" · ");
 }
@@ -1018,15 +924,6 @@ function buildHyperliquidMeta(surface) {
     return submitHealth.latest_submit_session_id
         ? `${submitHealth.latest_submit_session_id} · ${titleCase(submitHealth.latest_submit_state || "unknown")}`
         : "Lifecycle surfaces detected.";
-}
-
-function buildStepbitMeta(workspace) {
-    if (!workspace.available) {
-        return workspace.boundary_note || "External workspace only.";
-    }
-    const summary = workspace.workspace_summary || {};
-    const live = workspace.live_urls?.reachable ? " · live workspace reachable" : "";
-    return `${summary.app_surfaces_present || 0} app surfaces · ${summary.core_capabilities_present || 0} core capabilities${live}`;
 }
 
 function buildMetaTradeMeta(workspace) {

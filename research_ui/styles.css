@@ -591,47 +591,8 @@ th[data-sort].is-active {
     gap: 10px;
 }
 
-.launch-feedback,
-.launch-stepbit-meta {
+.launch-feedback {
     color: var(--muted);
-}
-
-.runtime-strip {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-}
-
-.runtime-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 10px;
-    border-radius: 999px;
-    border: 1px solid var(--border);
-    background: var(--bg-soft);
-    font-size: 0.78rem;
-}
-
-.runtime-chip strong {
-    font-size: 0.74rem;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-}
-
-.runtime-up {
-    color: var(--success);
-    border-color: rgba(119, 212, 167, 0.28);
-}
-
-.runtime-down {
-    color: var(--danger);
-    border-color: rgba(239, 140, 140, 0.28);
-}
-
-.runtime-warn {
-    color: var(--warning);
-    border-color: rgba(242, 195, 125, 0.28);
 }
 
 .launch-jobs-body {

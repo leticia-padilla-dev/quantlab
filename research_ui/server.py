@@ -3,16 +3,12 @@ import json
 import socketserver
 import os
 import secrets
-import shutil
 import subprocess
 import sys
-import time
 from datetime import datetime, timezone
 from pathlib import Path
 from threading import Lock
-from urllib.error import HTTPError, URLError
 from urllib.parse import unquote
-from urllib.request import Request, urlopen
 from uuid import uuid4
 
 PORT = 8000
@@ -50,24 +46,6 @@ def _get_or_create_research_ui_session() -> str:
 LAUNCH_HISTORY_LIMIT = 12
 LAUNCH_JOBS: list[dict[str, object]] = []
 LAUNCH_LOCK = Lock()
-STEPBIT_START_LOCK = Lock()
-STEPBIT_START_STATE: dict[str, object] = {
-    "status": "idle",
-    "requested_at": 0.0,
-    "actions": [],
-}
-STEPBIT_FRONTEND_URLS = [
-    "http://127.0.0.1:5173/",
-    "http://localhost:5173/",
-]
-STEPBIT_BACKEND_URLS = [
-    "http://127.0.0.1:8080/",
-    "http://localhost:8080/",
-]
-STEPBIT_CORE_URLS = [
-    "http://127.0.0.1:3000/",
-    "http://localhost:3000/",
-]
 
 from quantlab.cli.broker_order_validations import (
     build_broker_submission_alerts,
@@ -86,284 +64,6 @@ from quantlab.pretrade.handoff import (
     PRETRADE_HANDOFF_VALIDATION_CONTRACT_TYPE,
     PRETRADE_HANDOFF_VALIDATION_FILENAME,
 )
-
-STEPBIT_APP_SURFACE_SPECS = [
-    {
-        "id": "dashboard",
-        "label": "Dashboard",
-        "category": "Operations",
-        "route": "/",
-        "file": "web/src/pages/Dashboard.tsx",
-        "summary": "Health, readiness, models, requests, token load, and runtime visibility.",
-    },
-    {
-        "id": "system",
-        "label": "System",
-        "category": "Operations",
-        "route": "/system",
-        "file": "web/src/pages/System.tsx",
-        "summary": "Readiness-oriented runtime surface for API, database, and core diagnostics.",
-    },
-    {
-        "id": "chat",
-        "label": "Chat",
-        "category": "Workspace",
-        "route": "/chat",
-        "file": "web/src/pages/Chat.tsx",
-        "summary": "Streaming chat with provider/model selection and persistent local sessions.",
-    },
-    {
-        "id": "database",
-        "label": "Database",
-        "category": "Data",
-        "route": "/database",
-        "file": "web/src/pages/Database.tsx",
-        "summary": "DuckDB-backed local memory and data inspection surface.",
-    },
-    {
-        "id": "sql_explorer",
-        "label": "SQL Explorer",
-        "category": "Data",
-        "route": "/db-explorer",
-        "file": "web/src/pages/DatabaseExplorer.tsx",
-        "summary": "Ad-hoc SQL workspace for querying the Stepbit local database.",
-    },
-    {
-        "id": "skills",
-        "label": "Skills",
-        "category": "Workspace",
-        "route": "/skills",
-        "file": "web/src/pages/Skills.tsx",
-        "summary": "Reusable prompt assets and imported personas for operator workflows.",
-    },
-    {
-        "id": "mcp_tools",
-        "label": "MCP Tools",
-        "category": "Tooling",
-        "route": "/mcp-tools",
-        "file": "web/src/pages/McpTools.tsx",
-        "summary": "Tool discovery and execution playground for registered MCP providers.",
-    },
-    {
-        "id": "reasoning",
-        "label": "Reasoning",
-        "category": "Automation",
-        "route": "/reasoning",
-        "file": "web/src/pages/ReasoningPlayground.tsx",
-        "summary": "Graph-based reasoning playground for ad-hoc DAG execution.",
-    },
-    {
-        "id": "pipelines",
-        "label": "Pipelines",
-        "category": "Automation",
-        "route": "/pipelines",
-        "file": "web/src/pages/Pipelines.tsx",
-        "summary": "CRUD and execution flow for deterministic cognitive pipelines.",
-    },
-    {
-        "id": "goals",
-        "label": "Goals",
-        "category": "Automation",
-        "route": "/goals",
-        "file": "web/src/pages/Goals.tsx",
-        "summary": "Planner-first entry point that turns natural-language goals into runs.",
-    },
-    {
-        "id": "scheduled_jobs",
-        "label": "Scheduled Jobs",
-        "category": "Automation",
-        "route": "/scheduled-jobs",
-        "file": "web/src/pages/ScheduledJobs.tsx",
-        "summary": "Cron-backed recurring automation proxied into stepbit-core.",
-    },
-    {
-        "id": "triggers",
-        "label": "Triggers",
-        "category": "Automation",
-        "route": "/triggers",
-        "file": "web/src/pages/Triggers.tsx",
-        "summary": "Reactive event rules that publish work into the core runtime.",
-    },
-    {
-        "id": "executions",
-        "label": "Executions",
-        "category": "Operations",
-        "route": "/executions",
-        "file": "web/src/pages/ExecutionHistory.tsx",
-        "summary": "Execution history for pipelines, goals, and operator-initiated actions.",
-    },
-    {
-        "id": "settings",
-        "label": "Settings",
-        "category": "Workspace",
-        "route": "/settings",
-        "file": "web/src/pages/Settings.tsx",
-        "summary": "Local application configuration and provider controls.",
-    },
-]
-
-STEPBIT_CORE_CAPABILITY_SPECS = [
-    {
-        "id": "orchestrator",
-        "label": "Unified Orchestrator",
-        "category": "Runtime",
-        "path": "src/orchestrator",
-        "summary": "Coordinates planning, graphs, pipelines, resources, and event streaming.",
-    },
-    {
-        "id": "planner",
-        "label": "Planner Core",
-        "category": "Reasoning",
-        "path": "src/planner",
-        "summary": "Goal decomposition, plan validation, and graph translation.",
-    },
-    {
-        "id": "reasoning",
-        "label": "Reasoning Engine",
-        "category": "Reasoning",
-        "path": "src/reasoning",
-        "summary": "DAG execution with traceable node lifecycle and streaming feedback.",
-    },
-    {
-        "id": "pipelines",
-        "label": "Pipeline Runtime",
-        "category": "Automation",
-        "path": "src/pipelines",
-        "summary": "Structured multi-stage workflows with shared context and streaming output.",
-    },
-    {
-        "id": "mcp",
-        "label": "MCP Framework",
-        "category": "Tooling",
-        "path": "src/mcp",
-        "summary": "Native and external MCP providers with tool discovery and invocation.",
-    },
-    {
-        "id": "cron",
-        "label": "Cron Scheduler",
-        "category": "Automation",
-        "path": "src/cron",
-        "summary": "Recurring jobs, persistence, retries, and manual triggers.",
-    },
-    {
-        "id": "events",
-        "label": "Event Bus & Triggers",
-        "category": "Automation",
-        "path": "src/events",
-        "summary": "Reactive automation through event publishing and trigger matching.",
-    },
-    {
-        "id": "inference",
-        "label": "Inference Backends",
-        "category": "Runtime",
-        "path": "src/inference",
-        "summary": "Backend-aware local inference, model loading, and session execution.",
-    },
-    {
-        "id": "scheduler",
-        "label": "Token Scheduler",
-        "category": "Runtime",
-        "path": "src/scheduler",
-        "summary": "Budget-aware scheduling and batching for active sessions.",
-    },
-    {
-        "id": "health",
-        "label": "Health & Metrics",
-        "category": "Operations",
-        "path": "src/health",
-        "summary": "Liveness, readiness, and Prometheus-style observability surfaces.",
-    },
-    {
-        "id": "distributed",
-        "label": "Distributed Hooks",
-        "category": "Operations",
-        "path": "src/distributed",
-        "summary": "Controller/worker execution path for remote delegation and scaling.",
-    },
-]
-
-STEPBIT_COMPATIBILITY_SURFACES = [
-    {
-        "id": "models",
-        "label": "Model Catalog",
-        "method": "GET",
-        "path": "/v1/models",
-        "category": "Inference",
-        "summary": "List locally discovered models and backend-aware runtime specs.",
-    },
-    {
-        "id": "chat",
-        "label": "Chat Completions",
-        "method": "POST",
-        "path": "/v1/chat/completions",
-        "category": "Inference",
-        "summary": "OpenAI-style chat interface with optional SSE streaming.",
-    },
-    {
-        "id": "goals",
-        "label": "Goal Runs",
-        "method": "POST",
-        "path": "/v1/goals/execute",
-        "category": "Reasoning",
-        "summary": "High-level goal execution entry point owned by the planner/runtime.",
-    },
-    {
-        "id": "reasoning",
-        "label": "Reasoning Graphs",
-        "method": "POST",
-        "path": "/v1/reasoning/execute",
-        "category": "Reasoning",
-        "summary": "Direct execution of reasoning DAGs with streamed progress variants.",
-    },
-    {
-        "id": "pipelines",
-        "label": "Pipelines",
-        "method": "POST",
-        "path": "/v1/pipelines/execute",
-        "category": "Automation",
-        "summary": "Deterministic pipeline execution for structured workflows.",
-    },
-    {
-        "id": "mcp_tools",
-        "label": "MCP Tools",
-        "method": "GET",
-        "path": "/v1/mcp/tools",
-        "category": "Tooling",
-        "summary": "Discover registered tools and their schemas before invocation.",
-    },
-    {
-        "id": "cron",
-        "label": "Cron Jobs",
-        "method": "GET",
-        "path": "/v1/cron/jobs",
-        "category": "Automation",
-        "summary": "Inspect recurring jobs and operational scheduling state.",
-    },
-    {
-        "id": "events",
-        "label": "Events & Triggers",
-        "method": "GET",
-        "path": "/v1/triggers",
-        "category": "Automation",
-        "summary": "List trigger registrations used for reactive workflows.",
-    },
-    {
-        "id": "metrics",
-        "label": "Metrics",
-        "method": "GET",
-        "path": "/metrics",
-        "category": "Operations",
-        "summary": "Prometheus-style runtime metrics for requests, tokens, and sessions.",
-    },
-    {
-        "id": "health",
-        "label": "Health",
-        "method": "GET",
-        "path": "/ready",
-        "category": "Operations",
-        "summary": "Readiness probe that reports if the runtime is loaded and usable.",
-    },
-]
 
 META_TRADE_PRODUCT_SURFACE_SPECS = [
     {
@@ -574,9 +274,6 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         if request_path.startswith('/api/pretrade-handoff-intake'):
             payload, status = build_pretrade_handoff_payload(PROJECT_ROOT)
             return self._send_json(payload, status=status)
-        if request_path.startswith('/api/stepbit-workspace'):
-            payload, status = build_stepbit_workspace_payload(PROJECT_ROOT)
-            return self._send_json(payload, status=status)
         if request_path.startswith('/api/meta-trade-workspace'):
             payload, status = build_meta_trade_workspace_payload(PROJECT_ROOT)
             return self._send_json(payload, status=status)
@@ -601,7 +298,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_POST(self):
         request_path = unquote(self.path.split("?", 1)[0].split("#", 1)[0])
-        if request_path not in {"/api/stepbit-workspace/start", "/api/launch-control"}:
+        if request_path != "/api/launch-control":
             self.send_error(404, "Not found")
             return
 
@@ -622,10 +319,6 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             return self._send_json({"status": "error", "message": str(exc)}, status=400)
 
         try:
-            if request_path == "/api/stepbit-workspace/start":
-                payload, status = start_stepbit_workspace(PROJECT_ROOT, body)
-                return self._send_json(payload, status=status)
-
             job_payload, status = launch_quantlab_job(PROJECT_ROOT, body)
             return self._send_json(job_payload, status=status)
         except ValueError as exc:
@@ -1203,85 +896,12 @@ def build_pretrade_handoff_payload(project_root: Path | None = None) -> tuple[di
     }, 200
 
 
-def build_stepbit_workspace_payload(project_root: Path | None = None) -> tuple[dict, int]:
-    root = Path(project_root or PROJECT_ROOT)
-    workspace_root = root.parent
-    app_repo = workspace_root / "stepbit-app"
-    core_repo = workspace_root / "stepbit-core"
-    live_urls = _detect_stepbit_live_urls()
-    start_support = _build_stepbit_start_support(app_repo, live_urls)
-    start_state = _get_stepbit_start_state(live_urls)
-
-    app_summary = _build_workspace_repo_summary(app_repo, "control_plane")
-    core_summary = _build_workspace_repo_summary(core_repo, "runtime_core")
-    app_surfaces = _build_stepbit_app_surfaces(app_repo)
-    app_surface_groups = _group_stepbit_entries(
-        app_surfaces,
-        {
-            "Workspace": "Local-first user workflows and operator-facing product pages.",
-            "Data": "Database-backed exploration and query-oriented utilities.",
-            "Tooling": "Tool discovery and execution surfaces attached to the runtime.",
-            "Automation": "Planner, pipelines, jobs, triggers, and reactive flows.",
-            "Operations": "Health, runtime, and execution-history visibility.",
-        },
-    )
-    core_capabilities = _build_stepbit_core_capabilities(core_repo)
-    core_capability_groups = _group_stepbit_entries(
-        core_capabilities,
-        {
-            "Runtime": "Low-level runtime, inference, admission, and scheduling capabilities.",
-            "Reasoning": "Goal planning, reasoning graphs, and plan translation.",
-            "Automation": "Pipelines, cron jobs, and event-driven orchestration.",
-            "Tooling": "MCP providers and tool-execution substrate.",
-            "Operations": "Readiness, observability, and distributed execution hooks.",
-        },
-    )
-    compatibility_surfaces = _build_stepbit_compatibility_surfaces(core_repo)
-    connected = app_summary["present"] and core_summary["present"]
-
-    return {
-        "status": "ok",
-        "available": connected,
-        "workspace_root": str(workspace_root),
-        "connection_mode": "workspace_boundary" if connected else "workspace_incomplete",
-        "boundary_note": "Stepbit remains an external connected surface. QuantLab stays sovereign over runtime and execution safety.",
-        "live_preview_url": live_urls["preferred_url"],
-        "live_urls": live_urls,
-        "start_support": start_support,
-        "start_state": start_state,
-        "repos": {
-            "stepbit_app": app_summary,
-            "stepbit_core": core_summary,
-        },
-        "surface_model": {
-            "quantlab_role": "execution_and_research_sovereign",
-            "stepbit_app_role": "control_plane",
-            "stepbit_core_role": "reasoning_runtime",
-        },
-        "workspace_summary": {
-            "app_surfaces_present": sum(1 for surface in app_surfaces if surface["present"]),
-            "app_surfaces_total": len(app_surfaces),
-            "core_capabilities_present": sum(1 for capability in core_capabilities if capability["present"]),
-            "core_capabilities_total": len(core_capabilities),
-            "compatibility_surfaces_total": len(compatibility_surfaces),
-            "automation_surfaces_present": sum(
-                1 for surface in app_surfaces if surface["present"] and surface["category"] == "Automation"
-            ),
-        },
-        "app_surfaces": app_surfaces,
-        "app_surface_groups": app_surface_groups,
-        "core_capabilities": core_capabilities,
-        "core_capability_groups": core_capability_groups,
-        "compatibility_surfaces": compatibility_surfaces,
-    }, 200
-
-
 def build_meta_trade_workspace_payload(project_root: Path | None = None) -> tuple[dict, int]:
     root = Path(project_root or PROJECT_ROOT)
     repo = _resolve_meta_trade_repo(root)
     repo_summary = _build_workspace_repo_summary(repo, "pretrade_workbench")
     product_surfaces = _build_meta_trade_entries(repo, META_TRADE_PRODUCT_SURFACE_SPECS)
-    product_surface_groups = _group_stepbit_entries(
+    product_surface_groups = _group_workspace_entries(
         product_surfaces,
         {
             "Workspace": "Operator-facing planning surfaces that stay upstream of QuantLab.",
@@ -1290,7 +910,7 @@ def build_meta_trade_workspace_payload(project_root: Path | None = None) -> tupl
         },
     )
     engine_modules = _build_meta_trade_entries(repo, META_TRADE_ENGINE_MODULE_SPECS)
-    engine_module_groups = _group_stepbit_entries(
+    engine_module_groups = _group_workspace_entries(
         engine_modules,
         {
             "Core": "Canonical trade-plan generation and deterministic data structures.",
@@ -1300,7 +920,7 @@ def build_meta_trade_workspace_payload(project_root: Path | None = None) -> tupl
         },
     )
     validation_surfaces = _build_meta_trade_entries(repo, META_TRADE_VALIDATION_SURFACES)
-    validation_surface_groups = _group_stepbit_entries(
+    validation_surface_groups = _group_workspace_entries(
         validation_surfaces,
         {
             "Tests": "Local verification flows for browser, core, and headless paths.",
@@ -1309,7 +929,7 @@ def build_meta_trade_workspace_payload(project_root: Path | None = None) -> tupl
         },
     )
     contract_artifacts = _build_meta_trade_entries(repo, META_TRADE_CONTRACT_ARTIFACTS)
-    contract_artifact_groups = _group_stepbit_entries(
+    contract_artifact_groups = _group_workspace_entries(
         contract_artifacts,
         {
             "Docs": "Boundary and roadmap documents for the bounded upstream role.",
@@ -1366,139 +986,6 @@ def build_launch_control_payload(project_root: Path | None = None) -> tuple[dict
         "supported_sweep_fields": ["config_path", "out_dir"],
         "jobs": jobs,
     }, 200
-
-
-def start_stepbit_workspace(project_root: Path | None = None, request_body: dict[str, object] | None = None) -> tuple[dict, int]:
-    root = Path(project_root or PROJECT_ROOT)
-    workspace_root = root.parent
-    app_repo = workspace_root / "stepbit-app"
-    web_repo = app_repo / "web"
-
-    if not app_repo.exists():
-        return {
-            "status": "error",
-            "message": "stepbit-app repository is missing.",
-        }, 404
-
-    logs_root = root / "outputs" / "research_ui" / "stepbit"
-    logs_root.mkdir(parents=True, exist_ok=True)
-    live_urls = _detect_stepbit_live_urls()
-    start_support = _build_stepbit_start_support(app_repo, live_urls)
-    actions: list[str] = []
-
-    with STEPBIT_START_LOCK:
-        current_start_state = _get_stepbit_start_state_unlocked(live_urls)
-        if current_start_state["status"] == "starting":
-            return {
-                "status": "accepted",
-                "message": "Stepbit AI is already starting. Wait a few seconds before retrying.",
-                "actions": current_start_state["actions"],
-                "live_urls": live_urls,
-                "logs_root": str(logs_root),
-            }, 202
-        _set_stepbit_start_state_unlocked("starting", current_start_state.get("actions") or [])
-
-    if not live_urls["backend_reachable"]:
-        if not start_support["can_start_backend"]:
-            _set_stepbit_start_state("idle", [])
-            return {
-                "status": "error",
-                "message": "Go is not available, so QuantLab cannot auto-start the Stepbit backend.",
-            }, 400
-        backend_binary = _stepbit_backend_binary_path(root)
-        completed = _run_hidden_command(
-            _build_stepbit_backend_build_command(backend_binary),
-            cwd=app_repo,
-            stdout_path=logs_root / "backend.build.stdout.log",
-            stderr_path=logs_root / "backend.build.stderr.log",
-            timeout_seconds=900,
-        )
-        if completed.returncode != 0 or not backend_binary.exists():
-            _set_stepbit_start_state("idle", [])
-            return {
-                "status": "error",
-                "message": "Stepbit backend could not be built.",
-                "build_exit_code": completed.returncode,
-                "stderr_log": str(logs_root / "backend.build.stderr.log"),
-            }, 500
-        actions.append("backend build complete")
-        _set_stepbit_start_state("starting", actions)
-        backend_pid = _spawn_detached_process(
-            [str(backend_binary)],
-            cwd=app_repo,
-            stdout_path=logs_root / "backend.stdout.log",
-            stderr_path=logs_root / "backend.stderr.log",
-        )
-        actions.append(f"backend pid {backend_pid}")
-        _set_stepbit_start_state("starting", actions)
-        if not _wait_for_stepbit_backend():
-            _set_stepbit_start_state("idle", [])
-            return {
-                "status": "error",
-                "message": "Stepbit backend did not become healthy in time, so the frontend was not opened.",
-                "stderr_log": str(logs_root / "backend.stderr.log"),
-            }, 500
-        live_urls = _detect_stepbit_live_urls()
-        start_support = _build_stepbit_start_support(app_repo, live_urls)
-
-    if not live_urls["frontend_reachable"]:
-        if not start_support["can_start_frontend"]:
-            _set_stepbit_start_state("idle", actions)
-            return {
-                "status": "error",
-                "message": "corepack or pnpm is not available, so QuantLab cannot auto-start the Stepbit frontend.",
-            }, 400
-        if start_support["frontend_install_required"]:
-            install_command = _build_stepbit_frontend_install_command(web_repo)
-            completed = _run_hidden_command(
-                install_command,
-                cwd=web_repo,
-                stdout_path=logs_root / "frontend.install.stdout.log",
-                stderr_path=logs_root / "frontend.install.stderr.log",
-                timeout_seconds=900,
-            )
-            if completed.returncode != 0:
-                _set_stepbit_start_state("idle", actions)
-                return {
-                    "status": "error",
-                    "message": "Stepbit frontend dependencies could not be installed.",
-                    "install_exit_code": completed.returncode,
-                    "stderr_log": str(logs_root / "frontend.install.stderr.log"),
-                }, 500
-            actions.append("frontend install complete")
-            _set_stepbit_start_state("starting", actions)
-
-        frontend_command = _build_stepbit_frontend_start_command(web_repo)
-        frontend_pid = _spawn_detached_process(
-            frontend_command,
-            cwd=web_repo,
-            stdout_path=logs_root / "frontend.stdout.log",
-            stderr_path=logs_root / "frontend.stderr.log",
-            env_overrides={
-                "VITE_API_BASE_URL": "http://127.0.0.1:8080/api",
-                "VITE_WS_BASE_URL": "ws://127.0.0.1:8080",
-            },
-        )
-        actions.append(f"frontend pid {frontend_pid}")
-
-    refreshed = _detect_stepbit_live_urls()
-    if not actions:
-        _set_stepbit_start_state("running", [])
-        return {
-            "status": "ok",
-            "message": "Stepbit AI is already running.",
-            "live_urls": refreshed,
-        }, 200
-
-    _set_stepbit_start_state("starting", actions)
-
-    return {
-        "status": "accepted",
-        "message": "Stepbit AI launch requested. The workspace may need a few seconds to become reachable.",
-        "actions": actions,
-        "live_urls": refreshed,
-        "logs_root": str(logs_root),
-    }, 202
 
 
 def launch_quantlab_job(project_root: Path, request_body: dict[str, object]) -> tuple[dict, int]:
@@ -1762,226 +1249,6 @@ def _project_relative_href(project_root: Path, maybe_path: object) -> str | None
     return "/" + str(relative).replace("\\", "/")
 
 
-def _detect_stepbit_live_urls() -> dict[str, object]:
-    frontend_url = _first_reachable_url(STEPBIT_FRONTEND_URLS)
-    backend_url = _first_reachable_url([f"{url.rstrip('/')}/api/health" for url in STEPBIT_BACKEND_URLS])
-    core_health_url = _first_reachable_url([f"{url.rstrip('/')}/health" for url in STEPBIT_CORE_URLS])
-    core_ready_url = _first_reachable_url([f"{url.rstrip('/')}/ready" for url in STEPBIT_CORE_URLS])
-    backend_base = backend_url.rsplit("/api/health", 1)[0] if backend_url else STEPBIT_BACKEND_URLS[0]
-    core_base = core_health_url.rsplit("/health", 1)[0] if core_health_url else STEPBIT_CORE_URLS[0]
-    workspace_ready = frontend_url is not None and backend_url is not None
-    preferred = frontend_url if workspace_ready else (backend_base if backend_url else STEPBIT_FRONTEND_URLS[0])
-    return {
-        "preferred_url": preferred,
-        "frontend_url": frontend_url or STEPBIT_FRONTEND_URLS[0],
-        "backend_url": backend_base,
-        "core_url": core_base,
-        "frontend_reachable": frontend_url is not None,
-        "backend_reachable": backend_url is not None,
-        "core_reachable": core_health_url is not None,
-        "core_ready": core_ready_url is not None,
-        "reachable": workspace_ready,
-    }
-
-
-def _wait_for_stepbit_backend(timeout_seconds: int = 12) -> bool:
-    deadline = time.time() + timeout_seconds
-    while time.time() < deadline:
-        if _http_url_reachable("http://127.0.0.1:8080/api/health") or _http_url_reachable("http://localhost:8080/api/health"):
-            return True
-        time.sleep(0.5)
-    return False
-
-
-def _build_stepbit_start_support(app_repo: Path, live_urls: dict[str, object]) -> dict[str, object]:
-    web_repo = app_repo / "web"
-    pnpm_path = shutil.which("pnpm") or shutil.which("pnpm.cmd")
-    corepack_path = shutil.which("corepack") or shutil.which("corepack.cmd")
-    go_path = shutil.which("go") or shutil.which("go.exe")
-
-    return {
-        "can_start_backend": bool(go_path),
-        "can_start_frontend": bool(pnpm_path or corepack_path),
-        "frontend_install_required": not (web_repo / "node_modules").exists(),
-        "frontend_command": "pnpm" if pnpm_path else ("corepack pnpm" if corepack_path else None),
-        "frontend_install_command": "pnpm install --frozen-lockfile" if pnpm_path else ("corepack pnpm install --frozen-lockfile" if corepack_path else None),
-        "backend_command": "go build ./cmd/stepbit-app + run built binary" if go_path else None,
-        "frontend_running": bool(live_urls.get("frontend_reachable")),
-        "backend_running": bool(live_urls.get("backend_reachable")),
-    }
-
-
-def _stepbit_backend_binary_path(project_root: Path) -> Path:
-    suffix = ".exe" if os.name == "nt" else ""
-    return Path(project_root) / "outputs" / "research_ui" / "stepbit" / f"stepbit-app-runtime{suffix}"
-
-
-def _build_stepbit_backend_build_command(binary_path: Path) -> list[str]:
-    go_path = shutil.which("go") or shutil.which("go.exe")
-    if not go_path:
-        raise ValueError("Go is not available.")
-    return [str(go_path), "build", "-o", str(binary_path), "./cmd/stepbit-app"]
-
-
-def _build_stepbit_frontend_install_command(web_repo: Path) -> list[str]:
-    pnpm_path = shutil.which("pnpm") or shutil.which("pnpm.cmd")
-    if pnpm_path:
-        return [str(pnpm_path), "install", "--frozen-lockfile"]
-
-    corepack_path = shutil.which("corepack") or shutil.which("corepack.cmd")
-    if corepack_path:
-        return [str(corepack_path), "pnpm", "install", "--frozen-lockfile"]
-
-    raise ValueError("Neither pnpm nor corepack is available.")
-
-
-def _build_stepbit_frontend_start_command(web_repo: Path) -> list[str]:
-    node_path = shutil.which("node") or shutil.which("node.exe")
-    vite_bin = web_repo / "node_modules" / "vite" / "bin" / "vite.js"
-    if node_path and vite_bin.exists():
-        return [str(node_path), str(vite_bin), "--host", "127.0.0.1", "--port", "5173"]
-
-    pnpm_path = shutil.which("pnpm") or shutil.which("pnpm.cmd")
-    if pnpm_path:
-        return [str(pnpm_path), "dev", "--host", "127.0.0.1", "--port", "5173"]
-
-    corepack_path = shutil.which("corepack") or shutil.which("corepack.cmd")
-    if corepack_path:
-        return [str(corepack_path), "pnpm", "dev", "--host", "127.0.0.1", "--port", "5173"]
-
-    raise ValueError("Neither pnpm nor corepack is available.")
-
-
-def _run_hidden_command(
-    command: list[str],
-    cwd: Path,
-    stdout_path: Path,
-    stderr_path: Path,
-    timeout_seconds: int = 600,
-):
-    stdout_path.parent.mkdir(parents=True, exist_ok=True)
-    stderr_path.parent.mkdir(parents=True, exist_ok=True)
-    with stdout_path.open("a", encoding="utf-8") as stdout_handle, stderr_path.open("a", encoding="utf-8") as stderr_handle:
-        kwargs = {
-            "cwd": cwd,
-            "stdout": stdout_handle,
-            "stderr": stderr_handle,
-            "stdin": subprocess.DEVNULL,
-            "text": True,
-            "timeout": timeout_seconds,
-        }
-        if os.name == "nt":
-            kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
-            startupinfo = subprocess.STARTUPINFO()
-            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-            startupinfo.wShowWindow = 0
-            kwargs["startupinfo"] = startupinfo
-        return subprocess.run(command, **kwargs)
-
-
-def _get_stepbit_start_state(live_urls: dict[str, object]) -> dict[str, object]:
-    with STEPBIT_START_LOCK:
-        return _get_stepbit_start_state_unlocked(live_urls)
-
-
-def _get_stepbit_start_state_unlocked(live_urls: dict[str, object]) -> dict[str, object]:
-    requested_at = float(STEPBIT_START_STATE.get("requested_at") or 0.0)
-    actions = list(STEPBIT_START_STATE.get("actions") or [])
-
-    if live_urls.get("reachable"):
-        return {
-            "status": "running",
-            "requested_at": requested_at,
-            "actions": actions,
-        }
-
-    if requested_at and (time.time() - requested_at) < 45:
-        return {
-            "status": "starting",
-            "requested_at": requested_at,
-            "actions": actions,
-        }
-
-    return {
-        "status": "idle",
-        "requested_at": requested_at,
-        "actions": actions,
-    }
-
-
-def _set_stepbit_start_state(status: str, actions: list[str]) -> None:
-    with STEPBIT_START_LOCK:
-        _set_stepbit_start_state_unlocked(status, actions)
-
-
-def _set_stepbit_start_state_unlocked(status: str, actions: list[str]) -> None:
-    STEPBIT_START_STATE["status"] = status
-    STEPBIT_START_STATE["requested_at"] = time.time()
-    STEPBIT_START_STATE["actions"] = list(actions)
-
-
-def _spawn_detached_process(
-    command: list[str] | str,
-    cwd: Path,
-    stdout_path: Path,
-    stderr_path: Path,
-    env_overrides: dict[str, str] | None = None,
-) -> int:
-    stdout_path.parent.mkdir(parents=True, exist_ok=True)
-    stderr_path.parent.mkdir(parents=True, exist_ok=True)
-    stdout_handle = stdout_path.open("a", encoding="utf-8")
-    stderr_handle = stderr_path.open("a", encoding="utf-8")
-
-    kwargs = {
-        "cwd": cwd,
-        "stdout": stdout_handle,
-        "stderr": stderr_handle,
-        "stdin": subprocess.DEVNULL,
-        "text": True,
-    }
-    if env_overrides:
-        env = os.environ.copy()
-        env.update(env_overrides)
-        kwargs["env"] = env
-    if os.name == "nt":
-        kwargs["creationflags"] = (
-            subprocess.CREATE_NEW_PROCESS_GROUP
-            | subprocess.DETACHED_PROCESS
-            | subprocess.CREATE_NO_WINDOW
-        )
-        startupinfo = subprocess.STARTUPINFO()
-        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-        startupinfo.wShowWindow = 0
-        kwargs["startupinfo"] = startupinfo
-    else:
-        kwargs["start_new_session"] = True
-
-    try:
-        process = subprocess.Popen(command, **kwargs)
-    finally:
-        stdout_handle.close()
-        stderr_handle.close()
-    return process.pid
-
-
-def _first_reachable_url(candidates: list[str]) -> str | None:
-    for candidate in candidates:
-        if _http_url_reachable(candidate):
-            return candidate
-    return None
-
-
-def _http_url_reachable(url: str) -> bool:
-    request = Request(url, method="GET", headers={"User-Agent": "QuantLab-Research-UI"})
-    try:
-        with urlopen(request, timeout=0.35) as response:
-            return 200 <= getattr(response, "status", 200) < 500
-    except HTTPError as exc:
-        return 200 <= exc.code < 500
-    except (TimeoutError, URLError, OSError):
-        return False
-
-
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
@@ -2003,48 +1270,6 @@ def _build_workspace_repo_summary(path: Path, role: str) -> dict[str, object]:
     summary["dirty"] = dirty
     summary["headline"] = _read_readme_headline(path)
     return summary
-
-
-def _build_stepbit_app_surfaces(app_repo: Path) -> list[dict[str, object]]:
-    surfaces: list[dict[str, object]] = []
-    for spec in STEPBIT_APP_SURFACE_SPECS:
-        target = app_repo / spec["file"]
-        surfaces.append(
-            {
-                **spec,
-                "present": target.exists(),
-                "path": str(target),
-            }
-        )
-    return surfaces
-
-
-def _build_stepbit_core_capabilities(core_repo: Path) -> list[dict[str, object]]:
-    capabilities: list[dict[str, object]] = []
-    for spec in STEPBIT_CORE_CAPABILITY_SPECS:
-        target = core_repo / spec["path"]
-        capabilities.append(
-            {
-                **spec,
-                "present": target.exists(),
-                "path": str(target),
-            }
-        )
-    return capabilities
-
-
-def _build_stepbit_compatibility_surfaces(core_repo: Path) -> list[dict[str, object]]:
-    surfaces: list[dict[str, object]] = []
-    api_root = core_repo / "src" / "api"
-    for spec in STEPBIT_COMPATIBILITY_SURFACES:
-        surfaces.append(
-            {
-                **spec,
-                "present": api_root.exists(),
-                "path_hint": str(api_root),
-            }
-        )
-    return surfaces
 
 
 def _resolve_meta_trade_repo(project_root: Path) -> Path:
@@ -2095,7 +1320,7 @@ def _read_package_scripts(repo: Path) -> list[dict[str, str]]:
     ]
 
 
-def _group_stepbit_entries(
+def _group_workspace_entries(
     entries: list[dict[str, object]],
     summaries: dict[str, str],
 ) -> list[dict[str, object]]:
