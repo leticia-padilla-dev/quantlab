@@ -18,16 +18,18 @@ Today, the ecosystem should be read as:
 - moving toward practical onchain and broker-connected trading operation
 - still intentionally supervised, not yet broad autonomous live routing
 
-It is intentionally split from Stepbit:
+It is intentionally governed without an external orchestration product:
 
 - QuantLab Research is the primary system for research, paper-trading discipline, execution safety, and future broker-connected operation.
-- Stepbit is an optional external system that can provide AI, reasoning, workflow, and automation capabilities.
+- QuantLab Core remains the quantitative, execution, and evidence authority.
+- AI assistance may support analysis, planning, explanation, and code work, but it has no execution authority.
 
 The architectural rule is simple:
 
 - QuantLab Research remains autonomous
-- Stepbit does not govern QuantLab
-- QuantLab Research may consume Stepbit capabilities through a narrow, reversible boundary
+- critical approval remains human
+- local Python workflows are the current lightweight orchestration baseline
+- any external consumer must use explicit maintained contracts and must not become product authority
 
 QuantPulse is a separate sibling product:
 
@@ -63,8 +65,7 @@ A secondary boundary track remains active:
 - reliable health/version surfaces via `--check` and `--version`
 - stable desktop v0.1foundation with hardened structural layout (sidebar/nav) and graceful local-only fallback support when API surfaces are unreachable.
 
-External integration work remains subordinate to QuantLab Research-owned priorities.
-Stepbit-facing hardening is valid when it reduces real boundary friction, but it does not set the product roadmap.
+External-consumer contract work remains subordinate to QuantLab Research-owned priorities.
 QuantPulse-facing intake is also subordinate to QuantLab Research-owned priorities and should only be used when it produces testable research or clear product value.
 
 ## Brand
@@ -211,7 +212,7 @@ The recommended way to explore the product is via the native desktop shell:
 ### Operational Notes & Warnings
 
 - **Local-first Design**: v0.1 is optimized for local workstation usage and may display local-only or runtime fallback states depending on your environment setup.
-- **Surface Availability**: Optional sibling integrations (such as Stepbit) may appear offline or detached; this is intended behavior and does not block the primary QuantLab inspection and research flow.
+- **Surface Availability**: Transitional or optional local surfaces may appear offline or detached; this is intended behavior and does not block the primary QuantLab inspection and research flow.
 - **Native Priority**: The canonical v0.1 experience is the native desktop inspection workstation. Browser-backed transitional surfaces are preserved but demoted to legacy fallback.
 
 *Note: For detailed boundaries and known limitations, see [docs/v0.1-scope.md](./docs/v0.1-scope.md).*
@@ -291,8 +292,6 @@ See also:
 - [docs/workflow-operativo-codex.md](./docs/workflow-operativo-codex.md)
 - [docs/quant-pulse-quantlab-contract.md](./docs/quant-pulse-quantlab-contract.md)
 - [docs/run-artifact-contract.md](./docs/run-artifact-contract.md)
-- [docs/stepbit-io-v1.md](./docs/stepbit-io-v1.md)
-- [docs/quantlab-stepbit-boundaries.md](./docs/quantlab-stepbit-boundaries.md)
 
 ## Real CLI Usage
 
@@ -491,7 +490,7 @@ python main.py --json-request "{\"schema_version\":\"1.0\",\"request_id\":\"req_
 - PR #63 added the canonical `report.json.machine_contract` for plain `run`
 - PR #60 aligned plain `run` with canonical artifacts and automatic `runs_index` refresh
 - PR #58 added CLI preflight checks and smoke validation for the machine-facing sweep path
-- PR #55 stabilized the sweep contract for Stepbit-oriented consumption
+- PR #55 stabilized the sweep contract for external-consumer oriented consumption
 
 ## Repo Signals
 
@@ -510,7 +509,7 @@ The repository already exposes a professional baseline for continued integration
 - modular boundaries over monolithic growth
 - reproducibility over ad hoc experimentation
 - explicit contracts over implicit behavior
-- extensibility without collapsing QuantLab/Stepbit separation
+- extensibility without surrendering QuantLab Core authority
 
 ## Current Execution Boundary
 

@@ -1,6 +1,6 @@
 # Current State - QuantLab
 
-**Date:** 2026-04-30
+**Date:** 2026-07-12
 **Purpose:** stable operational snapshot of the QuantLab repo
 
 ## Operational Posture
@@ -13,7 +13,7 @@ The repository does **not** need a new base architecture layer. The current fron
 
 - **QuantLab Core**: quantitative validation and evidence authority
 - **Desktop**: operator workspace and review surface
-- **Stepbit**: orchestration/control plane only, not QuantLab authority
+- **Local Python workflows / maintained external-consumer contracts**: optional invocation boundary only, not product authority
 - **Quant Pulse**: upstream signal and hypothesis layer only
 
 ## Stage Status
@@ -56,15 +56,23 @@ Only after that sequence should the repo move into:
 
 These tracks remain outside the current critical path:
 
-- Stepbit adapter and orchestration
 - Quant Pulse intake
 - broader venue expansion
 - neural research track
 - controlled automation
 
+Stepbit has been retired from the active QuantLab architecture. Existing
+Stepbit-specific runtime identifiers, UI surfaces, docs, and test fixtures are
+transitional until migrated through dedicated de-stepbit slices. They must not
+be interpreted as current product architecture, roadmap commitment, or future
+dependency.
+
 ## Operating Principles
 
-- QuantLab validates; Stepbit orchestrates
+- QuantLab Core owns quantitative validation, execution semantics, and evidence generation
+- the human operator owns critical approval, risk limits, promotion authority, and live authorization
+- AI assistance may support analysis, planning, code assistance, and explanation, but has no execution authority
+- local Python workflows are the current lightweight orchestration baseline; future orchestration tools are optional, not mandatory dependencies
 - Quant Pulse proposes signals; QuantLab decides what is worth testing
 - Desktop reduces operator ambiguity; it does not become a second source of authority
 - no move from implemented to live without auditable evidence

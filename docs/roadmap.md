@@ -60,7 +60,7 @@ QuantLab has already completed most of the original research foundation and quan
 - supervised broker submit safety, reconciliation, and post-submit visibility
 - initial real-execution safety and Kraken boundary work
 - initial supervised Hyperliquid signed-submit work behind the shared execution boundary
-- optional Stepbit-facing automation readiness at the external boundary
+- external-consumer contract stability at the local CLI/artifact boundary
 - Desktop/UI operator workspace architecture and shell hardening
 
 ### Not started as production capability
@@ -122,13 +122,16 @@ Exit condition:
 
 - QuantLab can simulate live behavior without capital at risk and preserve a complete audit trail for each paper session
 
-## Stage O - Stepbit Automation Readiness
+## External Consumer Contract Stability
 
-Status: in progress
+Status: completed as a former Stepbit-specific active track; reusable contract semantics remain maintained
 
-This is a parallel integration stage layered on top of A/B/C, not a replacement for them.
+This was historically developed as a Stepbit-facing readiness track. Stepbit is
+now retired from the active QuantLab architecture, roadmap, and future delivery
+planning.
 
-It is a secondary track, not the main product authority of QuantLab.
+The remaining valid scope is generic external-consumer contract stability.
+QuantLab does not maintain an active Stepbit integration stage.
 
 Scope:
 
@@ -139,12 +142,14 @@ Scope:
 - deterministic `--check` and `--version`
 - automatic refresh of `runs_index.*`
 
-Stepbit boundary rule:
+External-consumer boundary rule:
 
-Stepbit integration should advance only when QuantLab exposes stable producer-side contracts. Stepbit must not compensate for missing QuantLab contracts with orchestration logic. This means:
+External consumers may invoke QuantLab only through stable producer-side
+contracts. No external orchestration layer may compensate for missing QuantLab
+contracts with private logic. This means:
 
 - no mocks to hide missing QuantLab contracts
-- no Stepbit-side workaround for missing evidence artifacts
+- no consumer-side workaround for missing evidence artifacts
 - no external orchestration absorbing QuantLab authority
 
 Exit condition:
@@ -256,13 +261,13 @@ Current interpretation:
 - but it is no longer the main unresolved runtime frontier
 - from the current repository state, paper work should now be prioritized when it strengthens operator visibility, promotion discipline, or broker-readiness handoff rather than treated as the dominant roadmap stage
 
-## Stage O.1 - Integration Hardening
+## External Consumer Contract Hardening
 
 Status: secondary follow-up, driven by consumer feedback
 
 Goal:
 
-- reduce friction for external consumers such as Stepbit once they begin consuming the QuantLab contract in earnest
+- reduce friction for maintained external consumers once they begin consuming the QuantLab contract in earnest
 
 Scope:
 
@@ -275,7 +280,7 @@ Exit condition:
 
 - consumer systems can validate QuantLab integration deterministically and repeatedly without live-market dependence
 
-## Stage O.2 - Quant Pulse Signal Intake
+## Quant Pulse Signal Intake
 
 Status: proposed auxiliary signal boundary
 
@@ -561,7 +566,7 @@ Strategic rule:
 Authority rule:
 
 - QuantLab owns dataset definition, feature definition, model validation, artifact contracts, and promotion criteria
-- Stepbit may later orchestrate learned-model workflows, but must not own modeling authority
+- maintained local workflows or future optional orchestration tools may later coordinate learned-model workflows, but must not own modeling authority
 - Quant Pulse may later provide upstream hypotheses or signal context, but must not certify learned-model validity
 
 ### Stage N.0 - Neural Research Foundations
@@ -703,7 +708,7 @@ Status: long-term proposed
 
 Goal:
 
-- let Stepbit orchestrate learned-model research pipelines while keeping QuantLab as the authority over data, training, validation, and evidence
+- allow maintained local workflows or future optional orchestration tools to run learned-model research pipelines while keeping QuantLab as the authority over data, training, validation, and evidence
 
 Scope:
 
@@ -714,7 +719,7 @@ Scope:
 
 Exit condition:
 
-- Stepbit can coordinate learned-model research pipelines while QuantLab remains the canonical owner of experiment definition, evaluation logic, and artifacts
+- a maintained orchestration path can coordinate learned-model research pipelines while QuantLab remains the canonical owner of experiment definition, evaluation logic, and artifacts
 
 ## Recommended Execution Order
 
@@ -724,13 +729,13 @@ From the current operational hardening frontier, the priority order is:
 2. Harden D.2 / D.3 supervised broker corridors with repeatable evidence, reconciliation, alerts, stop-control, and post-submit clarity.
 3. Convert the initial D.3 micro-live evidence into runbook updates, blocker analysis, repeatability criteria, and operator stop-control confidence before any Stage E work.
 4. Continue C.1 paper-trading polish only where it strengthens promotion discipline or broker-readiness handoff.
-5. Continue Stage O only where real integration friction proves a missing producer-side contract. Stepbit must not compensate for missing QuantLab contracts.
-6. Keep Stepbit, Quant Pulse, broad Numba expansion, and Track N off the active execution-critical path until the current Desktop + D.3 hardening line is stable.
+5. Maintain external-consumer contracts only where real integration friction proves a missing producer-side contract. External consumers must not compensate for missing QuantLab contracts.
+6. Keep Quant Pulse, broad Numba expansion, and Track N off the active execution-critical path until the current Desktop + D.3 hardening line is stable.
 7. Open N.0 only as a documentation/contract track, not implementation, when operational bandwidth allows.
 8. Do not open Stage E until D.3 has repeatable evidence, clean alert artifacts, secret-boundary discipline, and operator stop-control confidence.
 9. Only after Stage E proves repeated supervised live stability, consider Stage F controlled automation.
 10. Avoid reopening Stage D.0 / D.1 as primary stages unless a real hardening gap proves the current boundary insufficient.
-11. Continue Stage O.1, Stage O.2, and later Stage N.6 only when real integration or orchestration value justifies them.
+11. Continue external-consumer contract and later Stage N.6 work only when real integration or orchestration value justifies them.
 
 ## What Should Not Happen Early
 
@@ -739,7 +744,7 @@ From the current operational hardening frontier, the priority order is:
 - no exchange-specific strategy or risk logic outside `BrokerAdapter`
 - no expansion of external orchestration before the paper and safety layers are operationally trustworthy
 - no new venue or operator-workspace expansion that is disconnected from credible supervised-corridor evidence
-- no collapsing of QuantLab and Stepbit responsibilities into one codebase
+- no external orchestration layer becoming QuantLab's product, evidence, or execution authority
 - no learned-model promotion before reproducible dataset, feature, and evaluation contracts exist
 - no neural-network claims without baseline comparison against explicit strategies and classical ML
 - no treating predictive accuracy as sufficient evidence for market usefulness
@@ -750,9 +755,6 @@ From the current operational hardening frontier, the priority order is:
 - [cli.md](./cli.md)
 - [run-artifact-contract.md](./run-artifact-contract.md)
 - [learned-model-artifact-contract.md](./learned-model-artifact-contract.md)
-- [stepbit-io-v1.md](./stepbit-io-v1.md)
-- [stepbit-integration.md](./stepbit-integration.md)
-- [quantlab-stepbit-boundaries.md](./quantlab-stepbit-boundaries.md)
 - [advantages-and-future.md](./advantages-and-future.md)
 - [execution-context-layer.md](./execution-context-layer.md)
 - [execution-venue-strategy.md](./execution-venue-strategy.md)
