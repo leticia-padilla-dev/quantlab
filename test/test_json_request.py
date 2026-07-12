@@ -239,8 +239,8 @@ class TestParamOverlay:
         req = {
             "schema_version": "1.0",
             "command": "sweep",
-            "params": {"config_path": "sweep.yaml", "out_dir": "outputs/stepbit"},
+            "params": {"config_path": "sweep.yaml", "out_dir": "outputs/external_demo"},
         }
         args, _ = _apply_json_overlay(req)
         assert args.sweep == "sweep.yaml"
-        assert args.sweep_outdir == "outputs/stepbit"
+        assert args.sweep_outdir == "outputs/external_demo"

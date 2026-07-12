@@ -6,7 +6,7 @@ It is intended for:
 
 - local CLI users
 - machine-to-machine integrations
-- Stepbit adapter work
+- external-consumer adapter work
 - downstream tools that read run history from disk
 
 ## Contract Root

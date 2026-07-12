@@ -29,7 +29,7 @@ QuantLab remains the evidence authority for:
 - promotion criteria
 - canonical artifacts
 
-Stepbit may later orchestrate learned-model workflows, but it must not own model validity, artifact contracts, or promotion decisions.
+External AI or workflow tools may later orchestrate learned-model workflows, but they must not own model validity, artifact contracts, or promotion decisions.
 
 Quant Pulse may later provide upstream hypotheses, signal context, or candidate research prompts, but it must not certify learned-model validity.
 
@@ -370,7 +370,7 @@ This contract does not implement:
 - model serving
 - live inference
 - paper promotion for learned models
-- Stepbit orchestration of training workflows
+- external-consumer orchestration of training workflows
 - Quant Pulse feature ingestion
 
 ## Future Stages

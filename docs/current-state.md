@@ -61,11 +61,10 @@ These tracks remain outside the current critical path:
 - neural research track
 - controlled automation
 
-Stepbit has been retired from the active QuantLab architecture. Existing
-Stepbit-specific runtime identifiers, UI surfaces, docs, and test fixtures are
-transitional until migrated through dedicated de-stepbit slices. They must not
-be interpreted as current product architecture, roadmap commitment, or future
-dependency.
+Stepbit has been retired from the active QuantLab architecture. Remaining
+references are historical, negative-boundary, migration-inventory, or
+compatibility records. They must not be interpreted as current product
+architecture, roadmap commitment, runtime dependency, or future dependency.
 
 ## Operating Principles
 

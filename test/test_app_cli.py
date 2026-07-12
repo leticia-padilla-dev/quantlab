@@ -21,7 +21,7 @@ def test_apply_json_request_overlay_sets_request_id_and_sweep_fields():
     args = parser.parse_args(
         [
             "--json-request",
-            '{"schema_version":"1.0","request_id":"req_demo","command":"sweep","params":{"config_path":"configs/test.yaml","out_dir":"outputs/stepbit"}}',
+            '{"schema_version":"1.0","request_id":"req_demo","command":"sweep","params":{"config_path":"configs/test.yaml","out_dir":"outputs/external_demo"}}',
         ]
     )
     session_metadata = {"mode": "unknown", "request_id": None}
@@ -32,7 +32,7 @@ def test_apply_json_request_overlay_sets_request_id_and_sweep_fields():
     assert session_metadata["request_id"] == "req_demo"
     assert args._request_id == "req_demo"
     assert args.sweep == "configs/test.yaml"
-    assert args.sweep_outdir == "outputs/stepbit"
+    assert args.sweep_outdir == "outputs/external_demo"
 
 
 def test_determine_session_mode_for_hyperliquid_submit_health():

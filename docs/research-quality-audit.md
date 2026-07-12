@@ -1,5 +1,12 @@
 # Research Quality and C.1 Closure Audit
 
+> Historical audit document
+>
+> This document records a prior research-quality review. References to Stepbit
+> in the original audit have been generalized where they could otherwise imply
+> current roadmap or integration direction. It must not be interpreted as current
+> QuantLab architecture or active delivery planning.
+
 **Date:** 2026-05-05  
 **Issue:** #414  
 **Scope:** QuantLab-only documentation and audit; no runtime implementation
@@ -95,7 +102,7 @@ Searched `docs/` for references to legacy contract surfaces:
 **Consumer Risk Assessment:**
 
 From the evidence available:
-1. **Stepbit integration** has not yet been implemented, so external consumer impact is not yet measurable
+1. **External-consumer integration** has not yet been implemented at scale, so external consumer impact is not yet measurable
 2. **Internal QuantLab flows** all write to canonical `report.json` and `report.json.machine_contract`
 3. **Legacy read paths** remain available but are not the preferred write target
 4. **Deprecation of `kpi_summary`** has already occurred (per `docs/run-artifact-contract.md` line 157: "For plain `run`, the top-level `report.json.summary` should mirror the same core KPI block exposed through `report.json.machine_contract.summary`. The machine-facing canonical source remains `machine_contract`.")
@@ -107,10 +114,10 @@ From the evidence available:
 Rationale:
 1. Legacy read compatibility (`meta.json`, `run_report.json`) remains safe and useful for ad hoc local inspection
 2. The canonical `machine_contract` is the primary write target and is stable
-3. External consumers (Stepbit, etc.) do not yet exist at scale; deprecation can wait until they are
-4. When Stepbit integration begins, validate that Stepbit consumes `report.json.machine_contract` and does not depend on legacy surfaces
+3. External consumers do not yet exist at scale; deprecation can wait until they are
+4. When external-consumer integration begins, validate that consumers read `report.json.machine_contract` and do not depend on legacy surfaces
 
-**Future action (not in this issue):** If Stepbit or other external consumers do emerge and prove they depend on legacy surfaces, open a separate issue with an explicit deprecation timeline and migration guide.
+**Future action (not in this issue):** If external consumers emerge and prove they depend on legacy surfaces, open a separate issue with an explicit deprecation timeline and migration guide.
 
 ## 4. Summary and Stage Closure
 
@@ -138,7 +145,7 @@ Rationale:
 ### Next Allowed Work
 
 After #414 merges:
-1. **#61** — QuantLabTool adapter MVP for local Stepbit execution (if Stepbit repo is accessible and current)
+1. External-consumer adapter evaluation only if a maintained consumer and current requirement exist
 2. **#29** — distributed sweeps (deferred until #61 is complete)
 
 Do not open Stage E until hardening criteria (#546 and related audits) declare readiness.

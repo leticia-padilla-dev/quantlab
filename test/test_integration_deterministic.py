@@ -1,5 +1,5 @@
 """
-test_integration_deterministic.py — Automated validation of the Stepbit communication contract.
+test_integration_deterministic.py - Automated validation of the external-consumer communication contract.
 Focuses on stable, non-network-dependent failure cases (Issue #27).
 """
 import subprocess

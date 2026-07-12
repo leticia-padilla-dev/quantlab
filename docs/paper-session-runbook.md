@@ -276,7 +276,7 @@ For routine paper operation:
 - paper sessions are operationally distinct from research runs
 - paper sessions do not refresh `outputs/runs/runs_index.*`
 - paper sessions are not yet broker-connected execution
-- Stepbit or other external systems may consume QuantLab outputs, but they do not define this runbook or the operating authority
+- external systems may consume QuantLab outputs, but they do not define this runbook or the operating authority
 
 ## 12. Related Documents
 

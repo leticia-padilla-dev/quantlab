@@ -138,4 +138,4 @@ After this submit-safety slice is stable, the next logical implementation step i
 - [execution-venue-strategy.md](./execution-venue-strategy.md)
 - [hyperliquid-boundary-review.md](./hyperliquid-boundary-review.md)
 - [paper-session-runbook.md](./paper-session-runbook.md)
-- [quantlab-stepbit-boundaries.md](./quantlab-stepbit-boundaries.md)
+- [quantlab-system-governance-matrix.md](./architecture/quantlab-system-governance-matrix.md)
