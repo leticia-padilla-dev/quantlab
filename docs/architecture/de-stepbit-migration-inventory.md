@@ -359,8 +359,9 @@ next_slices:
   4:
     title: "contracts: generalize Stepbit contracts for external consumers"
     type: docs_code_tests
-    status: in_progress
+    status: completed
     issue: 848
+    pr: 849
     canonical_language: external_consumer_provider
     generalized:
       - New canonical docs: docs/external-consumer-io-v1.md and docs/external-consumer-local-invocation-contract.md
