@@ -2,11 +2,6 @@ import type { WorkspaceState, WorkspaceStateListener } from "../models/workspace
 
 export type QuantlabJsonValue = unknown;
 export type QuantlabStoreValue = unknown;
-export type QuantlabChatPayload = Record<string, unknown>;
-export type QuantlabChatResult = {
-  content: string;
-  reasoningSeen?: boolean;
-} & Record<string, unknown>;
 export type QuantlabPostJsonResult = {
   message?: string;
 } & Record<string, unknown>;
@@ -39,7 +34,6 @@ export interface QuantlabDesktopBridge {
   readProjectJson<T = QuantlabJsonValue>(targetPath: string): Promise<T>;
   postJson<T = QuantlabPostJsonResult>(relativePath: string, payload: QuantlabJsonValue): Promise<T>;
   restartWorkspaceServer(): Promise<WorkspaceState>;
-  askStepbitChat<T = QuantlabChatResult>(payload: QuantlabChatPayload): Promise<T>;
   openExternal(url: string): Promise<void>;
   openPath(targetPath: string): Promise<{ ok: true }>;
   onWorkspaceState(callback: WorkspaceStateListener): () => void;

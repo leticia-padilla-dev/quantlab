@@ -133,8 +133,6 @@ export function SystemPane({ tab: _tab }: { tab: SystemTab }) {
   const launchControl = (snapshot as any).launchControl ?? null;
   const paper = (snapshot as any).paperHealth ?? null;
   const broker = (snapshot as any).brokerHealth ?? null;
-  const stepbit = (snapshot as any).stepbitWorkspace ?? null;
-  const liveUrls: Record<string, unknown> = stepbit?.live_urls ?? {};
 
   const runs = getRuns();
   const jobs: any[] = Array.isArray(launchControl?.jobs) ? launchControl.jobs.slice(0, 5) : [];
@@ -171,13 +169,8 @@ export function SystemPane({ tab: _tab }: { tab: SystemTab }) {
     if (workspace.serverUrl) {
       entries.push({ label: 'Research UI', url: `${workspace.serverUrl.replace(/\/$/, '')}/research_ui/index.html` });
     }
-    Object.entries(liveUrls).forEach(([key, value]) => {
-      if (typeof value === 'string' && /^https?:\/\//i.test(value)) {
-        entries.push({ label: titleCase(key.replace(/_/g, ' ')), url: value });
-      }
-    });
     return entries;
-  }, [workspace.serverUrl, liveUrls]);
+  }, [workspace.serverUrl]);
 
   const watchItems = useMemo(() => {
     const items: { tone: string; label: string; body: string }[] = [];
@@ -208,11 +201,8 @@ export function SystemPane({ tab: _tab }: { tab: SystemTab }) {
     } else {
       items.push({ tone: 'positive', label: 'Broker boundary', body: 'No broker alerts are currently surfaced.' });
     }
-    if (!liveUrls.frontend_reachable) {
-      items.push({ tone: 'warning', label: 'Stepbit frontend', body: 'Stepbit frontend is not currently reachable via live URLs.' });
-    }
     return items;
-  }, [workspace, snapshotStatus, brokerAlerts, latestFailedJob, jobs, liveUrls]);
+  }, [workspace, snapshotStatus, brokerAlerts, latestFailedJob, jobs]);
 
   const handleExternalClick = (url: string) => {
     if (typeof window.quantlabDesktop?.openExternal === 'function') {
@@ -256,8 +246,6 @@ export function SystemPane({ tab: _tab }: { tab: SystemTab }) {
         <SummaryCard label="Launch jobs" value={fmt(Array.isArray(launchControl?.jobs) ? launchControl.jobs.length : 0)} tone={jobs.length ? 'tone-positive' : 'tone-warning'} />
         <SummaryCard label="Paper state" value={paper?.available ? 'Ready' : 'Pending'} tone={paper?.available ? 'tone-positive' : 'tone-warning'} />
         <SummaryCard label="Broker alerts" value={fmt(brokerAlerts.length)} tone={brokerAlerts.length ? 'tone-negative' : broker?.available ? 'tone-positive' : 'tone-warning'} />
-        <SummaryCard label="Stepbit frontend" value={liveUrls.frontend_reachable ? 'Attached' : 'Detached'} tone={liveUrls.frontend_reachable ? 'tone-positive' : 'tone-warning'} />
-        <SummaryCard label="Stepbit core" value={liveUrls.core_ready ? 'Ready' : liveUrls.core_reachable ? 'Partial' : 'Detached'} tone={liveUrls.core_ready ? 'tone-positive' : liveUrls.core_reachable ? 'tone-warning' : 'tone-negative'} />
       </div>
 
       <section className="artifact-panel system-stack">

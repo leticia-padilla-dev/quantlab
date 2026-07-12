@@ -400,7 +400,7 @@ export function useQuantLabContextValue() {
  * {
  *   state: {
  *     workspace: { status, serverUrl, error, logs },
- *     snapshot: { runsRegistry, launchControl, paperHealth, brokerHealth, stepbitWorkspace },
+ *     snapshot: { runsRegistry, launchControl, paperHealth, brokerHealth },
  *     candidatesStore: { baseline_run_id, candidates: [...] },
  *     selectedRunIds: string[],
  *     tabs: Tab[],

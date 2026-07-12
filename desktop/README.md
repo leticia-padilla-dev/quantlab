@@ -10,7 +10,7 @@ Current scope:
 - primary `Launch` workspace plus native operator surfaces (`Runs`, `Compare`, `Candidates`, `Paper Ops`, `System`, `Experiments`, `Assistant`)
 - local decision store for candidates, shortlist, and baseline
 - context tabs that combine shell-native workstation surfaces with transitional launch/job continuity
-- runtime strip for QuantLab and Stepbit visibility
+- runtime strip for QuantLab workspace visibility
 
 This is intentionally a first block, not the final product shell.
 
@@ -92,7 +92,7 @@ The server entrypoint is `mcp-server.mjs`, and the `mcp` npm script runs it dire
 ## Notes
 
 - The assistant support lane is deterministic and specialized for QuantLab commands.
-- The assistant can route explicit `ask stepbit ...` prompts through a Stepbit-backed adapter while keeping QuantLab as the primary shell and decision surface.
+- External assistant adapters have been removed from Desktop. Future assistant work must be QuantLab-owned and explicitly scoped.
 - React default runtime, broad legacy removal, and full Launch ownership are post-v1 unless a later issue resolves the remaining operator-flow boundary explicitly.
 - The renderer is now split into focused ES modules under `desktop/renderer/modules/` so workflow logic, decision-store helpers, and tab renderers no longer live in one file.
 - The shell can now review recent launch jobs and explain the latest failure from local stdout/stderr logs.

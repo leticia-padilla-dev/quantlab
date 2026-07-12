@@ -16,7 +16,6 @@
 /** @typedef {import("../shared/ipc/channels").OpenExternalChannel} OpenExternalChannel */
 /** @typedef {import("../shared/ipc/channels").OpenPathChannel} OpenPathChannel */
 /** @typedef {import("../shared/ipc/channels").RestartWorkspaceServerChannel} RestartWorkspaceServerChannel */
-/** @typedef {import("../shared/ipc/channels").AskStepbitChatChannel} AskStepbitChatChannel */
 
 /** @type {GetWorkspaceStateChannel} */
 const GET_WORKSPACE_STATE_CHANNEL = "quantlab:get-workspace-state";
@@ -50,8 +49,6 @@ const OPEN_EXTERNAL_CHANNEL = "quantlab:open-external";
 const OPEN_PATH_CHANNEL = "quantlab:open-path";
 /** @type {RestartWorkspaceServerChannel} */
 const RESTART_WORKSPACE_SERVER_CHANNEL = "quantlab:restart-workspace-server";
-/** @type {AskStepbitChatChannel} */
-const ASK_STEPBIT_CHAT_CHANNEL = "quantlab:ask-stepbit-chat";
 
 function okIpcResult(data) {
   return { ok: true, data };
@@ -83,10 +80,7 @@ function normalizeRelativePath(relativePath) {
 }
 
 function isSensitiveResearchUiPostPath(normalizedPath) {
-  return (
-    normalizedPath === "/api/launch-control" ||
-    normalizedPath === "/api/stepbit-workspace/start"
-  );
+  return normalizedPath === "/api/launch-control";
 }
 
 async function readResponseData(response) {
@@ -123,12 +117,9 @@ async function readResponseData(response) {
  *   researchUi: {
  *     start: (options?: { forceRestart?: boolean }) => Promise<void>,
  *   },
- *   stepbit: {
- *     askChat: (payload: any) => Promise<any>,
- *   },
  * }} options
  */
-function registerIpcHandlers({ ipcMain, shell, workspace, localStores, researchUi, stepbit }) {
+function registerIpcHandlers({ ipcMain, shell, workspace, localStores, researchUi }) {
   ipcMain.handle(GET_WORKSPACE_STATE_CHANNEL, async () => workspace.getState());
 
   ipcMain.handle(REQUEST_JSON_CHANNEL, async (_event, relativePath) => {
@@ -237,14 +228,6 @@ function registerIpcHandlers({ ipcMain, shell, workspace, localStores, researchU
     return workspace.getState();
   });
 
-  ipcMain.handle(ASK_STEPBIT_CHAT_CHANNEL, async (_event, payload) => {
-    try {
-      return await stepbit.askChat(payload);
-    } catch (error) {
-      // Re-throw as a plain Error so Electron IPC serializes the message correctly.
-      throw new Error(error?.message || String(error));
-    }
-  });
 }
 
 module.exports = { registerIpcHandlers };

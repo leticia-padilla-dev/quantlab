@@ -18,9 +18,6 @@ export interface RuntimeStatus {
   runsIndexed: number;
   paperSessions: number;
   brokerSessions: number;
-  stepbitAppReady: boolean;
-  stepbitCoreReachable: boolean;
-  stepbitCoreReady: boolean;
 }
 
 export interface RuntimeChipState {

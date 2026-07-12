@@ -11,7 +11,6 @@ const { createLocalStoreService } = require("./main/local-store-service.js");
 const { registerIpcHandlers } = require("./main/register-ipc.js");
 const { createResearchUiService } = require("./main/research-ui-service.js");
 const { createSmokeService } = require("./main/smoke-service.js");
-const { createStepbitService } = require("./main/stepbit-service.js");
 const { createMainWindow } = require("./main/window.js");
 const { createWorkspaceStateController } = require("./main/workspace-state.js");
 
@@ -42,11 +41,6 @@ const localStores = createLocalStoreService({
   sweepDecisionStorePath: config.SWEEP_DECISION_STORE_PATH,
   workspaceStorePath: config.WORKSPACE_STORE_PATH,
   maxDirectoryEntries: config.MAX_DIRECTORY_ENTRIES,
-});
-
-const stepbit = createStepbitService({
-  fsp,
-  stepbitAppConfigPath: config.STEPBIT_APP_CONFIG_PATH,
 });
 
 const researchUi = createResearchUiService({
@@ -81,7 +75,6 @@ registerIpcHandlers({
   workspace,
   localStores,
   researchUi,
-  stepbit,
 });
 
 function openMainWindow() {
