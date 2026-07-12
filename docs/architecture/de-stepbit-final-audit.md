@@ -6,7 +6,7 @@
 epic: 839
 audit_issue: 854
 base_main_commit: c81000d6c0395cbdcd51e577db10ddc9d02c49b6
-audit_pr: pending
+audit_pr: 855
 audit_date: 2026-07-12
 branch: audit/verify-de-stepbit-migration-completion
 ```
