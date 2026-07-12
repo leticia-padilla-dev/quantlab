@@ -179,12 +179,13 @@ research_ui_slice:
 Slice 3 deliberately did not edit Desktop, Core, CLI/json-request contracts,
 or provider compatibility contracts. Those remain assigned to later slices.
 
-## Slice 5 Actions In Progress
+## Slice 5 Actions Completed
 
 ```yaml
 slice_5:
   issue: 850
-  status: in_progress
+  pr: 851
+  status: completed
 
   canonical_docs_preserved:
     - docs/external-consumer-io-v1.md
@@ -537,8 +538,9 @@ next_slices:
   5:
     title: "docs: archive obsolete Stepbit integration material"
     type: docs_only
-    status: in_progress
+    status: completed
     issue: 850
+    pr: 851
 
   final:
     title: "audit: verify de-stepbit migration completion"
