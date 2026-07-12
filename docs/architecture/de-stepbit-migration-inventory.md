@@ -150,6 +150,7 @@ or Python tests. Those remain assigned to later slices.
 ```yaml
 research_ui_slice:
   issue: 846
+  pr: 847
   status: completed
 
   removed:
@@ -353,6 +354,7 @@ next_slices:
     type: code_and_tests
     status: completed
     issue: 846
+    pr: 847
 
   4:
     title: "contracts: generalize Stepbit contracts for external consumers"
