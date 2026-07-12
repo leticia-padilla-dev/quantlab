@@ -482,7 +482,7 @@ python main.py --json-request "{\"schema_version\":\"1.0\",\"request_id\":\"req_
 With lifecycle signalling:
 
 ```bash
-python main.py --json-request "{\"schema_version\":\"1.0\",\"request_id\":\"req_demo_002\",\"command\":\"sweep\",\"params\":{\"config_path\":\"configs/experiments/eth_2023_grid.yaml\",\"out_dir\":\"outputs/external_consumer\"}}" --signal-file logs/quantlab-signals.jsonl
+python main.py --json-request "{\"schema_version\":\"1.0\",\"request_id\":\"req_demo_002\",\"command\":\"sweep\",\"params\":{\"config_path\":\"configs/experiments/eth_2023_grid.yaml\",\"out_dir\":\"outputs/stepbit\"}}" --signal-file logs/quantlab-signals.jsonl
 ```
 
 ## Recent Stabilization Highlights

@@ -54,7 +54,7 @@ Issue #432 fixes the cutoff for `research_ui` before #412 can remove the legacy 
 
 - real-path smoke and runtime reachability checks
 - launch/job execution endpoints that do not yet have a native replacement
-- paper, broker, transitional external-surface, and launch-control payloads while desktop still reads them through server APIs
+- paper, broker, Stepbit, and launch-control payloads while desktop still reads them through server APIs
 - browser-backed fallback links during the transition
 
 `research_ui` is no longer allowed to be treated as:
@@ -93,7 +93,7 @@ The desktop now spans shell bootstrap, preload, shared contracts, browser contin
 - whether the desktop should stay browser-first
 - whether `research_ui` remains a permanent dependency
 - whether renderer state can invent ad hoc payloads
-- whether external surfaces can become the de facto workspace authority
+- whether Stepbit or other external surfaces can become the de facto workspace authority
 
 This ADR fixes those decisions now so later slices stay small.
 
@@ -157,14 +157,11 @@ Target native surfaces include:
 - the permanent shell target
 - the place where desktop contracts are defined
 
-### 5. External orchestration surfaces are not desktop authority
+### 5. Stepbit remains external and optional
 
-Stepbit is retired from the active QuantLab architecture. Any remaining
-Stepbit-named desktop identifiers are transitional implementation details that
-must be migrated in dedicated de-stepbit slices.
+Stepbit may assist through automation, reasoning, or external UI integration, but it does not own QuantLab Desktop architecture.
 
-Desktop must remain coherent and useful without any external orchestration
-surface being present.
+Desktop should remain coherent and useful without Stepbit being present.
 
 ## Required Guardrails
 
@@ -210,5 +207,5 @@ This ADR does not:
 
 - replace engine workflow authority
 - commit QuantLab to a web-service or SaaS architecture
-- make an external orchestration surface a first-party control plane
+- make Stepbit a first-party control plane
 - require every desktop surface to migrate in one block

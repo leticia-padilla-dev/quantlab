@@ -93,7 +93,6 @@ updated:
   - docs/current-state.md
   - docs/roadmap.md
   - docs/architecture/quantlab-system-governance-matrix.md
-  - docs/desktop-target-architecture.md
   - docs/architecture/de-stepbit-migration-inventory.md
 
 not_touched:
@@ -133,6 +132,7 @@ files:
   - desktop/renderer/modules/tab-renderers.js
   - desktop/README.md
   - desktop/docs/PRODUCT_SURFACES.md
+  - docs/desktop-target-architecture.md
 follow_up:
   issue_title: "desktop: remove Stepbit workspace surfaces"
   required_action:
