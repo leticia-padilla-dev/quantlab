@@ -413,6 +413,11 @@ def _git_snapshot(repo_root: Path, environment: dict[str, str]) -> dict[str, Any
         raise RuntimeError(status.stderr.strip() or "git status failed")
     porcelain = status.stdout
     records = [item for item in porcelain.split("\0") if item]
+    dependency_mount_record = "?? desktop/node_modules"
+    if dependency_mount_record in records:
+        mount = repo_root / "desktop" / "node_modules"
+        if mount.is_symlink() and mount.resolve().is_dir():
+            records.remove(dependency_mount_record)
 
     index = _run_small(
         _git_command("ls-files", "-v", "-z"),
