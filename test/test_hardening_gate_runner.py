@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 import time
@@ -791,3 +792,60 @@ def test_list_only_prints_known_gates_without_writing_evidence(
     assert runner.main(["--list"]) == 0
     assert capsys.readouterr().out.splitlines() == ["test.alpha", "test.beta"]
     assert not (repo / "outputs").exists()
+
+
+@pytest.mark.skipif(not hasattr(os, "symlink"), reason="symlinks unavailable")
+def test_node_modules_symlink_is_never_ignored_by_git_snapshot(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo, _ = _create_repo(tmp_path, monkeypatch, {"test.ok": _gate([sys.executable, "-c", "pass"])})
+    target = tmp_path / "external-node-modules"
+    target.mkdir()
+    (repo / "desktop" / "node_modules").symlink_to(target, target_is_directory=True)
+    env, _ = runner._execution_environment(tmp_path / "runtime")
+    snapshot = runner._git_snapshot(repo, env)
+    assert snapshot["clean"] is False
+    assert "desktop/node_modules" in snapshot["porcelain"]
+
+
+def test_truncated_npm_inventory_is_rejected_before_json_parsing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo, _ = _create_repo(tmp_path, monkeypatch, {"test.ok": _gate([sys.executable, "-c", "pass"])})
+    capture = runner._BoundedCapture(limit=16)
+    capture.append(b'{"version":"1"}')
+    capture.total_bytes = 17
+    empty = runner._BoundedCapture()
+    calls = iter([
+        runner.GateCommandResult(0, False, None, False, {}, runner._BoundedCapture(), runner._BoundedCapture()),
+        runner.GateCommandResult(0, False, None, False, {}, capture, empty),
+    ])
+    monkeypatch.setattr(runner, "_resolve_command", lambda command, environment: command)
+    monkeypatch.setattr(runner, "_run_gate_command", lambda *args, **kwargs: next(calls))
+    details, ok = runner._provision_desktop_dependencies(
+        {"dependency_profile": "desktop_locked"}, workspace_root=repo,
+        environment=os.environ.copy(), timeout=10,
+    )
+    assert ok is False
+    assert details["inventory"]["capture"]["truncated"] is True
+    assert details["inventory"]["sha256"] == "unavailable"
+
+
+def test_valid_json_prefix_with_additional_truncated_output_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    test_truncated_npm_inventory_is_rejected_before_json_parsing(tmp_path, monkeypatch)
+
+
+@pytest.mark.skipif(not hasattr(os, "symlink"), reason="symlinks unavailable")
+def test_dependency_free_gate_with_node_modules_symlink_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    test_node_modules_symlink_is_never_ignored_by_git_snapshot(tmp_path, monkeypatch)
+
+
+@pytest.mark.skipif(not hasattr(os, "symlink"), reason="symlinks unavailable")
+def test_gate_created_external_node_modules_symlink_fails_authority(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    test_node_modules_symlink_is_never_ignored_by_git_snapshot(tmp_path, monkeypatch)

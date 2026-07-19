@@ -417,11 +417,6 @@ def _git_snapshot(repo_root: Path, environment: dict[str, str]) -> dict[str, Any
         raise RuntimeError(status.stderr.strip() or "git status failed")
     porcelain = status.stdout
     records = [item for item in porcelain.split("\0") if item]
-    dependency_mount_record = "?? desktop/node_modules"
-    if dependency_mount_record in records:
-        mount = repo_root / "desktop" / "node_modules"
-        if mount.is_symlink() and mount.resolve().is_dir():
-            records.remove(dependency_mount_record)
 
     index = _run_small(
         _git_command("ls-files", "-v", "-z"),
@@ -1137,6 +1132,51 @@ def _npm_inventory_summary(value: Any) -> dict[str, Any]:
     }
 
 
+def _node_modules_state(workspace_root: Path) -> dict[str, Any]:
+    path = workspace_root / "desktop" / "node_modules"
+    state: dict[str, Any] = {
+        "path": "desktop/node_modules",
+        "exists": os.path.lexists(path),
+        "is_symlink": path.is_symlink(),
+        "is_junction": bool(getattr(os.path, "isjunction", lambda _: False)(path)),
+        "is_directory": path.is_dir(),
+        "inside_worktree": True,
+        "external_reference": False,
+    }
+    if not state["exists"]:
+        return state
+    try:
+        resolved = path.resolve(strict=False)
+        state["resolved"] = str(resolved)
+        state["inside_worktree"] = resolved == workspace_root.resolve() or workspace_root.resolve() in resolved.parents
+        state["external_reference"] = bool(
+            state["is_symlink"] or state["is_junction"] or not state["inside_worktree"]
+        )
+        state["device"] = path.stat().st_dev
+        state["worktree_device"] = workspace_root.stat().st_dev
+        if state["device"] != state["worktree_device"]:
+            state["external_reference"] = True
+    except OSError:
+        state["external_reference"] = True
+    return state
+
+
+def _node_modules_errors(profile: str, state: dict[str, Any], phase: str) -> list[str]:
+    errors: list[str] = []
+    if state.get("is_symlink"):
+        errors.append("node_modules_symlink_detected")
+    if state.get("is_junction"):
+        errors.append("node_modules_junction_detected")
+    if state.get("external_reference"):
+        errors.append("external_node_modules_reference")
+    if profile == "none" and state.get("exists"):
+        errors.append("unexpected_node_modules_for_dependency_free_gate")
+    if phase == "after_provisioning" and profile == "desktop_locked":
+        if not state.get("exists") or not state.get("is_directory"):
+            errors.append("desktop_node_modules_missing_after_provisioning")
+    return sorted(set(errors))
+
+
 def _provision_desktop_dependencies(
     gate: dict[str, Any],
     *,
@@ -1206,7 +1246,13 @@ def _provision_desktop_dependencies(
         cwd=workspace_root,
         capture_limit=MAX_INVENTORY_BYTES,
     )
-    raw_inventory, _ = inventory_result.stdout.snapshot()
+    raw_inventory, total_inventory_bytes = inventory_result.stdout.snapshot()
+    inventory_capture = {
+        "total_bytes": total_inventory_bytes,
+        "stored_bytes": len(raw_inventory),
+        "limit_bytes": inventory_result.stdout.limit,
+        "truncated": total_inventory_bytes > len(raw_inventory),
+    }
     raw_inventory_text = raw_inventory.decode("utf-8", errors="replace")
     inventory_stdout, inventory_stdout_meta = _sanitize_capture_preview(
         inventory_result.stdout
@@ -1220,6 +1266,7 @@ def _provision_desktop_dependencies(
         not inventory_result.timed_out
         and inventory_result.launch_error is None
         and not inventory_result.capture_incomplete
+        and not inventory_capture["truncated"]
         and inventory_result.actual_exit_code == 0
     ):
         try:
@@ -1232,6 +1279,7 @@ def _provision_desktop_dependencies(
         "package_count": 0,
         "sha256": "unavailable",
     }
+    inventory_summary["capture"] = inventory_capture
     return {
         "profile": profile,
         "provisioning": provisioning,
@@ -1246,6 +1294,7 @@ def _provision_desktop_dependencies(
                 "stdout": inventory_stdout_meta,
                 "stderr": inventory_stderr_meta,
             },
+            "capture": inventory_capture,
         },
         "inventory": inventory_summary,
     }, inventory_valid
@@ -1331,17 +1380,43 @@ def _execute_gate(
                     "isolated execution checkout does not exactly match the evaluated commit"
                 )
 
+            dependency_profile = str(gate.get("dependency_profile", "none"))
+            node_before = _node_modules_state(workspace_root)
+            node_errors = _node_modules_errors(dependency_profile, node_before, "before_provisioning")
+
             environment = _collect_environment(
                 execution_environment,
                 process_environment,
                 cwd=workspace_root,
             )
-            dependency_details, provisioning_ok = _provision_desktop_dependencies(
-                gate,
-                workspace_root=workspace_root,
-                environment=execution_environment,
-                timeout=min(timeout_seconds, 900),
+            if node_errors:
+                dependency_details = {
+                    "profile": dependency_profile,
+                    "provisioning": {"result": "failed", "reason": "node_modules_integrity_failed"},
+                    "inventory": None,
+                }
+                provisioning_ok = False
+            else:
+                dependency_details, provisioning_ok = _provision_desktop_dependencies(
+                    gate,
+                    workspace_root=workspace_root,
+                    environment=execution_environment,
+                    timeout=min(timeout_seconds, 900),
+                )
+            node_after_provisioning = _node_modules_state(workspace_root)
+            node_errors.extend(
+                _node_modules_errors(dependency_profile, node_after_provisioning, "after_provisioning")
             )
+            if dependency_profile == "desktop_locked" and not node_before.get("exists") and node_after_provisioning.get("exists"):
+                if node_after_provisioning.get("external_reference"):
+                    node_errors.append("node_modules_not_created_inside_worktree")
+            if node_errors:
+                provisioning_ok = False
+            dependency_details["node_modules"] = {
+                "before": node_before,
+                "after_provisioning": node_after_provisioning,
+                "errors": sorted(set(node_errors)),
+            }
             dependency_details["external_mounts"] = dependency_mounts.get(
                 "external_mounts", []
             )
@@ -1357,6 +1432,10 @@ def _execute_gate(
             else:
                 command_result = _empty_command_result("dependency_provisioning_failed")
             finished_at = datetime.now(timezone.utc)
+            node_after_gate = _node_modules_state(workspace_root)
+            node_errors.extend(_node_modules_errors(dependency_profile, node_after_gate, "after_gate"))
+            dependency_details["node_modules"]["after_gate"] = node_after_gate
+            dependency_details["node_modules"]["errors"] = sorted(set(node_errors))
             execution_after = _git_snapshot(workspace_root, execution_environment)
             invocation_after = _git_snapshot(REPO_ROOT, base_environment)
     except (
@@ -1377,6 +1456,8 @@ def _execute_gate(
     if not invocation_after["clean"]:
         integrity_errors.append("invocation_tree_dirty_after_gate")
     node_dependencies = environment.get("node_dependencies", {})
+    node_integrity = node_dependencies.get("node_modules", {})
+    integrity_errors.extend(node_integrity.get("errors", []))
     if node_dependencies.get("profile") == "desktop_locked":
         if node_dependencies.get("provisioning", {}).get("result") != "passed":
             integrity_errors.append("dependency_provisioning_failed")
