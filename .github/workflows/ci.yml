@@ -64,6 +64,54 @@ jobs:
         run: |
           python -m pytest -q
 
+  hardening-gate-bootstrap:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install .[dev]
+
+      - name: Install desktop dependencies
+        working-directory: desktop
+        run: npm ci
+
+      - name: Test hardening gate runner
+        run: python -m pytest test/test_hardening_gate_runner.py -q
+
+      - name: Execute live-freeze gate
+        if: ${{ !cancelled() }}
+        run: python scripts/verify_hardening_gate.py wave0.live_execution_freeze
+
+      - name: Execute Desktop Node-test gate
+        if: ${{ !cancelled() }}
+        run: python scripts/verify_hardening_gate.py wave0_5.node_tests
+
+      - name: Upload hardening evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: hardening-evidence-${{ github.sha }}
+          path: outputs/hardening/**
+          if-no-files-found: error
+          retention-days: 30
+
   desktop-typecheck:
     runs-on: ubuntu-latest
     steps:
