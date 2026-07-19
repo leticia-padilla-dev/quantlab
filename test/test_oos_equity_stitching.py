@@ -88,3 +88,18 @@ def test_persist_walkforward_writes_continuously_stitched_equity(tmp_path: Path)
     assert persisted["cumulative_return"].tolist() == pytest.approx(
         [0.10, 0.045, 0.254, 0.254]
     )
+
+
+def test_persist_walkforward_rejects_overlapping_oos_windows(tmp_path: Path) -> None:
+    first = _frame("split_00", "2024-01-01", [0.01, 0.02])
+    overlapping = _frame("split_01", "2024-01-02", [0.03, 0.04])
+
+    with pytest.raises(ValueError, match="duplicate timestamps"):
+        _persist_walkforward_rich_artifacts(
+            tmp_path,
+            pd.DataFrame(),
+            [],
+            oos_timeseries_frames=[first, overlapping],
+        )
+
+    assert not (tmp_path / "oos_equity_timeseries.csv").exists()
