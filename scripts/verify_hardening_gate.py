@@ -818,6 +818,16 @@ def _sanitize_capture(capture: _BoundedCapture) -> tuple[str, dict[str, Any]]:
     }
 
 
+def _sanitize_capture_preview(
+    capture: _BoundedCapture, *, limit: int = MAX_LOG_BYTES
+) -> tuple[str, dict[str, Any]]:
+    captured, total_bytes = capture.snapshot()
+    preview = _BoundedCapture(limit=limit)
+    preview.data.extend(captured[:limit])
+    preview.total_bytes = total_bytes
+    return _sanitize_capture(preview)
+
+
 def _sanitize_command(command: list[str]) -> tuple[list[str], dict[str, Any]]:
     sanitized: list[str] = []
     redactions = 0
@@ -1198,8 +1208,12 @@ def _provision_desktop_dependencies(
     )
     raw_inventory, _ = inventory_result.stdout.snapshot()
     raw_inventory_text = raw_inventory.decode("utf-8", errors="replace")
-    inventory_stdout, inventory_stdout_meta = _sanitize_capture(inventory_result.stdout)
-    inventory_stderr, inventory_stderr_meta = _sanitize_capture(inventory_result.stderr)
+    inventory_stdout, inventory_stdout_meta = _sanitize_capture_preview(
+        inventory_result.stdout
+    )
+    inventory_stderr, inventory_stderr_meta = _sanitize_capture_preview(
+        inventory_result.stderr
+    )
     inventory_valid = False
     inventory_summary: dict[str, Any] | None = None
     if (
