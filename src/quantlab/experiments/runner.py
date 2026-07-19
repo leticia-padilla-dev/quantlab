@@ -448,14 +448,15 @@ def _persist_walkforward_rich_artifacts(
     - ``selected_configs.csv``       – one row per split per selected config
     - ``split_metrics.csv``          – summary per split
     """
-    try:
-        # --- per-bar OOS timeseries (Stage K.2) ---
-        if oos_timeseries_frames:
-            ts_frames = [f for f in oos_timeseries_frames if f is not None and not f.empty]
-            if ts_frames:
-                oos_ts = _stitch_oos_timeseries(ts_frames)
-                oos_ts.to_csv(out_dir / "oos_equity_timeseries.csv", index=False)
+    # The OOS equity artifact is quantitatively authoritative. Invalid or
+    # overlapping OOS bars must fail the run instead of falling back silently.
+    if oos_timeseries_frames:
+        ts_frames = [f for f in oos_timeseries_frames if f is not None and not f.empty]
+        if ts_frames:
+            oos_ts = _stitch_oos_timeseries(ts_frames)
+            oos_ts.to_csv(out_dir / "oos_equity_timeseries.csv", index=False)
 
+    try:
         # --- selected configs ---
         if not final_df.empty and "phase" in final_df.columns:
             sel = final_df[(final_df["phase"] == "test") & final_df.get("selected", True)].copy()
