@@ -145,6 +145,14 @@ class _DrainState:
 
 
 def _minimal_executable_path() -> str:
+    selected: list[str] = []
+    original_path = os.environ.get("PATH", os.defpath)
+    for executable_name in ("node", "npm"):
+        discovered = shutil.which(executable_name, path=original_path)
+        if discovered:
+            parent = str(Path(discovered).resolve().parent)
+            if parent not in selected:
+                selected.append(parent)
     directories: list[str] = []
     for candidate in (
         str(Path(sys.executable).resolve().parent),
@@ -153,13 +161,7 @@ def _minimal_executable_path() -> str:
     ):
         if candidate and candidate not in directories:
             directories.append(candidate)
-    for executable_name in ("node", "npm"):
-        discovered = shutil.which(executable_name, path=os.environ.get("PATH"))
-        if discovered:
-            parent = str(Path(discovered).parent)
-            if parent not in directories:
-                directories.append(parent)
-    return os.pathsep.join(directories)
+    return os.pathsep.join(selected + [item for item in directories if item not in selected])
 
 
 def _execution_environment(
@@ -186,6 +188,8 @@ def _execution_environment(
     environment.update(
         {
             "PATH": _minimal_executable_path(),
+            "SELECTED_NODE": shutil.which("node", path=os.environ.get("PATH", os.defpath)) or "unavailable",
+            "SELECTED_NPM": shutil.which("npm", path=os.environ.get("PATH", os.defpath)) or "unavailable",
             "HOME": str(home),
             "XDG_CACHE_HOME": str(runtime_root / "xdg-cache"),
             "XDG_CONFIG_HOME": str(runtime_root / "xdg-config"),

@@ -601,6 +601,8 @@ def test_desktop_locked_profile_provisions_inside_worktree(
         command: list[str], *, cwd: Path, **_kwargs: Any
     ) -> runner.GateCommandResult:
         calls.append((command, cwd))
+        if "ci" in command:
+            (cwd / "desktop" / "node_modules").mkdir()
         stdout = runner._BoundedCapture()
         if "ls" in command:
             stdout.append(b'{"name":"fixture","version":"1.0.0","dependencies":{}}')
@@ -805,16 +807,20 @@ def test_node_modules_symlink_is_never_ignored_by_git_snapshot(
     env, _ = runner._execution_environment(tmp_path / "runtime")
     snapshot = runner._git_snapshot(repo, env)
     assert snapshot["clean"] is False
-    assert "desktop/node_modules" in snapshot["porcelain"]
+    assert snapshot["porcelain_record_count"] > 0
 
 
 def test_truncated_npm_inventory_is_rejected_before_json_parsing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     repo, _ = _create_repo(tmp_path, monkeypatch, {"test.ok": _gate([sys.executable, "-c", "pass"])})
-    capture = runner._BoundedCapture(limit=16)
-    capture.append(b'{"version":"1"}')
-    capture.total_bytes = 17
+    valid_json = b'{"name":"fixture","version":"1.0.0"}'
+    capture = runner._BoundedCapture(limit=len(valid_json))
+    capture.append(valid_json)
+    capture.append(b"additional-output")
+    stored, total = capture.snapshot()
+    assert stored == valid_json
+    assert total > len(stored)
     empty = runner._BoundedCapture()
     calls = iter([
         runner.GateCommandResult(0, False, None, False, {}, runner._BoundedCapture(), runner._BoundedCapture()),
@@ -834,18 +840,58 @@ def test_truncated_npm_inventory_is_rejected_before_json_parsing(
 def test_valid_json_prefix_with_additional_truncated_output_fails_closed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    test_truncated_npm_inventory_is_rejected_before_json_parsing(tmp_path, monkeypatch)
+    repo, _ = _create_repo(tmp_path, monkeypatch, {"test.ok": _gate([sys.executable, "-c", "pass"])})
+    valid_json = b'{"name":"fixture","version":"1.0.0"}'
+    capture = runner._BoundedCapture(limit=len(valid_json))
+    capture.append(valid_json)
+    capture.append(b"additional-output")
+    stored, total = capture.snapshot()
+    assert stored == valid_json and total > len(stored)
+    empty = runner._BoundedCapture()
+    calls = iter([
+        runner.GateCommandResult(0, False, None, False, {}, runner._BoundedCapture(), runner._BoundedCapture()),
+        runner.GateCommandResult(0, False, None, False, {}, capture, empty),
+    ])
+    monkeypatch.setattr(runner, "_resolve_command", lambda command, environment: command)
+    monkeypatch.setattr(runner, "_run_gate_command", lambda *args, **kwargs: next(calls))
+    details, ok = runner._provision_desktop_dependencies(
+        {"dependency_profile": "desktop_locked"}, workspace_root=repo,
+        environment=os.environ.copy(), timeout=10,
+    )
+    assert ok is False
+    assert details["inventory"]["capture"]["truncated"] is True
+    assert details["inventory"]["sha256"] == "unavailable"
+    assert details["inventory_provisioning"]["result"] == "failed"
 
 
 @pytest.mark.skipif(not hasattr(os, "symlink"), reason="symlinks unavailable")
 def test_dependency_free_gate_with_node_modules_symlink_fails_closed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    test_node_modules_symlink_is_never_ignored_by_git_snapshot(tmp_path, monkeypatch)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    script = f"import pathlib; pathlib.Path('desktop/node_modules').symlink_to({str(outside)!r}, target_is_directory=True)"
+    repo, commit = _create_repo(tmp_path, monkeypatch, {"test.symlink": _gate([sys.executable, "-c", script])})
+    _stub_environment(monkeypatch)
+    assert runner.main(["test.symlink"]) != 0
+    assert not _canonical_evidence(repo, commit).exists()
+    evidence = json.loads(_diagnostic_evidence(repo, commit, "test.symlink").read_text())
+    assert evidence["authoritative"] is False
+    assert evidence["evidence_kind"] == "diagnostic"
+    assert evidence["result"] == "failed"
+    assert "node_modules_symlink_detected" in evidence["source"]["integrity_errors"]
+    assert "external_node_modules_reference" in evidence["source"]["integrity_errors"]
 
 
 @pytest.mark.skipif(not hasattr(os, "symlink"), reason="symlinks unavailable")
 def test_gate_created_external_node_modules_symlink_fails_authority(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    test_node_modules_symlink_is_never_ignored_by_git_snapshot(tmp_path, monkeypatch)
+    script = "import pathlib; pathlib.Path('desktop/node_modules').mkdir()"
+    repo, commit = _create_repo(tmp_path, monkeypatch, {"test.none": _gate([sys.executable, "-c", script], dependency_profile="none")})
+    _stub_environment(monkeypatch)
+    assert runner.main(["test.none"]) != 0
+    assert not _canonical_evidence(repo, commit).exists()
+    evidence = json.loads(_diagnostic_evidence(repo, commit, "test.none").read_text())
+    assert evidence["authoritative"] is False
+    assert "unexpected_node_modules_for_dependency_free_gate" in evidence["source"]["integrity_errors"]
