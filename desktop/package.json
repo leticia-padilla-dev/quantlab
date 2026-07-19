@@ -9,6 +9,7 @@
     "dev": "concurrently \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && cross-env NODE_ENV=development electron .\"",
     "build": "vite build",
     "typecheck": "tsc --project tsconfig.json --noEmit",
+    "test": "node --test tests/snapshot-status.test.mjs",
     "smoke": "npm run smoke:fallback",
     "smoke:fallback": "npm run build && node scripts/smoke.js --mode=fallback",
     "smoke:real-path": "npm run build && node scripts/smoke.js --mode=real-path",

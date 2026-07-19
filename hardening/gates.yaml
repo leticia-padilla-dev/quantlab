@@ -1,4 +1,4 @@
-schema_version: "1.0"
+schema_version: "1.1"
 evidence_root: outputs/hardening
 
 # Gate status is derived only by scripts/verify_hardening_gate.py.
@@ -6,9 +6,10 @@ evidence_root: outputs/hardening
 gates:
   wave0.live_execution_freeze:
     wave: "0"
+    dependency_profile: none
     description: All known remote broker-mutation CLI routes fail closed while paper, dry-run and read-only broker surfaces remain available.
     command:
-      - python
+      - "{python}"
       - -m
       - pytest
       - test/test_live_execution_freeze.py
@@ -24,9 +25,10 @@ gates:
 
   wave0_5.python_suite_baseline:
     wave: "0.5"
+    dependency_profile: none
     description: Record the complete Python test-suite baseline for the evaluated commit.
     command:
-      - python
+      - "{python}"
       - -m
       - pytest
       - -q
@@ -39,6 +41,7 @@ gates:
 
   wave0_5.desktop_typecheck:
     wave: "0.5"
+    dependency_profile: desktop_locked
     description: Record the Desktop TypeScript typecheck baseline.
     command:
       - npm
@@ -55,6 +58,7 @@ gates:
 
   wave0_5.desktop_build:
     wave: "0.5"
+    dependency_profile: desktop_locked
     description: Record the Desktop production-build baseline.
     command:
       - npm
@@ -71,11 +75,13 @@ gates:
 
   wave0_5.node_tests:
     wave: "0.5"
+    dependency_profile: none
     description: Record the Node test baseline for Desktop support modules.
     command:
-      - node
-      - --test
-      - desktop/tests
+      - npm
+      - --prefix
+      - desktop
+      - test
     expected_exit_code: 0
     timeout_seconds: 600
     evidence_file: wave0_5/node_tests/result.json
