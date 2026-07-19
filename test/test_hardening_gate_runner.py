@@ -810,6 +810,27 @@ def test_node_modules_symlink_is_never_ignored_by_git_snapshot(
     assert snapshot["porcelain_record_count"] > 0
 
 
+def test_sanitized_path_prefers_selected_node_and_npm_over_system_defaults(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    selected = tmp_path / "selected-bin"
+    system = tmp_path / "system-bin"
+    selected.mkdir()
+    system.mkdir()
+    for directory, version in ((selected, "selected"), (system, "system")):
+        for executable in ("node", "npm"):
+            path = directory / executable
+            path.write_text(f"#!/bin/sh\nprintf '%s\\n' {version}\n", encoding="utf-8")
+            path.chmod(0o755)
+    monkeypatch.setenv("PATH", os.pathsep.join((str(selected), str(system))))
+    environment, _ = runner._execution_environment(tmp_path / "runtime")
+    assert environment["PATH"].split(os.pathsep)[0] == str(selected)
+    assert environment["SELECTED_NODE"] == str(selected / "node")
+    assert environment["SELECTED_NPM"] == str(selected / "npm")
+    assert runner.shutil.which("node", path=environment["PATH"]) == str(selected / "node")
+    assert runner.shutil.which("npm", path=environment["PATH"]) == str(selected / "npm")
+
+
 def test_truncated_npm_inventory_is_rejected_before_json_parsing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
