@@ -1,0 +1,76 @@
+name: Apply OOS overlap fail-closed patch
+
+on:
+  push:
+    branches:
+      - fix/oos-equity-stitching
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/oos-equity-stitching
+          fetch-depth: 0
+
+      - name: Move OOS stitching outside tolerant artifact block
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("src/quantlab/experiments/runner.py")
+          text = path.read_text(encoding="utf-8")
+          old = '''    try:
+                  # --- per-bar OOS timeseries (Stage K.2) ---
+                  if oos_timeseries_frames:
+                      ts_frames = [f for f in oos_timeseries_frames if f is not None and not f.empty]
+                      if ts_frames:
+                          oos_ts = _stitch_oos_timeseries(ts_frames)
+                          oos_ts.to_csv(out_dir / "oos_equity_timeseries.csv", index=False)
+          
+                  # --- selected configs ---
+          '''
+          new = '''    # The OOS equity artifact is quantitatively authoritative. Invalid or
+              # overlapping OOS bars must fail the run instead of falling back silently.
+              if oos_timeseries_frames:
+                  ts_frames = [f for f in oos_timeseries_frames if f is not None and not f.empty]
+                  if ts_frames:
+                      oos_ts = _stitch_oos_timeseries(ts_frames)
+                      oos_ts.to_csv(out_dir / "oos_equity_timeseries.csv", index=False)
+          
+              try:
+                  # --- selected configs ---
+          '''
+          if text.count(old) != 1:
+              raise SystemExit("walkforward persistence block not found exactly once")
+          path.write_text(text.replace(old, new, 1), encoding="utf-8")
+          PY
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install .[dev]
+
+      - name: Validate current OOS tests
+        run: |
+          python -m pytest test/test_oos_equity_stitching.py test/test_oos_timeseries.py -q
+          git diff --check
+
+      - name: Commit focused implementation
+        run: |
+          rm .github/workflows/apply-oos-overlap-fail-closed.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/quantlab/experiments/runner.py .github/workflows/apply-oos-overlap-fail-closed.yml
+          git commit -m "fix: propagate invalid OOS stitching failures"
+          git push origin HEAD:fix/oos-equity-stitching
