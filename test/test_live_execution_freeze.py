@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import sys
+
 import pytest
 
+from quantlab import app
 from quantlab.cli.app_args import build_argument_parser
 from quantlab.cli.live_execution import (
     LIVE_EXECUTION_DISABLED,
@@ -79,3 +82,18 @@ def test_multiple_live_mutations_are_reported_together():
     message = str(exc_info.value)
     assert "--hyperliquid-submit-session" in message
     assert "--broker-order-validations-submit-real" in message
+
+
+def test_cli_live_freeze_returns_nonzero_exit(monkeypatch, capsys):
+    monkeypatch.setattr(app, "_load_runtime_dependencies", lambda: None)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["quantlab", "--hyperliquid-submit-session", "outputs/action.json"],
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        app.main()
+
+    assert exc_info.value.code == 2
+    assert LIVE_EXECUTION_DISABLED in capsys.readouterr().err
