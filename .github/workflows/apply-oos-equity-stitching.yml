@@ -1,0 +1,124 @@
+name: Apply OOS equity stitching patch
+
+on:
+  push:
+    branches:
+      - fix/oos-equity-stitching
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/oos-equity-stitching
+          fetch-depth: 0
+
+      - name: Apply focused runner patch
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("src/quantlab/experiments/runner.py")
+          text = path.read_text(encoding="utf-8")
+
+          function_marker = '''def _persist_walkforward_rich_artifacts(
+              out_dir: Path,
+              final_df: pd.DataFrame,
+              summary_records: List[Dict[str, Any]],
+              oos_timeseries_frames: Optional[List[pd.DataFrame]] = None,
+          ) -> None:
+          '''
+          helper = '''def _stitch_oos_timeseries(frames: List[pd.DataFrame]) -> pd.DataFrame:
+              """Build one continuous, chronological OOS capital path from per-bar returns."""
+              required_columns = {"timestamp", "period_return"}
+              normalized_frames: List[pd.DataFrame] = []
+
+              for frame in frames:
+                  if frame is None or frame.empty:
+                      continue
+
+                  missing = required_columns.difference(frame.columns)
+                  if missing:
+                      missing_list = ", ".join(sorted(missing))
+                      raise ValueError(f"OOS timeseries frame missing required columns: {missing_list}")
+
+                  normalized = frame.copy()
+                  normalized["timestamp"] = pd.to_datetime(normalized["timestamp"], errors="raise")
+                  normalized["period_return"] = pd.to_numeric(
+                      normalized["period_return"], errors="raise"
+                  ).astype("float64")
+
+                  if normalized["timestamp"].isna().any():
+                      raise ValueError("OOS timeseries timestamps must be valid")
+                  if not normalized["period_return"].map(math.isfinite).all():
+                      raise ValueError("OOS period returns must be finite")
+                  if (normalized["period_return"] < -1.0).any():
+                      raise ValueError("OOS period returns cannot be less than -1")
+
+                  normalized_frames.append(
+                      normalized.sort_values("timestamp", kind="mergesort")
+                  )
+
+              if not normalized_frames:
+                  return pd.DataFrame()
+
+              stitched = pd.concat(normalized_frames, ignore_index=True)
+              stitched = stitched.sort_values("timestamp", kind="mergesort").reset_index(drop=True)
+
+              if stitched["timestamp"].duplicated(keep=False).any():
+                  raise ValueError("OOS timeseries contains duplicate timestamps across splits")
+
+              stitched["equity"] = (1.0 + stitched["period_return"]).cumprod()
+              stitched["cumulative_return"] = stitched["equity"] - 1.0
+              return stitched
+
+
+          '''
+
+          if text.count(function_marker) != 1:
+              raise SystemExit("runner function marker not found exactly once")
+          text = text.replace(function_marker, helper + function_marker, 1)
+
+          old_persist = '''            if ts_frames:
+                          oos_ts = pd.concat(ts_frames, ignore_index=True)
+                          oos_ts.to_csv(out_dir / "oos_equity_timeseries.csv", index=False)
+          '''
+          new_persist = '''            if ts_frames:
+                          oos_ts = _stitch_oos_timeseries(ts_frames)
+                          oos_ts.to_csv(out_dir / "oos_equity_timeseries.csv", index=False)
+          '''
+          if text.count(old_persist) != 1:
+              raise SystemExit("OOS persistence marker not found exactly once")
+          text = text.replace(old_persist, new_persist, 1)
+
+          path.write_text(text, encoding="utf-8")
+          PY
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install .[dev]
+
+      - name: Validate focused OOS behavior
+        run: |
+          python -m pytest test/test_oos_equity_stitching.py test/test_oos_timeseries.py -q
+          git diff --check
+
+      - name: Commit focused implementation
+        run: |
+          rm .github/workflows/apply-oos-equity-stitching.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/quantlab/experiments/runner.py .github/workflows/apply-oos-equity-stitching.yml
+          git commit -m "fix: stitch OOS equity continuously across splits"
+          git push origin HEAD:fix/oos-equity-stitching
