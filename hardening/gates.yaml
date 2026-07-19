@@ -1,0 +1,84 @@
+schema_version: "1.0"
+evidence_root: outputs/hardening
+
+# Gate status is derived only by scripts/verify_hardening_gate.py.
+# Do not add manually editable pass/fail fields to this manifest.
+gates:
+  wave0.live_execution_freeze:
+    wave: "0"
+    description: All known remote broker-mutation CLI routes fail closed while paper, dry-run and read-only broker surfaces remain available.
+    command:
+      - python
+      - -m
+      - pytest
+      - test/test_live_execution_freeze.py
+      - -q
+    expected_exit_code: 0
+    timeout_seconds: 300
+    evidence_file: wave0/live_execution_freeze/result.json
+    acceptance:
+      - remote_mutation_routes_blocked
+      - canonical_live_execution_disabled_error
+      - non_mutating_routes_preserved
+      - no_real_broker_contact
+
+  wave0_5.python_suite_baseline:
+    wave: "0.5"
+    description: Record the complete Python test-suite baseline for the evaluated commit.
+    command:
+      - python
+      - -m
+      - pytest
+      - -q
+    expected_exit_code: 0
+    timeout_seconds: 1800
+    evidence_file: wave0_5/python_suite_baseline/result.json
+    acceptance:
+      - complete_python_suite_executed
+      - result_bound_to_commit
+
+  wave0_5.desktop_typecheck:
+    wave: "0.5"
+    description: Record the Desktop TypeScript typecheck baseline.
+    command:
+      - npm
+      - --prefix
+      - desktop
+      - run
+      - typecheck
+    expected_exit_code: 0
+    timeout_seconds: 600
+    evidence_file: wave0_5/desktop_typecheck/result.json
+    acceptance:
+      - desktop_typecheck_executed
+      - result_bound_to_commit
+
+  wave0_5.desktop_build:
+    wave: "0.5"
+    description: Record the Desktop production-build baseline.
+    command:
+      - npm
+      - --prefix
+      - desktop
+      - run
+      - build
+    expected_exit_code: 0
+    timeout_seconds: 600
+    evidence_file: wave0_5/desktop_build/result.json
+    acceptance:
+      - desktop_build_executed
+      - result_bound_to_commit
+
+  wave0_5.node_tests:
+    wave: "0.5"
+    description: Record the Node test baseline for Desktop support modules.
+    command:
+      - node
+      - --test
+      - desktop/tests
+    expected_exit_code: 0
+    timeout_seconds: 600
+    evidence_file: wave0_5/node_tests/result.json
+    acceptance:
+      - node_tests_executed
+      - result_bound_to_commit
