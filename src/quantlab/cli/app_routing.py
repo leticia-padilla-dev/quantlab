@@ -2,6 +2,7 @@ import argparse
 import json
 from collections.abc import Callable
 
+from quantlab.cli.live_execution import enforce_live_execution_freeze
 from quantlab.errors import ConfigError
 
 
@@ -216,6 +217,7 @@ def dispatch_standard_commands(
     write_mode_comparison_report,
     run_sweep,
 ):
+    enforce_live_execution_freeze(args)
     result_ctx = initial_result
 
     if result_ctx in (None, False):
