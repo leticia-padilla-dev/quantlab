@@ -388,6 +388,51 @@ def _persist_grid_rich_artifacts(
         print(f"Warning: Could not persist grid rich artifacts: {exc}")
 
 
+def _stitch_oos_timeseries(frames: List[pd.DataFrame]) -> pd.DataFrame:
+    """Build one continuous, chronological OOS capital path from per-bar returns."""
+    required_columns = {"timestamp", "period_return"}
+    normalized_frames: List[pd.DataFrame] = []
+
+    for frame in frames:
+        if frame is None or frame.empty:
+            continue
+
+        missing = required_columns.difference(frame.columns)
+        if missing:
+            missing_list = ", ".join(sorted(missing))
+            raise ValueError(f"OOS timeseries frame missing required columns: {missing_list}")
+
+        normalized = frame.copy()
+        normalized["timestamp"] = pd.to_datetime(normalized["timestamp"], errors="raise")
+        normalized["period_return"] = pd.to_numeric(
+            normalized["period_return"], errors="raise"
+        ).astype("float64")
+
+        if normalized["timestamp"].isna().any():
+            raise ValueError("OOS timeseries timestamps must be valid")
+        if not normalized["period_return"].map(math.isfinite).all():
+            raise ValueError("OOS period returns must be finite")
+        if (normalized["period_return"] < -1.0).any():
+            raise ValueError("OOS period returns cannot be less than -1")
+
+        normalized_frames.append(
+            normalized.sort_values("timestamp", kind="mergesort")
+        )
+
+    if not normalized_frames:
+        return pd.DataFrame()
+
+    stitched = pd.concat(normalized_frames, ignore_index=True)
+    stitched = stitched.sort_values("timestamp", kind="mergesort").reset_index(drop=True)
+
+    if stitched["timestamp"].duplicated(keep=False).any():
+        raise ValueError("OOS timeseries contains duplicate timestamps across splits")
+
+    stitched["equity"] = (1.0 + stitched["period_return"]).cumprod()
+    stitched["cumulative_return"] = stitched["equity"] - 1.0
+    return stitched
+
+
 def _persist_walkforward_rich_artifacts(
     out_dir: Path,
     final_df: pd.DataFrame,
@@ -403,14 +448,15 @@ def _persist_walkforward_rich_artifacts(
     - ``selected_configs.csv``       – one row per split per selected config
     - ``split_metrics.csv``          – summary per split
     """
-    try:
-        # --- per-bar OOS timeseries (Stage K.2) ---
-        if oos_timeseries_frames:
-            ts_frames = [f for f in oos_timeseries_frames if f is not None and not f.empty]
-            if ts_frames:
-                oos_ts = pd.concat(ts_frames, ignore_index=True)
-                oos_ts.to_csv(out_dir / "oos_equity_timeseries.csv", index=False)
+    # The OOS equity artifact is quantitatively authoritative. Invalid or
+    # overlapping OOS bars must fail the run instead of falling back silently.
+    if oos_timeseries_frames:
+        ts_frames = [f for f in oos_timeseries_frames if f is not None and not f.empty]
+        if ts_frames:
+            oos_ts = _stitch_oos_timeseries(ts_frames)
+            oos_ts.to_csv(out_dir / "oos_equity_timeseries.csv", index=False)
 
+    try:
         # --- selected configs ---
         if not final_df.empty and "phase" in final_df.columns:
             sel = final_df[(final_df["phase"] == "test") & final_df.get("selected", True)].copy()
