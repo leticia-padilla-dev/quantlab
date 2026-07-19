@@ -169,8 +169,10 @@ def _execution_environment(
     for directory in (home, temporary, pycache):
         directory.mkdir(parents=True, exist_ok=True)
     npm_config = home / ".npmrc"
+    npm_global_config = home / ".npmrc-global"
     git_config = home / ".gitconfig"
     npm_config.touch(exist_ok=True)
+    npm_global_config.touch(exist_ok=True)
     git_config.touch(exist_ok=True)
 
     environment = {
@@ -193,7 +195,7 @@ def _execution_environment(
             "GIT_NO_REPLACE_OBJECTS": "1",
             "GIT_TERMINAL_PROMPT": "0",
             "NPM_CONFIG_USERCONFIG": str(npm_config),
-            "NPM_CONFIG_GLOBALCONFIG": str(npm_config),
+            "NPM_CONFIG_GLOBALCONFIG": str(npm_global_config),
             "PYTHONNOUSERSITE": "1",
             "PYTHONPYCACHEPREFIX": str(pycache),
             "PYTHONSAFEPATH": "1",
