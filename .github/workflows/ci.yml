@@ -99,9 +99,21 @@ jobs:
         if: ${{ !cancelled() }}
         run: python scripts/verify_hardening_gate.py wave0.live_execution_freeze
 
+      - name: Execute Python baseline gate
+        if: ${{ !cancelled() }}
+        run: python scripts/verify_hardening_gate.py wave0_5.python_suite_baseline
+
       - name: Execute Desktop Node-test gate
         if: ${{ !cancelled() }}
         run: python scripts/verify_hardening_gate.py wave0_5.node_tests
+
+      - name: Execute Desktop typecheck gate
+        if: ${{ !cancelled() }}
+        run: python scripts/verify_hardening_gate.py wave0_5.desktop_typecheck
+
+      - name: Execute Desktop build gate
+        if: ${{ !cancelled() }}
+        run: python scripts/verify_hardening_gate.py wave0_5.desktop_build
 
       - name: Upload hardening evidence
         if: ${{ always() }}

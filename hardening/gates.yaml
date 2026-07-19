@@ -6,6 +6,7 @@ evidence_root: outputs/hardening
 gates:
   wave0.live_execution_freeze:
     wave: "0"
+    dependency_profile: none
     description: All known remote broker-mutation CLI routes fail closed while paper, dry-run and read-only broker surfaces remain available.
     command:
       - "{python}"
@@ -24,6 +25,7 @@ gates:
 
   wave0_5.python_suite_baseline:
     wave: "0.5"
+    dependency_profile: none
     description: Record the complete Python test-suite baseline for the evaluated commit.
     command:
       - "{python}"
@@ -39,6 +41,7 @@ gates:
 
   wave0_5.desktop_typecheck:
     wave: "0.5"
+    dependency_profile: desktop_locked
     description: Record the Desktop TypeScript typecheck baseline.
     command:
       - npm
@@ -55,6 +58,7 @@ gates:
 
   wave0_5.desktop_build:
     wave: "0.5"
+    dependency_profile: desktop_locked
     description: Record the Desktop production-build baseline.
     command:
       - npm
@@ -71,6 +75,7 @@ gates:
 
   wave0_5.node_tests:
     wave: "0.5"
+    dependency_profile: none
     description: Record the Node test baseline for Desktop support modules.
     command:
       - npm

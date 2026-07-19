@@ -961,18 +961,11 @@ def _isolated_worktree(
             added.stderr.strip() or added.stdout.strip() or "git worktree add failed"
         )
 
-    dependency_mounts: dict[str, Any] = {"desktop_node_modules": {"present": False}}
-    source_node_modules = REPO_ROOT / "desktop" / "node_modules"
-    target_node_modules = worktree / "desktop" / "node_modules"
+    dependency_mounts: dict[str, Any] = {
+        "external_mounts": [],
+        "desktop_node_modules": {"present": False},
+    }
     try:
-        if source_node_modules.is_dir():
-            target_node_modules.symlink_to(
-                source_node_modules, target_is_directory=True
-            )
-            dependency_mounts["desktop_node_modules"] = {
-                "present": True,
-                "source": str(source_node_modules.resolve()),
-            }
         yield worktree, dependency_mounts
     finally:
         removed = _run_small(
@@ -1082,6 +1075,164 @@ def _resolve_command(command: list[str], *, environment: dict[str, str]) -> list
     return resolved
 
 
+def _empty_command_result(error: str) -> GateCommandResult:
+    return GateCommandResult(
+        actual_exit_code=None,
+        timed_out=False,
+        launch_error=error,
+        capture_incomplete=False,
+        capture_errors={"stdout": None, "stderr": None},
+        stdout=_BoundedCapture(),
+        stderr=_BoundedCapture(),
+    )
+
+
+def _normalize_npm_inventory(value: Any) -> Any:
+    if isinstance(value, dict):
+        omitted = {"path", "resolved", "link", "realpath", "_id"}
+        return {
+            key: _normalize_npm_inventory(item)
+            for key, item in sorted(value.items())
+            if key not in omitted
+        }
+    if isinstance(value, list):
+        normalized = [_normalize_npm_inventory(item) for item in value]
+        return sorted(normalized, key=lambda item: json.dumps(item, sort_keys=True))
+    return value
+
+
+def _count_npm_packages(value: Any) -> int:
+    if not isinstance(value, dict):
+        return 0
+    dependencies = value.get("dependencies")
+    if not isinstance(dependencies, dict):
+        return 1 if value.get("version") else 0
+    return (1 if value.get("version") else 0) + sum(
+        _count_npm_packages(item) for item in dependencies.values()
+    )
+
+
+def _npm_inventory_summary(value: Any) -> dict[str, Any]:
+    normalized = _normalize_npm_inventory(value)
+    canonical = json.dumps(
+        normalized, ensure_ascii=True, separators=(",", ":"), sort_keys=True
+    ).encode("utf-8")
+    return {
+        "format": "npm-ls-normalized-v1",
+        "package_count": _count_npm_packages(normalized),
+        "sha256": hashlib.sha256(canonical).hexdigest(),
+    }
+
+
+def _provision_desktop_dependencies(
+    gate: dict[str, Any],
+    *,
+    workspace_root: Path,
+    environment: dict[str, str],
+    timeout: float,
+) -> tuple[dict[str, Any], bool]:
+    profile = str(gate.get("dependency_profile", "none"))
+    if profile == "none":
+        return {
+            "profile": "none",
+            "provisioning": {"result": "forbidden", "external_mounts": []},
+            "inventory": None,
+        }, True
+    if profile != "desktop_locked":
+        raise ValueError(f"unknown dependency profile: {profile}")
+
+    npm_command = _resolve_command(
+        ["npm", "--prefix", "desktop", "ci", "--ignore-scripts"],
+        environment=environment,
+    )
+    provisioning_result = _run_gate_command(
+        npm_command,
+        timeout=timeout,
+        environment=environment,
+        cwd=workspace_root,
+    )
+    provisioning_passed = (
+        not provisioning_result.timed_out
+        and provisioning_result.launch_error is None
+        and not provisioning_result.capture_incomplete
+        and provisioning_result.actual_exit_code == 0
+    )
+    provisioning_stdout, provisioning_stdout_meta = _sanitize_capture(
+        provisioning_result.stdout
+    )
+    provisioning_stderr, provisioning_stderr_meta = _sanitize_capture(
+        provisioning_result.stderr
+    )
+    provisioning = {
+        "command": _sanitize_command(npm_command)[0],
+        "exit_code": provisioning_result.actual_exit_code,
+        "timed_out": provisioning_result.timed_out,
+        "result": "passed" if provisioning_passed else "failed",
+        "stdout": provisioning_stdout,
+        "stderr": provisioning_stderr,
+        "log_metadata": {
+            "stdout": provisioning_stdout_meta,
+            "stderr": provisioning_stderr_meta,
+        },
+    }
+    if not provisioning_passed:
+        return {
+            "profile": profile,
+            "provisioning": provisioning,
+            "inventory": None,
+        }, False
+
+    inventory_command = _resolve_command(
+        ["npm", "--prefix", "desktop", "ls", "--all", "--json"],
+        environment=environment,
+    )
+    inventory_result = _run_gate_command(
+        inventory_command,
+        timeout=min(timeout, 300),
+        environment=environment,
+        cwd=workspace_root,
+    )
+    raw_inventory, _ = inventory_result.stdout.snapshot()
+    raw_inventory_text = raw_inventory.decode("utf-8", errors="replace")
+    inventory_stdout, inventory_stdout_meta = _sanitize_capture(inventory_result.stdout)
+    inventory_stderr, inventory_stderr_meta = _sanitize_capture(inventory_result.stderr)
+    inventory_valid = False
+    inventory_summary: dict[str, Any] | None = None
+    if (
+        not inventory_result.timed_out
+        and inventory_result.launch_error is None
+        and not inventory_result.capture_incomplete
+        and inventory_result.actual_exit_code == 0
+    ):
+        try:
+            inventory_summary = _npm_inventory_summary(json.loads(raw_inventory_text))
+            inventory_valid = True
+        except (TypeError, ValueError, json.JSONDecodeError):
+            inventory_valid = False
+    inventory_summary = inventory_summary or {
+        "format": "npm-ls-normalized-v1",
+        "package_count": 0,
+        "sha256": "unavailable",
+    }
+    return {
+        "profile": profile,
+        "provisioning": provisioning,
+        "inventory_provisioning": {
+            "command": _sanitize_command(inventory_command)[0],
+            "exit_code": inventory_result.actual_exit_code,
+            "timed_out": inventory_result.timed_out,
+            "result": "passed" if inventory_valid else "failed",
+            "stdout": inventory_stdout,
+            "stderr": inventory_stderr,
+            "log_metadata": {
+                "stdout": inventory_stdout_meta,
+                "stderr": inventory_stderr_meta,
+            },
+        },
+        "inventory": inventory_summary,
+    }, inventory_valid
+
+
 def _execute_gate(
     args: argparse.Namespace, manifest: dict[str, Any], runtime_root: Path
 ) -> int:
@@ -1167,14 +1318,26 @@ def _execute_gate(
                 process_environment,
                 cwd=workspace_root,
             )
-            environment["dependency_mounts"] = dependency_mounts
-            started_at = datetime.now(timezone.utc)
-            command_result = _run_gate_command(
-                command,
-                timeout=timeout_seconds,
+            dependency_details, provisioning_ok = _provision_desktop_dependencies(
+                gate,
+                workspace_root=workspace_root,
                 environment=execution_environment,
-                cwd=workspace_root,
+                timeout=min(timeout_seconds, 900),
             )
+            dependency_details["external_mounts"] = dependency_mounts.get(
+                "external_mounts", []
+            )
+            environment["node_dependencies"] = dependency_details
+            started_at = datetime.now(timezone.utc)
+            if provisioning_ok:
+                command_result = _run_gate_command(
+                    command,
+                    timeout=timeout_seconds,
+                    environment=execution_environment,
+                    cwd=workspace_root,
+                )
+            else:
+                command_result = _empty_command_result("dependency_provisioning_failed")
             finished_at = datetime.now(timezone.utc)
             execution_after = _git_snapshot(workspace_root, execution_environment)
             invocation_after = _git_snapshot(REPO_ROOT, base_environment)
@@ -1195,6 +1358,15 @@ def _execute_gate(
         integrity_errors.append("tree_dirty_after_gate")
     if not invocation_after["clean"]:
         integrity_errors.append("invocation_tree_dirty_after_gate")
+    node_dependencies = environment.get("node_dependencies", {})
+    if node_dependencies.get("profile") == "desktop_locked":
+        if node_dependencies.get("provisioning", {}).get("result") != "passed":
+            integrity_errors.append("dependency_provisioning_failed")
+        inventory = node_dependencies.get("inventory") or {}
+        if inventory.get("sha256") == "unavailable":
+            integrity_errors.append("dependency_inventory_failed")
+    if node_dependencies.get("external_mounts"):
+        integrity_errors.append("external_dependency_mounts_present")
     if execution_before["commit"] != execution_after["commit"]:
         integrity_errors.append("head_changed_during_gate")
     if execution_before["tree"] != execution_after["tree"]:

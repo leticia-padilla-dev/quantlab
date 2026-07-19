@@ -513,6 +513,186 @@ def test_python_placeholder_and_sanitized_process_environment_are_exact(
     assert process_environment["effective_environment_sha256"]
 
 
+def test_dependency_free_gate_does_not_mount_source_node_modules(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repo, commit = _create_repo(
+        tmp_path,
+        monkeypatch,
+        {
+            "test.node-free": _gate(
+                [
+                    sys.executable,
+                    "-c",
+                    "from pathlib import Path; print(Path('desktop/node_modules').exists())",
+                ],
+                dependency_profile="none",
+            )
+        },
+    )
+    (repo / ".git" / "info" / "exclude").write_text(
+        "desktop/node_modules/\n", encoding="utf-8"
+    )
+    (repo / "desktop" / "node_modules").mkdir()
+    (repo / "desktop" / "node_modules" / "marker").write_text(
+        "tampered", encoding="utf-8"
+    )
+    _stub_environment(monkeypatch)
+
+    assert runner.main(["test.node-free"]) == 0
+    evidence = json.loads(_canonical_evidence(repo, commit).read_text(encoding="utf-8"))
+    assert evidence["stdout"].strip() == "False"
+    assert evidence["environment"]["node_dependencies"]["profile"] == "none"
+    assert evidence["environment"]["node_dependencies"]["external_mounts"] == []
+
+
+def test_tampered_source_node_modules_cannot_influence_gate(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repo, commit = _create_repo(
+        tmp_path,
+        monkeypatch,
+        {
+            "test.node-free": _gate(
+                [
+                    sys.executable,
+                    "-c",
+                    "from pathlib import Path; print(Path('desktop/node_modules/evil.py').exists())",
+                ],
+                dependency_profile="none",
+            )
+        },
+    )
+    (repo / ".git" / "info" / "exclude").write_text(
+        "desktop/node_modules/\n", encoding="utf-8"
+    )
+    (repo / "desktop" / "node_modules").mkdir()
+    (repo / "desktop" / "node_modules" / "evil.py").write_text(
+        "raise SystemExit(99)\n", encoding="utf-8"
+    )
+    _stub_environment(monkeypatch)
+
+    assert runner.main(["test.node-free"]) == 0
+    evidence = json.loads(_canonical_evidence(repo, commit).read_text(encoding="utf-8"))
+    assert evidence["stdout"].strip() == "False"
+
+
+def test_desktop_locked_profile_provisions_inside_worktree(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repo, commit = _create_repo(
+        tmp_path,
+        monkeypatch,
+        {
+            "test.desktop-locked": _gate(
+                [sys.executable, "-c", "raise SystemExit(0)"],
+                dependency_profile="desktop_locked",
+            )
+        },
+    )
+    _stub_environment(monkeypatch)
+    calls: list[tuple[list[str], Path]] = []
+
+    def fake_run(
+        command: list[str], *, cwd: Path, **_kwargs: Any
+    ) -> runner.GateCommandResult:
+        calls.append((command, cwd))
+        stdout = runner._BoundedCapture()
+        if "ls" in command:
+            stdout.append(b'{"name":"fixture","version":"1.0.0","dependencies":{}}')
+        return runner.GateCommandResult(
+            actual_exit_code=0,
+            timed_out=False,
+            launch_error=None,
+            capture_incomplete=False,
+            capture_errors={"stdout": None, "stderr": None},
+            stdout=stdout,
+            stderr=runner._BoundedCapture(),
+        )
+
+    monkeypatch.setattr(runner, "_run_gate_command", fake_run)
+    assert runner.main(["test.desktop-locked"]) == 0
+    assert len(calls) == 3
+    assert all(repo not in cwd.parents for _, cwd in calls)
+    assert all("desktop/node_modules" not in str(cwd) for _, cwd in calls)
+    evidence = json.loads(_canonical_evidence(repo, commit).read_text(encoding="utf-8"))
+    assert evidence["environment"]["node_dependencies"]["profile"] == "desktop_locked"
+    assert (
+        evidence["environment"]["node_dependencies"]["inventory"]["package_count"] == 1
+    )
+
+
+def test_failed_dependency_provisioning_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repo, commit = _create_repo(
+        tmp_path,
+        monkeypatch,
+        {
+            "test.desktop-locked": _gate(
+                [
+                    sys.executable,
+                    "-c",
+                    "from pathlib import Path; Path('must-not-run').write_text('ran')",
+                ],
+                dependency_profile="desktop_locked",
+            )
+        },
+    )
+    _stub_environment(monkeypatch)
+    calls = 0
+
+    def failed_provisioning(*_args: Any, **_kwargs: Any) -> runner.GateCommandResult:
+        nonlocal calls
+        calls += 1
+        return runner.GateCommandResult(
+            actual_exit_code=17,
+            timed_out=False,
+            launch_error=None,
+            capture_incomplete=False,
+            capture_errors={"stdout": None, "stderr": None},
+            stdout=runner._BoundedCapture(),
+            stderr=runner._BoundedCapture(),
+        )
+
+    monkeypatch.setattr(runner, "_run_gate_command", failed_provisioning)
+    assert runner.main(["test.desktop-locked"]) == 1
+    assert calls == 1
+    assert not (repo / "must-not-run").exists()
+    evidence = json.loads(
+        _diagnostic_evidence(repo, commit, "test.desktop-locked").read_text()
+    )
+    assert evidence["authoritative"] is False
+    assert evidence["result"] == "failed"
+    assert "dependency_provisioning_failed" in evidence["source"]["integrity_errors"]
+
+
+def test_resolved_node_dependency_inventory_is_deterministic_and_recorded() -> None:
+    first = {
+        "name": "fixture",
+        "version": "1.0.0",
+        "path": "/tmp/one/desktop",
+        "dependencies": {"z": {"version": "2.0.0", "path": "/tmp/one/z"}},
+    }
+    second = {
+        "dependencies": {"z": {"path": "/var/other/z", "version": "2.0.0"}},
+        "path": "/var/other/desktop",
+        "version": "1.0.0",
+        "name": "fixture",
+    }
+    assert runner._npm_inventory_summary(first) == runner._npm_inventory_summary(second)
+    changed = dict(second)
+    changed["version"] = "1.0.1"
+    assert (
+        runner._npm_inventory_summary(changed)["sha256"]
+        != runner._npm_inventory_summary(second)["sha256"]
+    )
+
+
 def test_noncanonical_or_tracked_evidence_root_is_rejected(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
