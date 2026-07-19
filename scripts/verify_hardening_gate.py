@@ -28,6 +28,7 @@ MANIFEST_PATH = REPO_ROOT / "hardening" / "gates.yaml"
 NODE_LOCK_PATH = REPO_ROOT / "desktop" / "package-lock.json"
 PYPROJECT_PATH = REPO_ROOT / "pyproject.toml"
 MAX_LOG_BYTES = 32 * 1024
+MAX_INVENTORY_BYTES = 4 * 1024 * 1024
 MAX_COMMAND_ARG_CHARS = 2048
 READ_CHUNK_BYTES = 8192
 CAPTURE_JOIN_TIMEOUT_SECONDS = 1.0
@@ -112,12 +113,13 @@ _SENSITIVE_ENVIRONMENT_NAME = re.compile(
 class _BoundedCapture:
     data: bytearray = field(default_factory=bytearray)
     total_bytes: int = 0
+    limit: int = MAX_LOG_BYTES
     lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
     def append(self, chunk: bytes) -> None:
         with self.lock:
             self.total_bytes += len(chunk)
-            remaining = MAX_LOG_BYTES - len(self.data)
+            remaining = self.limit - len(self.data)
             if remaining > 0:
                 self.data.extend(chunk[:remaining])
 
@@ -660,9 +662,10 @@ def _run_gate_command(
     timeout: float,
     environment: dict[str, str],
     cwd: Path,
+    capture_limit: int = MAX_LOG_BYTES,
 ) -> GateCommandResult:
-    stdout = _BoundedCapture()
-    stderr = _BoundedCapture()
+    stdout = _BoundedCapture(limit=capture_limit)
+    stderr = _BoundedCapture(limit=capture_limit)
     popen_kwargs: dict[str, Any] = (
         {"start_new_session": True} if os.name == "posix" else {}
     )
@@ -811,7 +814,7 @@ def _sanitize_capture(capture: _BoundedCapture) -> tuple[str, dict[str, Any]]:
         "stored_bytes": len(captured),
         "truncated": total_bytes > len(captured),
         "redactions": redactions,
-        "limit_bytes": MAX_LOG_BYTES,
+        "limit_bytes": capture.limit,
     }
 
 
@@ -1191,6 +1194,7 @@ def _provision_desktop_dependencies(
         timeout=min(timeout, 300),
         environment=environment,
         cwd=workspace_root,
+        capture_limit=MAX_INVENTORY_BYTES,
     )
     raw_inventory, _ = inventory_result.stdout.snapshot()
     raw_inventory_text = raw_inventory.decode("utf-8", errors="replace")
