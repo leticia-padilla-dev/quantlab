@@ -1,5 +1,15 @@
 from __future__ import annotations
 import pandas as pd
+import math
+
+
+def validate_cost_parameters(fee_rate: float, slippage_bps: float, slippage_mode: str, k_atr: float) -> None:
+    if not all(math.isfinite(float(value)) and float(value) >= 0.0 for value in (fee_rate, slippage_bps, k_atr)):
+        raise ValueError("fee and slippage parameters must be finite and non-negative")
+    if fee_rate >= 1.0 or slippage_bps >= 10_000.0:
+        raise ValueError("fee_rate and slippage_bps must be strictly below 100%")
+    if slippage_mode not in {"fixed", "atr"}:
+        raise ValueError(f"Unsupported slippage mode: {slippage_mode}")
 
 
 def slippage_fixed(slippage_bps: float) -> float:

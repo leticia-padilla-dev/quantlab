@@ -1,5 +1,38 @@
 import numpy as np
 import pandas as pd
+from quantlab.backtest.costs import validate_cost_parameters
+
+
+def _apply_fill_accounting(
+    close: np.ndarray,
+    trade: np.ndarray,
+    slip_cost: np.ndarray,
+    *,
+    fee_rate: float,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    cash = 1.0
+    qty = 0.0
+    fees = np.zeros(len(close), dtype=np.float64)
+    slippage = np.zeros(len(close), dtype=np.float64)
+    equity = np.zeros(len(close), dtype=np.float64)
+    for i, transition in enumerate(trade):
+        if transition == 1:
+            execution_price = close[i] * (1.0 + slip_cost[i])
+            fee = cash * fee_rate
+            qty = (cash - fee) / execution_price
+            cash = 0.0
+            fees[i] = fee
+            slippage[i] = slip_cost[i]
+        elif transition == -1:
+            execution_price = close[i] * (1.0 - slip_cost[i])
+            notional = qty * execution_price
+            fee = notional * fee_rate
+            cash = notional - fee
+            fees[i] = fee
+            slippage[i] = slip_cost[i]
+            qty = 0.0
+        equity[i] = cash + qty * close[i]
+    return fees, slippage, equity, equity / np.concatenate(([1.0], equity[:-1])) - 1.0
 
 try:
     from numba import njit
@@ -156,6 +189,7 @@ def run_backtest(
       - fees/slippage se aplican el día del trade como penalización
     """
     out = df.copy()
+    validate_cost_parameters(fee_rate, slippage_bps, slippage_mode, k_atr)
     if out.empty:
         # Return empty df with expected columns
         for col in ["signal", "position", "ret", "strategy_ret", "trade", "fees", "slip_cost", "strategy_ret_net", "equity"]:
@@ -206,10 +240,12 @@ def run_backtest(
 
     out["trade"] = trade
 
+    fees, slip_fraction, equity, strategy_ret_net = _apply_fill_accounting(
+        close, trade, slip_cost, fee_rate=float(fee_rate)
+    )
     out["fees"] = fees
-    out["slip_cost"] = slip_cost
-
-    out["strategy_ret_net"] = out["strategy_ret"] - out["fees"] - out["slip_cost"]
-    out["equity"] = (1.0 + out["strategy_ret_net"]).cumprod()
+    out["slip_cost"] = slip_fraction
+    out["strategy_ret_net"] = strategy_ret_net
+    out["equity"] = equity
 
     return out

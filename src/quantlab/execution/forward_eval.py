@@ -47,7 +47,7 @@ from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
-from quantlab.backtest.costs import slippage_fixed, slippage_atr, exec_price
+from quantlab.backtest.costs import slippage_fixed, slippage_atr, exec_price, validate_cost_parameters
 from quantlab.features.indicators import add_indicators
 from quantlab.runs.artifacts import (
     CANONICAL_METADATA_FILENAME,
@@ -359,6 +359,7 @@ def run_forward_evaluation(
         raise ValueError("Forward evaluation requires a non-empty OHLC DataFrame.")
     if "close" not in df.columns:
         raise ValueError("OHLC DataFrame must contain a 'close' column.")
+    validate_cost_parameters(candidate.fee_rate, candidate.slippage_bps, candidate.slippage_mode, candidate.k_atr)
 
     if initial_state is not None and initial_state.has_open_position and initial_state.open_position_entry_value <= 0:
         raise ValueError("Cannot resume open position without recoverable entry basis")
