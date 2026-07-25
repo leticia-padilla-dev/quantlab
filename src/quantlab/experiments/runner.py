@@ -157,7 +157,7 @@ def run_one(config: Dict[str, Any]) -> Dict[str, Any]:
         slippage_mode=config.get("slippage_mode", "fixed"),
         k_atr=config.get("k_atr", 0.05),
     )
-    bt_metrics = compute_metrics(bt)
+    bt_metrics = compute_metrics(bt, interval=config.get("interval"))
 
     # 5) Paper broker -> trade analytics
     trades_df = run_paper_broker(

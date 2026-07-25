@@ -38,6 +38,7 @@ from typing import Any, Dict, Optional
 import numpy as np
 import pandas as pd
 from quantlab.runs.artifacts import CANONICAL_REPORT_FILENAME, LEGACY_REPORT_FILENAMES, load_json_with_fallback
+from quantlab.quant.annualization import resolve_annualization
 
 
 # ---------------------------------------------------------------------------
@@ -84,7 +85,7 @@ def _sanitize(obj: Any) -> Any:
 # Individual metric groups
 # ---------------------------------------------------------------------------
 
-def compute_equity_metrics(equity: pd.Series) -> Dict[str, Any]:
+def compute_equity_metrics(equity: pd.Series, interval: str | None = None) -> Dict[str, Any]:
     """
     Compute return and risk metrics from an equity curve.
 
@@ -116,8 +117,12 @@ def compute_equity_metrics(equity: pd.Series) -> Dict[str, Any]:
     if len(eq) < 2:
         return result
 
+    context = resolve_annualization(eq.index, interval)
+    periods = context.periods_per_year
+    if periods is None:
+        return {"equity_start": _san(float(eq.iloc[0])), "equity_end": _san(float(eq.iloc[-1])), "n_days": len(eq), "total_return": _san(float(eq.iloc[-1] / eq.iloc[0] - 1.0)), "annualization_status": context.annualization_status, "annualization_reason": context.reason, "cagr": None, "annualized_volatility": None, "sharpe": None, "sortino": None}
     n_days = len(eq)
-    years = max(n_days / 252.0, 1 / 252.0)
+    years = context.elapsed_years
 
     start_val = float(eq.iloc[0])
     end_val = float(eq.iloc[-1])
@@ -126,12 +131,12 @@ def compute_equity_metrics(equity: pd.Series) -> Dict[str, Any]:
     cagr = (end_val / start_val) ** (1.0 / years) - 1.0 if years > 0 else 0.0
 
     daily_ret = eq.pct_change().dropna()
-    ann_vol = float(daily_ret.std() * np.sqrt(252)) if len(daily_ret) > 1 else 0.0
+    ann_vol = float(daily_ret.std() * np.sqrt(periods)) if len(daily_ret) > 1 else 0.0
 
     # --- Sharpe (needs >= _MIN_DAYS_FOR_RATIO) ---
     if len(daily_ret) >= _MIN_DAYS_FOR_RATIO and daily_ret.std() > 0:
         sharpe: Optional[float] = _san(
-            float(np.sqrt(252) * daily_ret.mean() / daily_ret.std())
+            float(np.sqrt(periods) * daily_ret.mean() / daily_ret.std())
         )
     else:
         sharpe = None
@@ -141,10 +146,10 @@ def compute_equity_metrics(equity: pd.Series) -> Dict[str, Any]:
     if len(daily_ret) >= _MIN_DAYS_FOR_RATIO:
         downside = daily_ret[daily_ret < 0]
         if len(downside) > 1:
-            downside_vol = float(downside.std() * np.sqrt(252))
+            downside_vol = float(downside.std() * np.sqrt(periods))
             if downside_vol >= _SORTINO_DOWNSIDE_FLOOR:
                 sortino = _san(
-                    float(np.sqrt(252) * daily_ret.mean() / downside_vol)
+                    float(np.sqrt(periods) * daily_ret.mean() / downside_vol)
                 )
             # else: downside vol is negligible → leave sortino as None
         # else: fewer than 2 negative returns → not enough data for sortino
@@ -158,6 +163,9 @@ def compute_equity_metrics(equity: pd.Series) -> Dict[str, Any]:
         "annualized_volatility": _san(ann_vol),
         "sharpe": sharpe,
         "sortino": sortino,
+        "interval": interval,
+        "periods_per_year": periods,
+        "annualization_status": context.annualization_status,
     })
     return result
 

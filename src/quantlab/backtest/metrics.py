@@ -1,7 +1,8 @@
 import pandas as pd
 import numpy as np
+from quantlab.quant.annualization import resolve_annualization
 
-def compute_metrics(bt: pd.DataFrame) -> dict:
+def compute_metrics(bt: pd.DataFrame, interval: str | None = None) -> dict:
     equity = bt["equity"]
     total_return = float(equity.iloc[-1] - 1.0)
 
@@ -18,13 +19,18 @@ def compute_metrics(bt: pd.DataFrame) -> dict:
 
     # Sharpe simple (diario) - sin tasa libre
     r = bt["strategy_ret_net"]
-    sharpe = float(np.sqrt(252) * (r.mean() / (r.std() + 1e-12)))
+    context = resolve_annualization(bt.index, interval)
+    factor = context.periods_per_year
+    sharpe = float(np.sqrt(factor) * (r.mean() / (r.std() + 1e-12))) if factor else None
 
     return {
         "total_return": total_return,
         "max_drawdown": max_dd,
         "winrate_active_days": winrate,
         "sharpe_simple": sharpe,
+        "interval": interval,
+        "periods_per_year": factor,
+        "annualization_status": context.annualization_status,
         "days": int(len(bt)),
         "trades": int((bt["trade"].abs() > 0).sum())
     }
