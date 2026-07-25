@@ -38,6 +38,10 @@ def test_invalid_cost_parameters_fail_closed():
         run_backtest(frame, signals, fee_rate=-0.1)
     with pytest.raises(ValueError):
         run_paper_broker(frame, signals, slippage_mode="unknown")
+    with pytest.raises(ValueError):
+        run_backtest(frame, signals, fee_rate=1.0)
+    with pytest.raises(ValueError):
+        run_paper_broker(frame, signals, slippage_bps=10_000.0)
 
 
 def test_python_and_numba_cost_accounting_match():
