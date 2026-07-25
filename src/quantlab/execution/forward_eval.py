@@ -137,6 +137,7 @@ class PortfolioState:
     has_open_position: bool = False
     open_position_qty: float = 0.0
     open_position_entry_price: Optional[float] = None
+    open_position_entry_value: float = 0.0
     open_position_mark_price: Optional[float] = None
     open_position_market_value: float = 0.0
     bars_fetched: int = 0
@@ -358,6 +359,9 @@ def run_forward_evaluation(
         raise ValueError("Forward evaluation requires a non-empty OHLC DataFrame.")
     if "close" not in df.columns:
         raise ValueError("OHLC DataFrame must contain a 'close' column.")
+
+    if initial_state is not None and initial_state.has_open_position and initial_state.open_position_entry_value <= 0:
+        raise ValueError("Cannot resume open position without recoverable entry basis")
 
     eval_start_ts = _as_ts(eval_start)
     eval_end_ts = _as_ts(eval_end)
@@ -677,6 +681,19 @@ def load_forward_session(session_dir: str | Path) -> Dict[str, Any]:
     trades_path = p / "forward_trades.csv"
     trades = pd.read_csv(trades_path) if trades_path.exists() else pd.DataFrame()
 
+    if state.has_open_position and state.open_position_entry_value <= 0:
+        if trades.empty or "side" not in trades.columns or "equity_after" not in trades.columns:
+            raise ValueError("Cannot recover open-position entry basis from session ledger")
+        open_buy: Optional[pd.Series] = None
+        for _, row in trades.sort_values("timestamp").iterrows():
+            if str(row.get("side")) == "BUY":
+                open_buy = row
+            elif str(row.get("side")) == "SELL":
+                open_buy = None
+        if open_buy is None or not math.isfinite(float(open_buy.get("equity_after", 0.0))) or float(open_buy.get("equity_after", 0.0)) <= 0:
+            raise ValueError("Cannot unambiguously recover open-position entry basis")
+        state.open_position_entry_value = float(open_buy["equity_after"])
+
     equity_path = p / "forward_equity_curve.csv"
     equity = pd.read_csv(equity_path) if equity_path.exists() else pd.DataFrame()
 
@@ -710,7 +727,7 @@ def update_portfolio_state(
 
     if not trades_df.empty:
         last_trade = trades_df.iloc[-1]
-        state.n_trades = len(trades_df)
+        state.n_trades += len(trades_df)
 
         last_ts = _as_ts(last_trade["timestamp"])
         if last_ts is not None:
@@ -724,8 +741,8 @@ def update_portfolio_state(
             state.qty = 0.0
             state.cash = float(last_trade["equity_after"])
 
-        state.total_fees = float(trades_df["fee"].sum())
-        state.total_slippage = float(trades_df["slippage"].sum())
+        state.total_fees += float(trades_df["fee"].sum())
+        state.total_slippage += float(trades_df["slippage"].sum())
 
     if not equity_series.empty:
         state.current_equity = float(equity_series.iloc[-1]) * initial_cash
@@ -737,7 +754,11 @@ def update_portfolio_state(
 
     if not trades_df.empty:
         pnl_list = []
-        open_val = None
+        open_val = (
+            float(state.open_position_entry_value)
+            if state.has_open_position and state.open_position_entry_value
+            else None
+        )
         for _, row in trades_df.iterrows():
             if row["side"] == "BUY":
                 open_val = float(row["equity_after"])
@@ -745,13 +766,14 @@ def update_portfolio_state(
                 pnl_list.append(float(row["equity_after"]) - open_val)
                 open_val = None
 
-        state.realized_pnl = sum(pnl_list)
+        state.realized_pnl += sum(pnl_list)
 
         last_trade = trades_df.iloc[-1]
         if last_trade["side"] == "BUY":
             state.has_open_position = True
             state.open_position_qty = float(last_trade["qty"])
             state.open_position_entry_price = float(last_trade["exec_price"])
+            state.open_position_entry_value = float(last_trade["equity_after"])
 
             mark_price = (
                 state.current_equity / state.open_position_qty
@@ -764,6 +786,7 @@ def update_portfolio_state(
             state.has_open_position = False
             state.open_position_qty = 0.0
             state.open_position_entry_price = None
+            state.open_position_entry_value = 0.0
             state.open_position_mark_price = None
             state.open_position_market_value = 0.0
             state.unrealized_pnl = 0.0

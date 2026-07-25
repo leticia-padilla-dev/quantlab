@@ -15,6 +15,15 @@ from quantlab.execution.forward_eval import (
     load_forward_session
 )
 
+
+class _ResumeStrategy:
+    def generate_signals(self, df):
+        signals = pd.Series(0, index=df.index)
+        if len(signals) >= 20:
+            signals.iloc[10] = 1
+            signals.loc[pd.Timestamp("2025-02-03")] = -1
+        return signals
+
 @pytest.fixture
 def sample_df():
     """Create 400 bars of synthetic OHLC data."""
@@ -92,6 +101,61 @@ def test_forward_resume_workflow(sample_df, candidate, tmp_path):
     # Check original start preservation
     assert ps_final.original_eval_start == "2024-01-01"
 
+
+def test_one_shot_and_resumed_accounting_are_equivalent(monkeypatch, sample_df, candidate, tmp_path):
+    """A checkpoint must preserve the same accounting as one uninterrupted run."""
+    monkeypatch.setattr("quantlab.execution.forward_eval.build_strategy", lambda _: _ResumeStrategy())
+    one_shot = run_forward_evaluation(candidate, sample_df, initial_cash=10_000.0)
+
+    first = run_forward_evaluation(candidate, sample_df.iloc[:250], initial_cash=10_000.0)
+    resumed = run_forward_evaluation(
+        candidate,
+        sample_df,
+        initial_state=first["portfolio_state"],
+    )
+
+    full_state = one_shot["portfolio_state"]
+    resumed_state = resumed["portfolio_state"]
+    assert resumed_state.cash == pytest.approx(full_state.cash)
+    assert resumed_state.qty == pytest.approx(full_state.qty)
+    assert resumed_state.current_equity == pytest.approx(full_state.current_equity)
+    assert resumed_state.total_fees == pytest.approx(full_state.total_fees)
+    assert resumed_state.realized_pnl == pytest.approx(full_state.realized_pnl)
+    assert resumed_state.last_timestamp == full_state.last_timestamp
+
+
+def test_legacy_open_position_checkpoint_recovers_entry_basis(monkeypatch, sample_df, candidate, tmp_path):
+    monkeypatch.setattr("quantlab.execution.forward_eval.build_strategy", lambda _: _ResumeStrategy())
+    first = run_forward_evaluation(candidate, sample_df.iloc[:250], initial_cash=10_000.0)
+    out_dir = tmp_path / "legacy"
+    write_forward_eval_artifacts(first, out_dir)
+    state_path = out_dir / "portfolio_state.json"
+    state = json.loads(state_path.read_text())
+    state.pop("open_position_entry_value", None)
+    state_path.write_text(json.dumps(state))
+
+    loaded = load_forward_session(out_dir)
+    assert loaded["portfolio_state"].open_position_entry_value > 0
+    resumed = run_forward_evaluation(candidate, sample_df, initial_state=loaded["portfolio_state"])
+    one_shot = run_forward_evaluation(candidate, sample_df, initial_cash=10_000.0)
+    assert resumed["portfolio_state"].realized_pnl == pytest.approx(
+        one_shot["portfolio_state"].realized_pnl
+    )
+
+
+def test_legacy_open_position_without_recoverable_basis_fails_closed(sample_df, candidate, tmp_path):
+    state = PortfolioState(
+        session_id="legacy", cash=0.0, qty=10.0, current_equity=1_000.0,
+        has_open_position=True, open_position_entry_price=100.0,
+        last_timestamp=str(sample_df.index[10]),
+    )
+    out_dir = tmp_path / "invalid-legacy"
+    out_dir.mkdir()
+    (out_dir / "portfolio_state.json").write_text(json.dumps(state.to_dict()))
+    (out_dir / "forward_trades.csv").write_text("timestamp,side,equity_after\n")
+    with pytest.raises(ValueError, match="recover"):
+        load_forward_session(out_dir)
+
 def test_portfolio_state_preservation_on_resume(sample_df, candidate):
     # Mock a state with an open position
     state = PortfolioState(
@@ -102,6 +166,7 @@ def test_portfolio_state_preservation_on_resume(sample_df, candidate):
         starting_cash=10000.0,
         last_timestamp="2024-01-10",
         realized_pnl=500.0,
+        open_position_entry_value=10000.0,
         original_eval_start="2024-01-01"
     )
     
