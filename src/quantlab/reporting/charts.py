@@ -243,7 +243,7 @@ def plot_rolling_performance(equity: pd.Series, out_path: str, window: int = 60,
             return None
 
         daily_ret = equity.pct_change().dropna()
-        context = resolve_annualization(equity.index, interval or "1d")
+        context = resolve_annualization(equity.index, interval)
         if context.periods_per_year is None:
             return None
         rolling_sharpe = (

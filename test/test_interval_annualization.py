@@ -1,5 +1,6 @@
 import pandas as pd
 import pytest
+from quantlab.reporting.charts import plot_rolling_performance
 from quantlab.quant.annualization import resolve_annualization
 
 
@@ -37,3 +38,10 @@ def test_invalid_timestamp_evidence_fails_closed():
 def test_insufficient_sample_or_span_fails_closed():
     short = resolve_annualization(pd.date_range("2024-01-01", periods=2, freq="D"), "1d")
     assert short.annualization_status == "unavailable"
+
+
+def test_rolling_sharpe_without_interval_fails_closed(tmp_path):
+    equity = pd.Series(
+        range(1, 100), index=pd.date_range("2024-01-01", periods=99, freq="D"), dtype=float
+    )
+    assert plot_rolling_performance(equity, str(tmp_path / "rolling.png"), window=30) is None
