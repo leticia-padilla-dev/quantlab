@@ -1,13 +1,6 @@
 import numpy as np
 import pandas as pd
-
-
-def _validate_costs(fee_rate: float, slippage_bps: float, slippage_mode: str, k_atr: float) -> None:
-    values = (fee_rate, slippage_bps, k_atr)
-    if not all(np.isfinite(float(value)) and float(value) >= 0.0 for value in values):
-        raise ValueError("fee and slippage parameters must be finite and non-negative")
-    if slippage_mode not in {"fixed", "atr"}:
-        raise ValueError(f"Unsupported slippage mode: {slippage_mode}")
+from quantlab.backtest.costs import validate_cost_parameters
 
 
 def _apply_fill_accounting(
@@ -29,17 +22,17 @@ def _apply_fill_accounting(
             qty = (cash - fee) / execution_price
             cash = 0.0
             fees[i] = fee
-            slippage[i] = qty * (execution_price - close[i])
+            slippage[i] = slip_cost[i]
         elif transition == -1:
             execution_price = close[i] * (1.0 - slip_cost[i])
             notional = qty * execution_price
             fee = notional * fee_rate
             cash = notional - fee
             fees[i] = fee
-            slippage[i] = qty * (close[i] - execution_price)
+            slippage[i] = slip_cost[i]
             qty = 0.0
         equity[i] = cash + qty * close[i]
-    return fees, slippage, equity, np.diff(np.concatenate(([1.0], equity)))
+    return fees, slippage, equity, equity / np.concatenate(([1.0], equity[:-1])) - 1.0
 
 try:
     from numba import njit
@@ -196,7 +189,7 @@ def run_backtest(
       - fees/slippage se aplican el día del trade como penalización
     """
     out = df.copy()
-    _validate_costs(fee_rate, slippage_bps, slippage_mode, k_atr)
+    validate_cost_parameters(fee_rate, slippage_bps, slippage_mode, k_atr)
     if out.empty:
         # Return empty df with expected columns
         for col in ["signal", "position", "ret", "strategy_ret", "trade", "fees", "slip_cost", "strategy_ret_net", "equity"]:
@@ -247,11 +240,11 @@ def run_backtest(
 
     out["trade"] = trade
 
-    fees, slip_amount, equity, strategy_ret_net = _apply_fill_accounting(
+    fees, slip_fraction, equity, strategy_ret_net = _apply_fill_accounting(
         close, trade, slip_cost, fee_rate=float(fee_rate)
     )
     out["fees"] = fees
-    out["slip_cost"] = slip_amount
+    out["slip_cost"] = slip_fraction
     out["strategy_ret_net"] = strategy_ret_net
     out["equity"] = equity
 

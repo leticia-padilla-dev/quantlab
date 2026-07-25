@@ -47,3 +47,10 @@ def test_python_and_numba_cost_accounting_match():
     numba = run_backtest(frame, signals, fee_rate=0.01, slippage_bps=100, backend="numba")
     pd.testing.assert_series_equal(python["equity"], numba["equity"], check_dtype=False)
     pd.testing.assert_series_equal(python["fees"], numba["fees"], check_dtype=False)
+
+
+def test_strategy_return_net_is_period_ratio_not_equity_difference():
+    frame = pd.DataFrame({"close": [100.0, 110.0, 121.0], "atr": [1.0, 1.0, 1.0]})
+    signals = pd.Series([1, 0, 0])
+    result = run_backtest(frame, signals, fee_rate=0.0, slippage_bps=0.0)
+    assert result["strategy_ret_net"].iloc[2] == pytest.approx(0.1)
