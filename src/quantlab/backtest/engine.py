@@ -1,6 +1,46 @@
 import numpy as np
 import pandas as pd
 
+
+def _validate_costs(fee_rate: float, slippage_bps: float, slippage_mode: str, k_atr: float) -> None:
+    values = (fee_rate, slippage_bps, k_atr)
+    if not all(np.isfinite(float(value)) and float(value) >= 0.0 for value in values):
+        raise ValueError("fee and slippage parameters must be finite and non-negative")
+    if slippage_mode not in {"fixed", "atr"}:
+        raise ValueError(f"Unsupported slippage mode: {slippage_mode}")
+
+
+def _apply_fill_accounting(
+    close: np.ndarray,
+    trade: np.ndarray,
+    slip_cost: np.ndarray,
+    *,
+    fee_rate: float,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    cash = 1.0
+    qty = 0.0
+    fees = np.zeros(len(close), dtype=np.float64)
+    slippage = np.zeros(len(close), dtype=np.float64)
+    equity = np.zeros(len(close), dtype=np.float64)
+    for i, transition in enumerate(trade):
+        if transition == 1:
+            execution_price = close[i] * (1.0 + slip_cost[i])
+            fee = cash * fee_rate
+            qty = (cash - fee) / execution_price
+            cash = 0.0
+            fees[i] = fee
+            slippage[i] = qty * (execution_price - close[i])
+        elif transition == -1:
+            execution_price = close[i] * (1.0 - slip_cost[i])
+            notional = qty * execution_price
+            fee = notional * fee_rate
+            cash = notional - fee
+            fees[i] = fee
+            slippage[i] = qty * (close[i] - execution_price)
+            qty = 0.0
+        equity[i] = cash + qty * close[i]
+    return fees, slippage, equity, np.diff(np.concatenate(([1.0], equity)))
+
 try:
     from numba import njit
 except ImportError:  # pragma: no cover - optional dependency
@@ -156,6 +196,7 @@ def run_backtest(
       - fees/slippage se aplican el día del trade como penalización
     """
     out = df.copy()
+    _validate_costs(fee_rate, slippage_bps, slippage_mode, k_atr)
     if out.empty:
         # Return empty df with expected columns
         for col in ["signal", "position", "ret", "strategy_ret", "trade", "fees", "slip_cost", "strategy_ret_net", "equity"]:
@@ -206,10 +247,12 @@ def run_backtest(
 
     out["trade"] = trade
 
+    fees, slip_amount, equity, strategy_ret_net = _apply_fill_accounting(
+        close, trade, slip_cost, fee_rate=float(fee_rate)
+    )
     out["fees"] = fees
-    out["slip_cost"] = slip_cost
-
-    out["strategy_ret_net"] = out["strategy_ret"] - out["fees"] - out["slip_cost"]
-    out["equity"] = (1.0 + out["strategy_ret_net"]).cumprod()
+    out["slip_cost"] = slip_amount
+    out["strategy_ret_net"] = strategy_ret_net
+    out["equity"] = equity
 
     return out

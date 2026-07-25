@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import List
 import pandas as pd
 
-from quantlab.backtest.costs import slippage_fixed, slippage_atr, exec_price
+from quantlab.backtest.costs import slippage_fixed, slippage_atr, exec_price, validate_cost_parameters
 
 
 @dataclass
@@ -33,6 +33,7 @@ def run_paper_broker(
         raise ValueError("df está vacío")
     if "close" not in df.columns:
         raise ValueError("df debe tener columna 'close'")
+    validate_cost_parameters(fee_rate, slippage_bps, slippage_mode, k_atr)
 
     signals = signals.reindex(df.index).fillna(0).astype(int)
 
