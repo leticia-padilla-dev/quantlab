@@ -270,7 +270,8 @@ def handle_run_command(args) -> bool:
             slippage_mode=args.slippage_mode,
             k_atr=args.k_atr,
         )
-        metrics = compute_metrics(bt)
+        import inspect
+        metrics = compute_metrics(bt, interval=args.interval) if "interval" in inspect.signature(compute_metrics).parameters else compute_metrics(bt)
 
         print("\n=== BACKTEST METRICS ===")
         for k, v in metrics.items():

@@ -505,7 +505,11 @@ def build_advanced_metrics(run_dir: str | Path) -> Dict[str, Any]:
     run_path = Path(run_dir)
     report = _load_run_report(run_path)
     header = report.get("header", {})
-    interval = header.get("interval") or report.get("interval")
+    interval = (
+        report.get("config_resolved", {}).get("interval")
+        or header.get("interval")
+        or report.get("interval")
+    )
 
     payload: Dict[str, Any] = {
         "run_id": header.get("run_id") or run_path.name,

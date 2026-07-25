@@ -6,6 +6,7 @@ import math
 import pandas as pd
 
 
+_ALIASES = {"1wk": "1w"}
 _INTERVALS = {"1d": 365.0, "1w": 52.0, "1h": 8760.0, "1m": 525600.0}
 
 
@@ -20,6 +21,7 @@ class AnnualizationContext:
 
 
 def resolve_annualization(index, interval: str | None = None) -> AnnualizationContext:
+    interval = _ALIASES.get(interval, interval)
     if interval not in _INTERVALS:
         return AnnualizationContext(interval, None, None, "unavailable", "unavailable", "unsupported_interval")
     try:
@@ -41,5 +43,5 @@ def resolve_annualization(index, interval: str | None = None) -> AnnualizationCo
         return AnnualizationContext(interval, None, None, "unavailable", "unavailable", "insufficient_span")
     periods = _INTERVALS[interval]
     if interval == "1d":
-        periods = 365.0 if (deltas < 86400.0 * 1.5).mean() > 0.8 else 252.0
+        periods = 365.0 if (deltas > 86400.0 * 1.5).mean() < 0.1 else 252.0
     return AnnualizationContext(interval, elapsed_years, periods, "interval_and_timestamps", "valid")
