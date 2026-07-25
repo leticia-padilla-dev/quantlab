@@ -360,6 +360,9 @@ def run_forward_evaluation(
     if "close" not in df.columns:
         raise ValueError("OHLC DataFrame must contain a 'close' column.")
 
+    if initial_state is not None and initial_state.has_open_position and initial_state.open_position_entry_value <= 0:
+        raise ValueError("Cannot resume open position without recoverable entry basis")
+
     eval_start_ts = _as_ts(eval_start)
     eval_end_ts = _as_ts(eval_end)
 
@@ -677,6 +680,19 @@ def load_forward_session(session_dir: str | Path) -> Dict[str, Any]:
 
     trades_path = p / "forward_trades.csv"
     trades = pd.read_csv(trades_path) if trades_path.exists() else pd.DataFrame()
+
+    if state.has_open_position and state.open_position_entry_value <= 0:
+        if trades.empty or "side" not in trades.columns or "equity_after" not in trades.columns:
+            raise ValueError("Cannot recover open-position entry basis from session ledger")
+        open_buy: Optional[pd.Series] = None
+        for _, row in trades.sort_values("timestamp").iterrows():
+            if str(row.get("side")) == "BUY":
+                open_buy = row
+            elif str(row.get("side")) == "SELL":
+                open_buy = None
+        if open_buy is None or not math.isfinite(float(open_buy.get("equity_after", 0.0))) or float(open_buy.get("equity_after", 0.0)) <= 0:
+            raise ValueError("Cannot unambiguously recover open-position entry basis")
+        state.open_position_entry_value = float(open_buy["equity_after"])
 
     equity_path = p / "forward_equity_curve.csv"
     equity = pd.read_csv(equity_path) if equity_path.exists() else pd.DataFrame()
