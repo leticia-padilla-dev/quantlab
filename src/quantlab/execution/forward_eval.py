@@ -137,6 +137,7 @@ class PortfolioState:
     has_open_position: bool = False
     open_position_qty: float = 0.0
     open_position_entry_price: Optional[float] = None
+    open_position_entry_value: float = 0.0
     open_position_mark_price: Optional[float] = None
     open_position_market_value: float = 0.0
     bars_fetched: int = 0
@@ -710,7 +711,7 @@ def update_portfolio_state(
 
     if not trades_df.empty:
         last_trade = trades_df.iloc[-1]
-        state.n_trades = len(trades_df)
+        state.n_trades += len(trades_df)
 
         last_ts = _as_ts(last_trade["timestamp"])
         if last_ts is not None:
@@ -724,8 +725,8 @@ def update_portfolio_state(
             state.qty = 0.0
             state.cash = float(last_trade["equity_after"])
 
-        state.total_fees = float(trades_df["fee"].sum())
-        state.total_slippage = float(trades_df["slippage"].sum())
+        state.total_fees += float(trades_df["fee"].sum())
+        state.total_slippage += float(trades_df["slippage"].sum())
 
     if not equity_series.empty:
         state.current_equity = float(equity_series.iloc[-1]) * initial_cash
@@ -737,7 +738,11 @@ def update_portfolio_state(
 
     if not trades_df.empty:
         pnl_list = []
-        open_val = None
+        open_val = (
+            float(state.open_position_entry_value)
+            if state.has_open_position and state.open_position_entry_value
+            else None
+        )
         for _, row in trades_df.iterrows():
             if row["side"] == "BUY":
                 open_val = float(row["equity_after"])
@@ -745,13 +750,14 @@ def update_portfolio_state(
                 pnl_list.append(float(row["equity_after"]) - open_val)
                 open_val = None
 
-        state.realized_pnl = sum(pnl_list)
+        state.realized_pnl += sum(pnl_list)
 
         last_trade = trades_df.iloc[-1]
         if last_trade["side"] == "BUY":
             state.has_open_position = True
             state.open_position_qty = float(last_trade["qty"])
             state.open_position_entry_price = float(last_trade["exec_price"])
+            state.open_position_entry_value = float(last_trade["equity_after"])
 
             mark_price = (
                 state.current_equity / state.open_position_qty
@@ -764,6 +770,7 @@ def update_portfolio_state(
             state.has_open_position = False
             state.open_position_qty = 0.0
             state.open_position_entry_price = None
+            state.open_position_entry_value = 0.0
             state.open_position_mark_price = None
             state.open_position_market_value = 0.0
             state.unrealized_pnl = 0.0
