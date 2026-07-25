@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
+from quantlab.quant.annualization import resolve_annualization
 
 from quantlab.reporting.charts import plot_equity_curve, plot_drawdown
 from quantlab.reporting.report_summary import build_standard_summary
@@ -58,6 +59,7 @@ def _compute_summary_metrics(
     equity: pd.Series,
     trades_df: pd.DataFrame,
     initial_cash: float,
+    interval: str | None = None,
 ) -> Dict[str, Any]:
     """Derive summary metrics from equity curve and trade log."""
     metrics: Dict[str, Any] = {}
@@ -76,9 +78,13 @@ def _compute_summary_metrics(
         # Ann. volatility
         daily_ret = eq.pct_change().dropna()
         import numpy as np
-        metrics["annualized_volatility"] = (
-            float(daily_ret.std() * np.sqrt(252)) if len(daily_ret) > 1 else None
-        )
+        context = resolve_annualization(eq.index, interval)
+        metrics["annualized_volatility"] = float(daily_ret.std() * np.sqrt(context.periods_per_year)) if len(daily_ret) > 1 and context.periods_per_year else None
+        metrics["interval"] = interval
+        metrics["periods_per_year"] = context.periods_per_year
+        metrics["annualization_source"] = context.annualization_source
+        metrics["annualization_status"] = context.annualization_status
+        metrics["annualization_reason"] = context.reason
         metrics["n_bars"] = len(eq)
 
     # Trade metrics
@@ -175,7 +181,11 @@ def build_forward_report(out_dir: str | Path) -> Dict[str, Any]:
         try:
             df_eq = pd.read_csv(eq_path)
             if "equity" in df_eq.columns:
-                equity = df_eq["equity"].dropna()
+                values = df_eq["equity"].dropna()
+                if "timestamp" in df_eq.columns:
+                    equity = pd.Series(values.to_numpy(), index=pd.to_datetime(df_eq.loc[values.index, "timestamp"], errors="coerce"))
+                else:
+                    equity = values
         except Exception:
             pass
 
@@ -187,6 +197,7 @@ def build_forward_report(out_dir: str | Path) -> Dict[str, Any]:
         equity=equity,
         trades_df=trades_df,
         initial_cash=initial_cash or 10_000.0,
+        interval=candidate.get("interval"),
     )
 
     # Artifact list

@@ -17,11 +17,13 @@ generate_charts(run_dir, out_dir)            -> list[str]
 
 from __future__ import annotations
 
+import json
 import warnings
 from pathlib import Path
 from typing import List, Optional
 
 import numpy as np
+from quantlab.quant.annualization import resolve_annualization
 import pandas as pd
 
 # matplotlib in non-interactive mode (no display required)
@@ -112,6 +114,42 @@ def _savefig(fig: plt.Figure, out_path: str) -> str:
     fig.savefig(out_path, dpi=120, bbox_inches="tight", facecolor=fig.get_facecolor())
     plt.close(fig)
     return out_path
+
+
+def _load_run_interval(run_path: Path) -> str | None:
+    """Load interval metadata from canonical or experiment run artifacts."""
+    config_path = run_path / "config.json"
+    if config_path.exists():
+        try:
+            with config_path.open(encoding="utf-8") as fh:
+                interval = (json.load(fh) or {}).get("interval")
+            if interval:
+                return str(interval)
+        except Exception:
+            pass
+
+    report_path = run_path / "report.json"
+    if report_path.exists():
+        try:
+            with report_path.open(encoding="utf-8") as fh:
+                report = json.load(fh) or {}
+            interval = (report.get("config_resolved") or {}).get("interval")
+            if interval:
+                return str(interval)
+        except Exception:
+            pass
+
+    config_resolved_path = run_path / "config_resolved.yaml"
+    if config_resolved_path.exists():
+        try:
+            import yaml
+            with config_resolved_path.open(encoding="utf-8") as fh:
+                interval = (yaml.safe_load(fh) or {}).get("interval")
+            if interval:
+                return str(interval)
+        except Exception:
+            pass
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -229,7 +267,7 @@ def plot_trade_distribution(rt: pd.DataFrame, out_path: str) -> Optional[str]:
         return None
 
 
-def plot_rolling_performance(equity: pd.Series, out_path: str, window: int = 60) -> Optional[str]:
+def plot_rolling_performance(equity: pd.Series, out_path: str, window: int = 60, interval: str | None = None) -> Optional[str]:
     """
     Plot a rolling Sharpe ratio.
 
@@ -242,10 +280,13 @@ def plot_rolling_performance(equity: pd.Series, out_path: str, window: int = 60)
             return None
 
         daily_ret = equity.pct_change().dropna()
+        context = resolve_annualization(equity.index, interval)
+        if context.periods_per_year is None:
+            return None
         rolling_sharpe = (
             daily_ret.rolling(window).mean()
             / (daily_ret.rolling(window).std() + 1e-12)
-            * np.sqrt(252)
+            * np.sqrt(context.periods_per_year)
         ).dropna()
 
         if len(rolling_sharpe) < 2:
@@ -254,10 +295,10 @@ def plot_rolling_performance(equity: pd.Series, out_path: str, window: int = 60)
         with plt.rc_context(_STYLE):
             fig, ax = plt.subplots(figsize=(12, 4))
             ax.plot(rolling_sharpe.index, rolling_sharpe.values,
-                    color=_ROLL_COLOR, linewidth=1.5, label=f"{window}d Rolling Sharpe")
+                    color=_ROLL_COLOR, linewidth=1.5, label=f"{window}-period Rolling Sharpe")
             ax.axhline(0, color="#ffffff", linewidth=0.6, linestyle="--", alpha=0.5)
             ax.axhline(1, color=_WIN_COLOR, linewidth=0.8, linestyle=":", alpha=0.6)
-            ax.set_title(f"Rolling Sharpe ({window}-day)", fontsize=14, fontweight="bold")
+            ax.set_title(f"Rolling Sharpe ({window}-period)", fontsize=14, fontweight="bold")
             ax.set_xlabel("Date / Period")
             ax.set_ylabel("Sharpe (ann.)")
             ax.legend(loc="upper left")
@@ -340,6 +381,7 @@ def generate_charts(run_dir: str | Path, out_dir: Optional[str | Path] = None) -
     run_path = Path(run_dir)
     out = Path(out_dir) if out_dir else run_path
     out.mkdir(parents=True, exist_ok=True)
+    interval = _load_run_interval(run_path)
 
     equity: Optional[pd.Series] = None
     rt: Optional[pd.DataFrame] = None
@@ -372,7 +414,7 @@ def generate_charts(run_dir: str | Path, out_dir: Optional[str | Path] = None) -
     _try(plot_equity_curve, equity, str(out / "chart_equity.png"))
     _try(plot_drawdown, equity, str(out / "chart_drawdown.png"))
     _try(plot_trade_distribution, rt, str(out / "chart_trade_dist.png"))
-    _try(plot_rolling_performance, equity, str(out / "chart_rolling_sharpe.png"))
+    _try(plot_rolling_performance, equity, str(out / "chart_rolling_sharpe.png"), 60, interval)
     _try(plot_monthly_returns, equity, str(out / "chart_monthly_returns.png"))
 
     return generated

@@ -84,7 +84,7 @@ def test_plot_trade_distribution_none_on_empty(tmp_path):
 def test_plot_rolling_performance_creates_file(tmp_path):
     equity = _make_equity(200)
     out = str(tmp_path / "roll.png")
-    result = plot_rolling_performance(equity, out, window=30)
+    result = plot_rolling_performance(equity, out, window=30, interval="1d")
     assert result is not None
     assert Path(result).exists()
 
