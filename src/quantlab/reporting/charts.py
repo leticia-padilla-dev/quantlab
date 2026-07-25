@@ -17,6 +17,7 @@ generate_charts(run_dir, out_dir)            -> list[str]
 
 from __future__ import annotations
 
+import json
 import warnings
 from pathlib import Path
 from typing import List, Optional
@@ -113,6 +114,42 @@ def _savefig(fig: plt.Figure, out_path: str) -> str:
     fig.savefig(out_path, dpi=120, bbox_inches="tight", facecolor=fig.get_facecolor())
     plt.close(fig)
     return out_path
+
+
+def _load_run_interval(run_path: Path) -> str | None:
+    """Load interval metadata from canonical or experiment run artifacts."""
+    config_path = run_path / "config.json"
+    if config_path.exists():
+        try:
+            with config_path.open(encoding="utf-8") as fh:
+                interval = (json.load(fh) or {}).get("interval")
+            if interval:
+                return str(interval)
+        except Exception:
+            pass
+
+    report_path = run_path / "report.json"
+    if report_path.exists():
+        try:
+            with report_path.open(encoding="utf-8") as fh:
+                report = json.load(fh) or {}
+            interval = (report.get("config_resolved") or {}).get("interval")
+            if interval:
+                return str(interval)
+        except Exception:
+            pass
+
+    config_resolved_path = run_path / "config_resolved.yaml"
+    if config_resolved_path.exists():
+        try:
+            import yaml
+            with config_resolved_path.open(encoding="utf-8") as fh:
+                interval = (yaml.safe_load(fh) or {}).get("interval")
+            if interval:
+                return str(interval)
+        except Exception:
+            pass
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -344,15 +381,7 @@ def generate_charts(run_dir: str | Path, out_dir: Optional[str | Path] = None) -
     run_path = Path(run_dir)
     out = Path(out_dir) if out_dir else run_path
     out.mkdir(parents=True, exist_ok=True)
-    interval = None
-    config_path = run_path / "config_resolved.yaml"
-    if config_path.exists():
-        try:
-            import yaml
-            with config_path.open(encoding="utf-8") as fh:
-                interval = (yaml.safe_load(fh) or {}).get("interval")
-        except Exception:
-            interval = None
+    interval = _load_run_interval(run_path)
 
     equity: Optional[pd.Series] = None
     rt: Optional[pd.DataFrame] = None

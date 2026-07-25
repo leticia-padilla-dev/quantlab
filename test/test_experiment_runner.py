@@ -1,6 +1,15 @@
 import pytest
 import pandas as pd
+from quantlab.experiments import runner
 from quantlab.experiments.runner import expand_grid
+
+
+class _FakeStrategy:
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def generate_signals(self, df):
+        return pd.Series(0, index=df.index, dtype="int64")
 
 def test_expand_grid_creates_correct_count():
     """
@@ -45,3 +54,50 @@ def test_expand_grid_preserves_other_keys():
     for r in runs:
         assert r["ticker"] == "ETH-USD"
         assert r["fee"] == 0.002
+
+
+def test_run_one_paths_propagate_interval_to_shared_metrics(monkeypatch):
+    index = pd.date_range("2023-01-01", periods=12, freq="W")
+    prices = pd.DataFrame({"close": range(100, 112)}, index=index)
+    backtest = pd.DataFrame(
+        {
+            "equity": pd.Series(range(100, 112), index=index) / 100,
+            "position": 1,
+            "trade": 0,
+            "strategy_ret_net": 0.01,
+        },
+        index=index,
+    )
+    seen_intervals: list[str | None] = []
+
+    monkeypatch.setattr(runner, "fetch_ohlc_cached", lambda *args, **kwargs: prices)
+    monkeypatch.setattr(runner, "add_indicators", lambda df: df)
+    monkeypatch.setattr(runner, "RsiMaAtrStrategy", _FakeStrategy)
+    monkeypatch.setattr(runner, "run_backtest", lambda **kwargs: backtest)
+    monkeypatch.setattr(
+        runner,
+        "run_paper_broker",
+        lambda **kwargs: pd.DataFrame(),
+    )
+
+    def capture_metrics(bt, interval=None):
+        seen_intervals.append(interval)
+        return {
+            "total_return": 0.1,
+            "max_drawdown": 0.0,
+            "sharpe_simple": 1.0,
+            "trades": 0,
+        }
+
+    monkeypatch.setattr(runner, "compute_metrics", capture_metrics)
+    config = {
+        "ticker": "ETH-USD",
+        "start": "2023-01-01",
+        "end": "2023-03-31",
+        "interval": "1wk",
+    }
+
+    runner.run_one(config)
+    runner.run_one_with_timeseries(config)
+
+    assert seen_intervals == ["1wk", "1wk"]

@@ -80,6 +80,11 @@ def _compute_summary_metrics(
         import numpy as np
         context = resolve_annualization(eq.index, interval)
         metrics["annualized_volatility"] = float(daily_ret.std() * np.sqrt(context.periods_per_year)) if len(daily_ret) > 1 and context.periods_per_year else None
+        metrics["interval"] = interval
+        metrics["periods_per_year"] = context.periods_per_year
+        metrics["annualization_source"] = context.annualization_source
+        metrics["annualization_status"] = context.annualization_status
+        metrics["annualization_reason"] = context.reason
         metrics["n_bars"] = len(eq)
 
     # Trade metrics

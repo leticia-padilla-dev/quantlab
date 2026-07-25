@@ -73,17 +73,20 @@ def test_run_creates_canonical_run_directory_and_artifacts(monkeypatch, tmp_path
         "quantlab.cli.run.run_backtest",
         lambda **kwargs: _fake_backtest_frame(idx),
     )
-    monkeypatch.setattr(
-        "quantlab.cli.run.compute_metrics",
-        lambda bt: {
+    seen_intervals: list[str | None] = []
+
+    def fake_compute_metrics(bt, interval=None):
+        seen_intervals.append(interval)
+        return {
             "total_return": 0.03,
             "max_drawdown": -0.01,
             "sharpe_simple": 1.25,
             "winrate_active_days": 1.0,
             "days": 3,
             "trades": 1,
-        },
-    )
+        }
+
+    monkeypatch.setattr("quantlab.cli.run.compute_metrics", fake_compute_metrics)
     monkeypatch.setattr("quantlab.cli.run.plot_basic_equity", lambda *args, **kwargs: None)
 
     result = handle_run_command(_make_args(tmp_path))
@@ -123,6 +126,7 @@ def test_run_creates_canonical_run_directory_and_artifacts(monkeypatch, tmp_path
     assert report["summary"]["total_return"] == 0.03
     assert report["summary"] == report["machine_contract"]["summary"]
     assert report["machine_contract"]["artifacts"]["report"] == "report.json"
+    assert seen_intervals == ["1d"]
 
 
 def test_run_copies_explicit_trades_csv_into_canonical_run_dir(monkeypatch, tmp_path):

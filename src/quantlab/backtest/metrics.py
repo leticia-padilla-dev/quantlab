@@ -17,7 +17,7 @@ def compute_metrics(bt: pd.DataFrame, interval: str | None = None) -> dict:
     total = active.sum()
     winrate = float(wins / total) if total > 0 else 0.0
 
-    # Sharpe simple (diario) - sin tasa libre
+    # Sharpe simple por periodo, sin tasa libre
     r = bt["strategy_ret_net"]
     context = resolve_annualization(bt.index, interval)
     factor = context.periods_per_year
