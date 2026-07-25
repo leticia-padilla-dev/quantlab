@@ -32,3 +32,8 @@ def test_invalid_timestamp_evidence_fails_closed():
     index = pd.to_datetime(["2024-01-01", "2024-01-01", "2024-01-03"])
     context = resolve_annualization(index, "1d")
     assert context.annualization_status == "unavailable"
+
+
+def test_insufficient_sample_or_span_fails_closed():
+    short = resolve_annualization(pd.date_range("2024-01-01", periods=2, freq="D"), "1d")
+    assert short.annualization_status == "unavailable"

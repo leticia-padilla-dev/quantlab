@@ -28,7 +28,7 @@ def resolve_annualization(index, interval: str | None = None) -> AnnualizationCo
         ts = pd.DatetimeIndex(index)
     except (TypeError, ValueError):
         return AnnualizationContext(interval, None, None, "unavailable", "unavailable", "timestamps_required")
-    if len(ts) < 2 or not ts.is_monotonic_increasing or ts.has_duplicates:
+    if len(ts) < 3 or not ts.is_monotonic_increasing or ts.has_duplicates:
         return AnnualizationContext(interval, None, None, "unavailable", "unavailable", "invalid_timestamps")
     deltas = ts.to_series().diff().dropna().dt.total_seconds()
     median = float(deltas.median())
@@ -39,7 +39,7 @@ def resolve_annualization(index, interval: str | None = None) -> AnnualizationCo
     if median <= 0 or irregular or abs(median - expected) > expected * 0.05:
         return AnnualizationContext(interval, None, None, "unavailable", "unavailable", "interval_timestamp_mismatch")
     elapsed_years = (ts[-1] - ts[0]).total_seconds() / (365.25 * 86400.0)
-    if elapsed_years <= 0:
+    if elapsed_years <= 0 or (ts[-1] - ts[0]).total_seconds() < expected:
         return AnnualizationContext(interval, None, None, "unavailable", "unavailable", "insufficient_span")
     periods = _INTERVALS[interval]
     if interval == "1d":

@@ -344,6 +344,15 @@ def generate_charts(run_dir: str | Path, out_dir: Optional[str | Path] = None) -
     run_path = Path(run_dir)
     out = Path(out_dir) if out_dir else run_path
     out.mkdir(parents=True, exist_ok=True)
+    interval = None
+    config_path = run_path / "config_resolved.yaml"
+    if config_path.exists():
+        try:
+            import yaml
+            with config_path.open(encoding="utf-8") as fh:
+                interval = (yaml.safe_load(fh) or {}).get("interval")
+        except Exception:
+            interval = None
 
     equity: Optional[pd.Series] = None
     rt: Optional[pd.DataFrame] = None
@@ -376,7 +385,7 @@ def generate_charts(run_dir: str | Path, out_dir: Optional[str | Path] = None) -
     _try(plot_equity_curve, equity, str(out / "chart_equity.png"))
     _try(plot_drawdown, equity, str(out / "chart_drawdown.png"))
     _try(plot_trade_distribution, rt, str(out / "chart_trade_dist.png"))
-    _try(plot_rolling_performance, equity, str(out / "chart_rolling_sharpe.png"))
+    _try(plot_rolling_performance, equity, str(out / "chart_rolling_sharpe.png"), 60, interval)
     _try(plot_monthly_returns, equity, str(out / "chart_monthly_returns.png"))
 
     return generated
