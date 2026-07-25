@@ -31,7 +31,10 @@ def resolve_annualization(index, interval: str | None = None) -> AnnualizationCo
     deltas = ts.to_series().diff().dropna().dt.total_seconds()
     median = float(deltas.median())
     expected = {"1d": 86400.0, "1w": 604800.0, "1h": 3600.0, "1m": 60.0}[interval]
-    if median <= 0 or (deltas.sub(median).abs() > max(1.0, median * 0.05)).any() or abs(median - expected) > expected * 0.05:
+    irregular = (deltas.sub(median).abs() > max(1.0, median * 0.05)).any()
+    if interval == "1d":
+        irregular = bool((deltas < 86400.0).any() or (deltas > 86400.0 * 4.0).any())
+    if median <= 0 or irregular or abs(median - expected) > expected * 0.05:
         return AnnualizationContext(interval, None, None, "unavailable", "unavailable", "interval_timestamp_mismatch")
     elapsed_years = (ts[-1] - ts[0]).total_seconds() / (365.25 * 86400.0)
     if elapsed_years <= 0:

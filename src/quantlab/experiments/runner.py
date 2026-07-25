@@ -225,7 +225,7 @@ def run_one_with_timeseries(config: Dict[str, Any]):
         slippage_mode=config.get("slippage_mode", "fixed"),
         k_atr=config.get("k_atr", 0.05),
     )
-    bt_metrics = compute_metrics(bt)
+    bt_metrics = compute_metrics(bt, interval=config.get("interval"))
 
     trades_df = run_paper_broker(
         df=df,

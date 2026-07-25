@@ -170,7 +170,7 @@ def compute_equity_metrics(equity: pd.Series, interval: str | None = None) -> Di
     return result
 
 
-def compute_drawdown_metrics(equity: pd.Series) -> Dict[str, Any]:
+def compute_drawdown_metrics(equity: pd.Series, interval: str | None = None) -> Dict[str, Any]:
     """
     Compute drawdown-related metrics from an equity curve.
 
@@ -218,11 +218,11 @@ def compute_drawdown_metrics(equity: pd.Series) -> Dict[str, Any]:
     n_dd_periods = len(run_lengths)
 
     # Calmar: suppress when drawdown is trivially small
-    n_days = len(eq)
-    years = n_days / 252.0
+    context = resolve_annualization(eq.index, interval)
+    years = context.elapsed_years
     end_val = float(eq.iloc[-1])
     start_val = float(eq.iloc[0])
-    if years > 0 and abs(max_dd) >= _MIN_DD_FOR_CALMAR:
+    if years and years > 0 and abs(max_dd) >= _MIN_DD_FOR_CALMAR:
         cagr = (end_val / start_val) ** (1.0 / years) - 1.0
         calmar: Optional[float] = _san(cagr / abs(max_dd))
     else:
@@ -235,6 +235,9 @@ def compute_drawdown_metrics(equity: pd.Series) -> Dict[str, Any]:
         "longest_dd_days": longest_dd,
         "n_drawdown_periods": n_dd_periods,
         "calmar": calmar,
+        "interval": interval,
+        "periods_per_year": context.periods_per_year,
+        "annualization_status": context.annualization_status,
     }
 
 
@@ -502,6 +505,7 @@ def build_advanced_metrics(run_dir: str | Path) -> Dict[str, Any]:
     run_path = Path(run_dir)
     report = _load_run_report(run_path)
     header = report.get("header", {})
+    interval = header.get("interval") or report.get("interval")
 
     payload: Dict[str, Any] = {
         "run_id": header.get("run_id") or run_path.name,
@@ -512,8 +516,8 @@ def build_advanced_metrics(run_dir: str | Path) -> Dict[str, Any]:
     # --- Equity metrics from trades.csv (if present) ---
     equity = _load_equity_from_artifacts(run_path)
     if equity is not None and len(equity) >= 2:
-        payload["equity_metrics"] = compute_equity_metrics(equity)
-        payload["drawdown_metrics"] = compute_drawdown_metrics(equity)
+        payload["equity_metrics"] = compute_equity_metrics(equity, interval)
+        payload["drawdown_metrics"] = compute_drawdown_metrics(equity, interval)
         payload["time_window_metrics"] = compute_time_window_metrics(equity)
     else:
         payload["equity_metrics"] = {}

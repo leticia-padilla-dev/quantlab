@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import List, Optional
 
 import numpy as np
+from quantlab.quant.annualization import resolve_annualization
 import pandas as pd
 
 # matplotlib in non-interactive mode (no display required)
@@ -229,7 +230,7 @@ def plot_trade_distribution(rt: pd.DataFrame, out_path: str) -> Optional[str]:
         return None
 
 
-def plot_rolling_performance(equity: pd.Series, out_path: str, window: int = 60) -> Optional[str]:
+def plot_rolling_performance(equity: pd.Series, out_path: str, window: int = 60, interval: str | None = None) -> Optional[str]:
     """
     Plot a rolling Sharpe ratio.
 
@@ -242,10 +243,13 @@ def plot_rolling_performance(equity: pd.Series, out_path: str, window: int = 60)
             return None
 
         daily_ret = equity.pct_change().dropna()
+        context = resolve_annualization(equity.index, interval or "1d")
+        if context.periods_per_year is None:
+            return None
         rolling_sharpe = (
             daily_ret.rolling(window).mean()
             / (daily_ret.rolling(window).std() + 1e-12)
-            * np.sqrt(252)
+            * np.sqrt(context.periods_per_year)
         ).dropna()
 
         if len(rolling_sharpe) < 2:
@@ -254,10 +258,10 @@ def plot_rolling_performance(equity: pd.Series, out_path: str, window: int = 60)
         with plt.rc_context(_STYLE):
             fig, ax = plt.subplots(figsize=(12, 4))
             ax.plot(rolling_sharpe.index, rolling_sharpe.values,
-                    color=_ROLL_COLOR, linewidth=1.5, label=f"{window}d Rolling Sharpe")
+                    color=_ROLL_COLOR, linewidth=1.5, label=f"{window}-period Rolling Sharpe")
             ax.axhline(0, color="#ffffff", linewidth=0.6, linestyle="--", alpha=0.5)
             ax.axhline(1, color=_WIN_COLOR, linewidth=0.8, linestyle=":", alpha=0.6)
-            ax.set_title(f"Rolling Sharpe ({window}-day)", fontsize=14, fontweight="bold")
+            ax.set_title(f"Rolling Sharpe ({window}-period)", fontsize=14, fontweight="bold")
             ax.set_xlabel("Date / Period")
             ax.set_ylabel("Sharpe (ann.)")
             ax.legend(loc="upper left")
