@@ -151,6 +151,22 @@ the digest, the quantitative contract, and the shared canonical metric
 payload. Administrative timestamps, absolute filesystem paths, JSON
 formatting, and key order do not affect it.
 
+When a post-authority consumer reads a separate quantitative CSV or JSON
+input, the canonical metric payload also contains one shared
+`bound_quantitative_inputs` manifest. It binds the normalized content of
+candidate leaderboards, walk-forward summaries, portfolio state, and forward
+equity inputs. A missing binding, malformed input, or digest mismatch makes
+the artifact ineligible before those values can affect selection or
+promotion.
+
+Non-editable package builds embed the full source Git commit at build time.
+Explicit validated runtime sources take precedence:
+`QUANTLAB_SOURCE_GIT_COMMIT`, `QUANTLAB_SOURCE_REPOSITORY`, and the full
+`GITHUB_SHA` when `GITHUB_ACTIONS=true`. Otherwise, installed packages use
+their embedded build commit and editable installs use verified
+editable-install metadata. If no reliable full commit is available, artifact
+production fails closed.
+
 Authority is always derived by the shared resolver; an embedded
 `authority_status` is not trusted. The states are:
 
@@ -162,6 +178,12 @@ Authority is always derived by the shared resolver; an embedded
 
 Legacy artifacts without recognized provenance remain readable and visible
 as `unknown_provenance`.
+
+A canonical provenance surface is classified as absent, present-valid, or
+present-invalid. Any present `metadata.json`, `session_metadata.json`,
+`metrics.json`, or `report.json` that is unreadable, malformed, truncated, or
+not a JSON object makes authority `unknown_provenance`; it is never treated as
+though the file were absent.
 
 An optional non-destructive registry named
 `quantitative_authority_registry.json` may live beside artifact directories.

@@ -83,6 +83,8 @@ def _build_metrics_payload(
         "sharpe_simple": bt_metrics.get("sharpe_simple", 0.0),
         "trades": bt_metrics.get("trades", 0),
         "days": bt_metrics.get("days", 0),
+        "annualization_status": bt_metrics.get("annualization_status"),
+        "annualization_reason": bt_metrics.get("annualization_reason"),
     }
     if trade_metrics:
         best_result.update(
@@ -367,7 +369,6 @@ def handle_run_command(args) -> bool:
                 relative_run_path=paper_session_id,
                 source_git_commit=source_git_commit,
                 run_id=paper_session_id,
-                **_annualization_provenance(metrics),
             )
             paper_store.write_metadata(paper_metadata)
             paper_store.write_config(config)
@@ -380,7 +381,6 @@ def handle_run_command(args) -> bool:
                 relative_run_path=run_id,
                 source_git_commit=source_git_commit,
                 run_id=run_id,
-                **_annualization_provenance(metrics),
             )
             store.write_metadata(metadata)
             store.write_config(config)
@@ -470,25 +470,6 @@ def handle_run_command(args) -> bool:
             )
             _refresh_paper_sessions_index(paper_sessions_root)
         raise
-
-
-def _annualization_provenance(
-    metrics: dict[str, Any],
-) -> dict[str, str | None]:
-    """Translate metric annualization diagnostics into contract applicability."""
-
-    if metrics.get("annualization_status") == "unavailable":
-        return {
-            "annualization_applicability": "unavailable",
-            "annualization_reason": str(
-                metrics.get("annualization_reason")
-                or "metric_annualization_unavailable"
-            ),
-        }
-    return {
-        "annualization_applicability": "applied",
-        "annualization_reason": None,
-    }
 
 
 # Backward-compatible alias for older refactor paths / tests

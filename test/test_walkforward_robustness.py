@@ -11,6 +11,7 @@ from quantlab.evaluation.walkforward_robustness import (
 )
 from quantlab.runs.quantitative_provenance import (
     attach_quantitative_provenance,
+    build_quantitative_input_manifest,
     propagate_quantitative_provenance_to_report,
 )
 
@@ -22,6 +23,34 @@ def _stamp_authoritative_walkforward(
     run_dir: Path, rows: list[dict]
 ) -> None:
     best_result = rows[0] if rows else None
+    metrics_payload = {
+        "summary": {
+            "total_return": (
+                best_result.get("avg_test_return_topk")
+                if best_result
+                else None
+            ),
+            "sharpe_simple": (
+                best_result.get("avg_test_sharpe_topk")
+                if best_result
+                else None
+            ),
+        },
+        "best_result": best_result,
+        "leaderboard_size": len(rows),
+    }
+    bound_inputs = tuple(
+        filename
+        for filename in (
+            "walkforward_summary.csv",
+            "oos_leaderboard.csv",
+        )
+        if (run_dir / filename).is_file()
+    )
+    if bound_inputs:
+        metrics_payload["bound_quantitative_inputs"] = (
+            build_quantitative_input_manifest(run_dir, bound_inputs)
+        )
     metadata, metrics = attach_quantitative_provenance(
         {
             "run_id": run_dir.name,
@@ -29,22 +58,7 @@ def _stamp_authoritative_walkforward(
             "command": "sweep",
             "git_commit": SOURCE_COMMIT,
         },
-        {
-            "summary": {
-                "total_return": (
-                    best_result.get("avg_test_return_topk")
-                    if best_result
-                    else None
-                ),
-                "sharpe_simple": (
-                    best_result.get("avg_test_sharpe_topk")
-                    if best_result
-                    else None
-                ),
-            },
-            "best_result": best_result,
-            "leaderboard_size": len(rows),
-        },
+        metrics_payload,
         artifact_type="walkforward",
         relative_run_path=run_dir.name,
         source_git_commit=SOURCE_COMMIT,
@@ -78,6 +92,10 @@ def _write_summary(run_dir: Path, rows: list[dict]) -> None:
 
 def _write_oos(run_dir: Path, rows: list[dict]) -> None:
     pd.DataFrame(rows).to_csv(run_dir / "oos_leaderboard.csv", index=False)
+    summary_rows = pd.read_csv(
+        run_dir / "walkforward_summary.csv"
+    ).to_dict(orient="records")
+    _stamp_authoritative_walkforward(run_dir, summary_rows)
 
 
 def test_walkforward_robustness_fails_on_weak_split_coverage_and_large_loss(tmp_path):

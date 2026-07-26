@@ -85,6 +85,8 @@ def test_run_creates_canonical_run_directory_and_artifacts(monkeypatch, tmp_path
             "total_return": 0.03,
             "max_drawdown": -0.01,
             "sharpe_simple": 1.25,
+            "annualization_status": "valid",
+            "annualization_reason": None,
             "winrate_active_days": 1.0,
             "days": 3,
             "trades": 1,

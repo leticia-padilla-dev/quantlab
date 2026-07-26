@@ -26,6 +26,7 @@ from quantlab.reporting.charts import plot_equity_curve, plot_drawdown
 from quantlab.reporting.report_summary import build_standard_summary
 from quantlab.runs.quantitative_provenance import (
     attach_report_quantitative_provenance,
+    build_quantitative_input_manifest,
     resolve_source_git_commit,
 )
 
@@ -270,23 +271,26 @@ def build_forward_report(out_dir: str | Path) -> Dict[str, Any]:
         **legacy_summary,
         **standard_summary,
     }
+    consumed_inputs = tuple(
+        filename
+        for filename in (
+            "portfolio_state.json",
+            "forward_equity_curve.csv",
+        )
+        if (out_path / filename).is_file()
+    )
+    if consumed_inputs:
+        payload["bound_quantitative_inputs"] = (
+            build_quantitative_input_manifest(
+                out_path,
+                consumed_inputs,
+            )
+        )
 
     # Check for generated charts
     for f in out_path.glob("forward_chart_*.png"):
         payload["charts"].append(f.name)
 
-    annualization_status = payload["summary"].get("annualization_status")
-    annualization_applicability = (
-        "applied" if annualization_status == "valid" else "unavailable"
-    )
-    annualization_reason = (
-        None
-        if annualization_applicability == "applied"
-        else str(
-            payload["summary"].get("annualization_reason")
-            or "forward_annualization_unavailable"
-        )
-    )
     payload = attach_report_quantitative_provenance(
         payload,
         artifact_type="forward",
@@ -294,8 +298,6 @@ def build_forward_report(out_dir: str | Path) -> Dict[str, Any]:
         source_git_commit=_get_git_commit(),
         run_id=session_id,
         metric_payload=payload,
-        annualization_applicability=annualization_applicability,
-        annualization_reason=annualization_reason,
         forward_resume_applied=bool(
             payload["continuity"].get("resume_count", 0)
         ),

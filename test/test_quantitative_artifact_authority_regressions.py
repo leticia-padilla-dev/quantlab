@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
+import subprocess
+import sys
 from types import SimpleNamespace
 
 import pandas as pd
@@ -25,12 +28,15 @@ from quantlab.runs.quantitative_provenance import (
     attach_quantitative_provenance,
     build_artifact_identity,
     build_canonical_metric_payload,
+    build_quantitative_input_manifest,
     build_quantitative_contract,
     compute_quantitative_evidence_digest,
     propagate_quantitative_provenance_to_report,
+    resolve_source_git_commit,
     resolve_quantitative_authority,
     validate_quantitative_contract,
 )
+from quantlab.experiments.runner import _save_reproducibility_pack
 
 
 SOURCE_COMMIT = "a" * 40
@@ -97,6 +103,10 @@ def _write_current_run(
     artifact_type: str = "run",
     sharpe: float = 1.5,
     source_commit: str = SOURCE_COMMIT,
+    metadata_filename: str = "metadata.json",
+    bound_input_filenames: tuple[str, ...] = (),
+    annualization_status: str | None = None,
+    annualization_reason: str | None = None,
 ) -> tuple[dict, dict, dict]:
     run_dir.mkdir(parents=True, exist_ok=True)
     metadata = {
@@ -121,6 +131,18 @@ def _write_current_run(
         },
         "leaderboard_size": 1,
     }
+    if annualization_status is not None:
+        metrics["best_result"]["annualization_status"] = (
+            annualization_status
+        )
+        metrics["best_result"]["annualization_reason"] = annualization_reason
+    if bound_input_filenames:
+        metrics["bound_quantitative_inputs"] = (
+            build_quantitative_input_manifest(
+                run_dir,
+                bound_input_filenames,
+            )
+        )
     metadata, metrics = attach_quantitative_provenance(
         metadata,
         metrics,
@@ -149,7 +171,7 @@ def _write_current_run(
         metrics,
     )
     for filename, payload in (
-        ("metadata.json", metadata),
+        (metadata_filename, metadata),
         ("metrics.json", metrics),
         ("report.json", report),
     ):
@@ -157,6 +179,42 @@ def _write_current_run(
             json.dumps(payload, indent=2), encoding="utf-8"
         )
     return metadata, metrics, report
+
+
+def _write_candidate_csv(path: Path, *, sharpe: float = 1.5) -> None:
+    pd.DataFrame(
+        [
+            {
+                "strategy_name": "rsi_ma_cross_v2",
+                "ticker": "BTC-USD",
+                "interval": "1d",
+                "sharpe_simple": sharpe,
+                "total_return": 0.2,
+            }
+        ]
+    ).to_csv(path, index=False)
+
+
+def _write_forward_inputs(session_dir: Path) -> None:
+    (session_dir / "portfolio_state.json").write_text(
+        json.dumps(
+            {
+                "session_id": session_dir.name,
+                "starting_cash": 1000.0,
+                "candidate": {
+                    "ticker": "BTC-USD",
+                    "strategy_name": "rsi_ma_cross_v2",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    pd.DataFrame(
+        {
+            "timestamp": ["2026-01-01", "2026-01-02"],
+            "equity": [1.0, 1.1],
+        }
+    ).to_csv(session_dir / "forward_equity_curve.csv", index=False)
 
 
 def _write_registry(root: Path, entries: object) -> Path:
@@ -473,6 +531,403 @@ def test_report_tampering_is_detected_even_when_metrics_are_unchanged(
 
     assert resolution.authority_status == AUTHORITY_UNKNOWN
     assert resolution.authority_reason == "canonical_metric_payload_mismatch"
+
+
+def test_source_commit_resolves_from_a_non_editable_install(
+    tmp_path: Path,
+) -> None:
+    wheel_dir = tmp_path / "wheel"
+    site_packages = tmp_path / "site-packages"
+    outside_checkout = tmp_path / "outside-checkout"
+    repository_root = Path(__file__).resolve().parents[1]
+    wheel_dir.mkdir()
+    outside_checkout.mkdir()
+
+    subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "wheel",
+            "--no-deps",
+            "--wheel-dir",
+            str(wheel_dir),
+            str(repository_root),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    wheel = next(wheel_dir.glob("quantlab-*.whl"))
+    subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            "--no-deps",
+            "--target",
+            str(site_packages),
+            str(wheel),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    environment = os.environ.copy()
+    environment["PYTHONPATH"] = str(site_packages)
+    environment.pop("QUANTLAB_SOURCE_GIT_COMMIT", None)
+    environment.pop("QUANTLAB_SOURCE_REPOSITORY", None)
+    environment.pop("GITHUB_ACTIONS", None)
+    environment.pop("GITHUB_SHA", None)
+    resolved = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "from quantlab.runs.quantitative_provenance "
+                "import resolve_source_git_commit; "
+                "print(resolve_source_git_commit())"
+            ),
+        ],
+        cwd=outside_checkout,
+        env=environment,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+    assert resolved == resolve_source_git_commit()
+    assert len(resolved) == 40
+
+    (site_packages / "quantlab" / "_build_info.py").unlink()
+    unresolved = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "from quantlab.runs.quantitative_provenance "
+                "import resolve_source_git_commit; "
+                "print(resolve_source_git_commit())"
+            ),
+        ],
+        cwd=outside_checkout,
+        env=environment,
+        capture_output=True,
+        text=True,
+    )
+    assert unresolved.returncode != 0
+    assert "Cannot identify the source Git commit" in unresolved.stderr
+
+
+def test_source_commit_accepts_an_explicit_verified_repository(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("QUANTLAB_SOURCE_GIT_COMMIT", raising=False)
+    monkeypatch.setenv(
+        "QUANTLAB_SOURCE_REPOSITORY",
+        str(Path(__file__).resolve().parents[1]),
+    )
+
+    assert resolve_source_git_commit() == subprocess.check_output(
+        ["git", "rev-parse", "HEAD"],
+        cwd=Path(__file__).resolve().parents[1],
+        text=True,
+    ).strip()
+
+
+def test_source_commit_accepts_the_github_actions_evaluated_sha(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    evaluated_sha = "b" * 40
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("QUANTLAB_SOURCE_GIT_COMMIT", raising=False)
+    monkeypatch.delenv("QUANTLAB_SOURCE_REPOSITORY", raising=False)
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    monkeypatch.setenv("GITHUB_SHA", evaluated_sha)
+
+    assert resolve_source_git_commit() == evaluated_sha
+
+
+@pytest.mark.parametrize(
+    ("surface", "artifact_type", "invalid_content"),
+    [
+        ("metadata.json", "run", "{"),
+        ("metrics.json", "run", "not-json"),
+        ("report.json", "run", "[]"),
+        ("session_metadata.json", "paper", "null"),
+    ],
+)
+def test_present_invalid_canonical_surface_fails_closed(
+    tmp_path: Path,
+    surface: str,
+    artifact_type: str,
+    invalid_content: str,
+) -> None:
+    run_dir = tmp_path / f"invalid-{surface.replace('.', '-')}"
+    metadata_filename = (
+        "session_metadata.json"
+        if surface == "session_metadata.json"
+        else "metadata.json"
+    )
+    _write_current_run(
+        run_dir,
+        artifact_type=artifact_type,
+        metadata_filename=metadata_filename,
+    )
+    (run_dir / surface).write_text(invalid_content, encoding="utf-8")
+
+    resolution = resolve_quantitative_authority(run_dir)
+
+    assert resolution.authority_status == AUTHORITY_UNKNOWN
+    assert resolution.authority_reason == f"canonical_surface_invalid:{surface}"
+
+
+def test_unreadable_broken_canonical_surface_fails_closed(
+    tmp_path: Path,
+) -> None:
+    run_dir = tmp_path / "broken-canonical-surface"
+    _write_current_run(run_dir)
+    report_path = run_dir / "report.json"
+    report_path.unlink()
+    report_path.symlink_to(run_dir / "missing-report-target.json")
+
+    resolution = resolve_quantitative_authority(run_dir)
+
+    assert resolution.authority_status == AUTHORITY_UNKNOWN
+    assert (
+        resolution.authority_reason
+        == "canonical_surface_invalid:report.json"
+    )
+
+
+@pytest.mark.parametrize(
+    "filename",
+    ["leaderboard.csv", "experiments.csv", "oos_leaderboard.csv"],
+)
+def test_forward_candidate_rejects_tampered_bound_input(
+    tmp_path: Path,
+    filename: str,
+) -> None:
+    run_dir = tmp_path / f"candidate-{filename}"
+    run_dir.mkdir()
+    _write_candidate_csv(run_dir / filename)
+    _write_current_run(
+        run_dir,
+        artifact_type=(
+            "walkforward" if filename == "oos_leaderboard.csv" else "sweep"
+        ),
+        bound_input_filenames=(filename,),
+    )
+
+    assert load_candidate_from_run(run_dir).selection_value == 1.5
+
+    _write_candidate_csv(run_dir / filename, sharpe=9.0)
+
+    with pytest.raises(ValueError, match="not authoritative"):
+        load_candidate_from_run(run_dir)
+
+
+def test_walkforward_robustness_rejects_tampered_bound_summary(
+    tmp_path: Path,
+) -> None:
+    rows = [
+        {
+            "split_name": f"s{index}",
+            "avg_test_return_topk": 0.1,
+            "avg_test_sharpe_topk": 1.1,
+        }
+        for index in range(1, 4)
+    ]
+    pd.DataFrame(rows).to_csv(
+        tmp_path / "walkforward_summary.csv",
+        index=False,
+    )
+    _write_current_run(
+        tmp_path,
+        artifact_type="walkforward",
+        bound_input_filenames=("walkforward_summary.csv",),
+    )
+
+    assert evaluate_walkforward_robustness(tmp_path)["status"] == "review"
+
+    rows[0]["avg_test_return_topk"] = -0.9
+    pd.DataFrame(rows).to_csv(
+        tmp_path / "walkforward_summary.csv",
+        index=False,
+    )
+
+    with pytest.raises(WalkforwardRobustnessError, match="not authoritative"):
+        evaluate_walkforward_robustness(tmp_path)
+
+
+@pytest.mark.parametrize(
+    "filename",
+    ["portfolio_state.json", "forward_equity_curve.csv"],
+)
+def test_portfolio_selection_rejects_tampered_bound_input(
+    tmp_path: Path,
+    filename: str,
+) -> None:
+    session_dir = tmp_path / f"forward-{filename}"
+    session_dir.mkdir()
+    _write_forward_inputs(session_dir)
+    _write_current_run(
+        session_dir,
+        artifact_type="forward",
+        bound_input_filenames=(
+            "portfolio_state.json",
+            "forward_equity_curve.csv",
+        ),
+    )
+
+    sessions, _ = get_eligible_sessions([session_dir])
+    assert len(sessions) == 1
+
+    if filename.endswith(".json"):
+        state = json.loads(
+            (session_dir / filename).read_text(encoding="utf-8")
+        )
+        state["starting_cash"] = 999_999.0
+        (session_dir / filename).write_text(
+            json.dumps(state),
+            encoding="utf-8",
+        )
+    else:
+        pd.DataFrame(
+            {
+                "timestamp": ["2026-01-01", "2026-01-02"],
+                "equity": [1.0, 99.0],
+            }
+        ).to_csv(session_dir / filename, index=False)
+
+    sessions, stats = get_eligible_sessions([session_dir])
+
+    assert sessions == []
+    assert stats["sessions_excluded_non_authoritative"] == 1
+
+
+@pytest.mark.parametrize(
+    ("mode", "annualization_status", "annualization_reason", "expected"),
+    [
+        ("grid", "valid", None, ("applied", None)),
+        (
+            "grid",
+            "unavailable",
+            "interval_timestamp_mismatch",
+            ("unavailable", "interval_timestamp_mismatch"),
+        ),
+        ("walkforward", "valid", None, ("applied", None)),
+        (
+            "walkforward",
+            "unavailable",
+            "insufficient_timestamp_evidence",
+            ("unavailable", "insufficient_timestamp_evidence"),
+        ),
+    ],
+)
+def test_sweep_and_walkforward_derive_annualization_from_metrics(
+    tmp_path: Path,
+    mode: str,
+    annualization_status: str,
+    annualization_reason: str | None,
+    expected: tuple[str, str | None],
+) -> None:
+    run_dir = tmp_path / f"{mode}-{annualization_status}"
+    run_dir.mkdir()
+    if mode == "grid":
+        input_names = ("leaderboard.csv", "experiments.csv")
+        for name in input_names:
+            _write_candidate_csv(run_dir / name)
+    else:
+        input_names = ("walkforward_summary.csv", "oos_leaderboard.csv")
+        _write_candidate_csv(run_dir / "oos_leaderboard.csv")
+        pd.DataFrame(
+            [
+                {
+                    "split_name": "s1",
+                    "avg_test_return_topk": 0.1,
+                    "avg_test_sharpe_topk": 1.0,
+                }
+            ]
+        ).to_csv(run_dir / "walkforward_summary.csv", index=False)
+
+    best_result = {
+        "strategy_name": "rsi_ma_cross_v2",
+        "sharpe_simple": 1.5,
+        "total_return": 0.2,
+        "annualization_status": annualization_status,
+        "annualization_reason": annualization_reason,
+    }
+    _save_reproducibility_pack(
+        run_dir,
+        {"ticker": "BTC-USD", "interval": "1d"},
+        mode,
+        [best_result],
+        bound_input_filenames=input_names,
+    )
+
+    metrics = json.loads(
+        (run_dir / "metrics.json").read_text(encoding="utf-8")
+    )
+    annualization = metrics["quantitative_contract"]["policies"][
+        "annualization"
+    ]
+    assert (
+        annualization["applicability"],
+        annualization["reason"],
+    ) == expected
+    assert resolve_quantitative_authority(run_dir).authority_status == (
+        AUTHORITY_CURRENT
+    )
+
+
+def test_annualization_contract_contradiction_fails_closed(
+    tmp_path: Path,
+) -> None:
+    run_dir = tmp_path / "contradictory-annualization"
+    metadata, metrics, report = _write_current_run(
+        run_dir,
+        artifact_type="sweep",
+        annualization_status="unavailable",
+        annualization_reason="interval_timestamp_mismatch",
+    )
+    contradictory = build_quantitative_contract(
+        "sweep",
+        annualization_applicability="applied",
+    )
+    canonical = metrics["canonical_metric_payload"]
+    identity = build_artifact_identity(
+        run_id=run_dir.name,
+        relative_run_path=run_dir.name,
+        source_git_commit=SOURCE_COMMIT,
+        quantitative_contract=contradictory,
+        canonical_metric_payload=canonical,
+    )
+    for filename, payload in (
+        ("metadata.json", metadata),
+        ("metrics.json", metrics),
+        ("report.json", report),
+    ):
+        payload["quantitative_contract"] = contradictory
+        payload["artifact_identity"] = identity
+        if isinstance(payload.get("machine_contract"), dict):
+            payload["machine_contract"]["quantitative_contract"] = (
+                contradictory
+            )
+            payload["machine_contract"]["artifact_identity"] = identity
+        (run_dir / filename).write_text(
+            json.dumps(payload),
+            encoding="utf-8",
+        )
+
+    resolution = resolve_quantitative_authority(run_dir)
+
+    assert resolution.authority_status == AUTHORITY_UNKNOWN
+    assert resolution.authority_reason == "annualization_metric_contradiction"
 
 
 def test_editable_authority_status_cannot_make_legacy_artifact_current(

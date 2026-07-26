@@ -8,6 +8,7 @@ import pandas as pd
 from quantlab.runs.quantitative_provenance import (
     attach_report_quantitative_provenance,
     attach_quantitative_provenance,
+    build_quantitative_input_manifest,
     propagate_quantitative_provenance_to_report,
 )
 
@@ -40,6 +41,10 @@ def stamp_authoritative_forward_fixture(session_dir: Path) -> None:
             "run_id": session_id,
             "summary": summary,
         },
+        "bound_quantitative_inputs": build_quantitative_input_manifest(
+            session_dir,
+            ("portfolio_state.json", "forward_equity_curve.csv"),
+        ),
     }
     report = attach_report_quantitative_provenance(
         report,
@@ -48,8 +53,6 @@ def stamp_authoritative_forward_fixture(session_dir: Path) -> None:
         source_git_commit=SOURCE_COMMIT,
         run_id=session_id,
         metric_payload=report,
-        annualization_applicability="unavailable",
-        annualization_reason="synthetic_fixture_has_no_annualization_evidence",
     )
     (session_dir / "report.json").write_text(
         json.dumps(report),
@@ -76,8 +79,6 @@ def stamp_authoritative_paper_fixture(session_dir: Path) -> None:
         relative_run_path=session_dir.name,
         source_git_commit=SOURCE_COMMIT,
         run_id=session_id,
-        annualization_applicability="unavailable",
-        annualization_reason="synthetic_fixture_has_no_annualization_evidence",
     )
     report_path = session_dir / "report.json"
     report = json.loads(report_path.read_text(encoding="utf-8"))
@@ -112,6 +113,23 @@ def stamp_authoritative_walkforward_fixture(
             best_result.get("avg_test_sharpe_topk") if best_result else None
         ),
     }
+    metrics_payload = {
+        "summary": summary,
+        "best_result": best_result,
+        "leaderboard_size": len(rows),
+    }
+    bound_inputs = tuple(
+        filename
+        for filename in (
+            "walkforward_summary.csv",
+            "oos_leaderboard.csv",
+        )
+        if (run_dir / filename).is_file()
+    )
+    if bound_inputs:
+        metrics_payload["bound_quantitative_inputs"] = (
+            build_quantitative_input_manifest(run_dir, bound_inputs)
+        )
     metadata, metrics = attach_quantitative_provenance(
         {
             "run_id": run_dir.name,
@@ -119,11 +137,7 @@ def stamp_authoritative_walkforward_fixture(
             "command": "sweep",
             "git_commit": SOURCE_COMMIT,
         },
-        {
-            "summary": summary,
-            "best_result": best_result,
-            "leaderboard_size": len(rows),
-        },
+        metrics_payload,
         artifact_type="walkforward",
         relative_run_path=run_dir.name,
         source_git_commit=SOURCE_COMMIT,

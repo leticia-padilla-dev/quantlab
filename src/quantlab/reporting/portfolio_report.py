@@ -89,17 +89,28 @@ def get_eligible_sessions(
             continue
 
         try:
-            with open(state_path, encoding="utf-8") as f:
-                state = json.load(f)
-
             df_eq = pd.read_csv(eq_path)
-            if df_eq.empty or "timestamp" not in df_eq.columns or "equity" not in df_eq.columns:
+            if (
+                df_eq.empty
+                or "timestamp" not in df_eq.columns
+                or "equity" not in df_eq.columns
+            ):
                 excluded_incomplete += 1
                 continue
-            authority = resolve_quantitative_authority(p)
+
+            authority = resolve_quantitative_authority(
+                p,
+                required_inputs=(
+                    "portfolio_state.json",
+                    "forward_equity_curve.csv",
+                ),
+            )
             if not authority.promotion_eligible:
                 excluded_non_authoritative += 1
                 continue
+
+            with open(state_path, encoding="utf-8") as f:
+                state = json.load(f)
 
             df_eq["timestamp"] = pd.to_datetime(df_eq["timestamp"])
             df_eq = df_eq.set_index("timestamp")

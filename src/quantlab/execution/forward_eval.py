@@ -217,7 +217,19 @@ def load_candidate_from_run(
         resolve_quantitative_authority,
     )
 
-    authority = resolve_quantitative_authority(run_path)
+    candidate_input_names = tuple(
+        filename
+        for filename in (
+            "leaderboard.csv",
+            "experiments.csv",
+            "oos_leaderboard.csv",
+        )
+        if (run_path / filename).is_file()
+    )
+    authority = resolve_quantitative_authority(
+        run_path,
+        required_inputs=candidate_input_names,
+    )
     if not authority.forward_eligible:
         raise ValueError(
             f"Run artifact is not authoritative for forward evaluation: "

@@ -84,8 +84,10 @@ def test_paper_run_creates_dedicated_session_artifacts(monkeypatch, tmp_path):
         lambda bt: {
             "total_return": 0.01,
             "max_drawdown": -0.01,
-            "sharpe_simple": 0.8,
-            "winrate_active_days": 0.5,
+                "sharpe_simple": 0.8,
+                "annualization_status": "valid",
+                "annualization_reason": None,
+                "winrate_active_days": 0.5,
             "days": 3,
             "trades": 2,
         },

@@ -28,6 +28,7 @@ from quantlab.runs.artifacts import (
 from quantlab.runs.run_store import RunStore
 from quantlab.runs.quantitative_provenance import (
     attach_quantitative_provenance,
+    build_quantitative_input_manifest,
     resolve_source_git_commit,
 )
 
@@ -181,6 +182,12 @@ def run_one(config: Dict[str, Any]) -> Dict[str, Any]:
             "total_return": bt_metrics.get("total_return", 0.0),
             "max_drawdown": bt_metrics.get("max_drawdown", 0.0),
             "sharpe_simple": bt_metrics.get("sharpe_simple", 0.0),
+            "annualization_status": bt_metrics.get(
+                "annualization_status"
+            ),
+            "annualization_reason": bt_metrics.get(
+                "annualization_reason"
+            ),
             "trades": bt_metrics.get("trades", 0),  # backtest "fills" / signal trades
             "trade_trades": trade_metrics.get("trades", 0),  # round trips from paper broker
             "win_rate_trades": trade_metrics.get("win_rate_trades", 0.0),
@@ -246,6 +253,8 @@ def run_one_with_timeseries(config: Dict[str, Any]):
         "total_return": bt_metrics.get("total_return", 0.0),
         "max_drawdown": bt_metrics.get("max_drawdown", 0.0),
         "sharpe_simple": bt_metrics.get("sharpe_simple", 0.0),
+        "annualization_status": bt_metrics.get("annualization_status"),
+        "annualization_reason": bt_metrics.get("annualization_reason"),
         "trades": bt_metrics.get("trades", 0),
         "trade_trades": trade_metrics.get("trades", 0),
         "win_rate_trades": trade_metrics.get("win_rate_trades", 0.0),
@@ -313,6 +322,7 @@ def _save_reproducibility_pack(
     metrics_summary: List[Dict[str, Any]],
     config_path: str = "unknown",
     extra_meta: Optional[Dict[str, Any]] = None,
+    bound_input_filenames: tuple[str, ...] = (),
 ) -> None:
     """
     Save canonical run artifacts and the human-readable YAML config snapshot.
@@ -349,6 +359,13 @@ def _save_reproducibility_pack(
         "best_result": best_result or None,
         "leaderboard_size": len(metrics_summary),
     }
+    if bound_input_filenames:
+        metrics_payload["bound_quantitative_inputs"] = (
+            build_quantitative_input_manifest(
+                out_dir,
+                bound_input_filenames,
+            )
+        )
     if extra_meta:
         metrics_payload.update(
             {
@@ -544,6 +561,7 @@ def run_experiments_grid(
         metrics_summary=summary_data,
         config_path=config_path,
         extra_meta={"n_runs": len(runs), **(extra_meta or {})},
+        bound_input_filenames=("experiments.csv", "leaderboard.csv"),
     )
     try:
         write_run_report(str(out_dir_path))
@@ -755,6 +773,14 @@ def run_walkforward(
             "n_test_runs": total_test,
             **(extra_meta or {}),
         },
+        bound_input_filenames=tuple(
+            name
+            for name in (
+                "oos_leaderboard.csv",
+                "walkforward_summary.csv",
+            )
+            if (out_dir_path / name).is_file()
+        ),
     )
     write_walkforward_robustness_verdict(out_dir_path)
     try:

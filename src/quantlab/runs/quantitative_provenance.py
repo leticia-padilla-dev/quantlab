@@ -8,14 +8,19 @@ promotion consumers.
 
 from __future__ import annotations
 
+import csv
 from dataclasses import asdict, dataclass
 import hashlib
+from importlib import metadata as importlib_metadata
+from importlib import util as importlib_util
 import json
 import math
+import os
 from pathlib import Path, PurePosixPath
 import re
 import subprocess
-from typing import Any, Mapping
+from typing import Any, Iterable, Mapping
+from urllib.parse import unquote, urlparse
 
 from quantlab.runs.artifacts import (
     CANONICAL_METADATA_FILENAME,
@@ -46,6 +51,7 @@ _ARTIFACT_TYPES = {"run", "sweep", "walkforward", "paper", "forward"}
 _CANONICAL_METRIC_FIELDS = (
     "summary",
     "best_result",
+    "bound_quantitative_inputs",
     "leaderboard_size",
     "n_runs",
     "n_train_runs",
@@ -58,28 +64,145 @@ _DIGEST_EXCLUDED_FIELDS = {
     "filesystem_path",
 }
 _COMMIT_RE = re.compile(r"^[0-9a-f]{40}$", re.IGNORECASE)
+_BOUND_INPUT_SCHEMA_VERSION = "1.0"
+_BOUND_QUANTITATIVE_INPUTS = {
+    "leaderboard.csv",
+    "experiments.csv",
+    "oos_leaderboard.csv",
+    "walkforward_summary.csv",
+    "portfolio_state.json",
+    "forward_equity_curve.csv",
+}
 
 
 def resolve_source_git_commit() -> str:
-    """Resolve the source checkout commit independently of process cwd."""
+    """Resolve the exact source commit from a verifiable source.
 
-    repository_root = Path(__file__).resolve().parents[3]
+    Non-editable builds embed the commit in ``quantlab._build_info``.  An
+    operator may alternatively supply a full commit or an explicit repository
+    path.  Checkout execution finally accepts the current working tree when it
+    is inside a Git repository.  Package installation paths are never treated
+    as repository roots.
+    """
+
+    explicit_commit = os.environ.get("QUANTLAB_SOURCE_GIT_COMMIT")
+    if explicit_commit is not None:
+        return _validated_commit(
+            explicit_commit,
+            source="QUANTLAB_SOURCE_GIT_COMMIT",
+        )
+
+    explicit_repository = os.environ.get("QUANTLAB_SOURCE_REPOSITORY")
+    if explicit_repository:
+        return _git_commit_from_repository(
+            Path(explicit_repository),
+            source="QUANTLAB_SOURCE_REPOSITORY",
+        )
+
+    github_sha = os.environ.get("GITHUB_SHA")
+    if (
+        os.environ.get("GITHUB_ACTIONS", "").strip().lower() == "true"
+        and github_sha is not None
+    ):
+        return _validated_commit(
+            github_sha,
+            source="GitHub Actions GITHUB_SHA",
+        )
+
     try:
+        from quantlab._build_info import SOURCE_GIT_COMMIT
+    except (ImportError, AttributeError):
+        SOURCE_GIT_COMMIT = None
+    if SOURCE_GIT_COMMIT is not None:
+        return _validated_commit(
+            SOURCE_GIT_COMMIT,
+            source="embedded package build metadata",
+        )
+
+    editable_repository = _editable_install_repository()
+    if editable_repository is not None:
+        return _git_commit_from_repository(
+            editable_repository,
+            source="editable installation metadata",
+        )
+
+    try:
+        repository_root = subprocess.check_output(
+            ["git", "-C", str(Path.cwd()), "rev-parse", "--show-toplevel"],
+            stderr=subprocess.DEVNULL,
+            text=True,
+        ).strip()
+    except (OSError, subprocess.CalledProcessError):
+        repository_root = ""
+    if repository_root:
+        return _git_commit_from_repository(
+            Path(repository_root),
+            source="current working checkout",
+        )
+
+    raise RuntimeError(
+        "Cannot identify the source Git commit for a new quantitative "
+        "artifact"
+    )
+
+
+def _editable_install_repository() -> Path | None:
+    try:
+        direct_url_text = importlib_metadata.distribution("quantlab").read_text(
+            "direct_url.json"
+        )
+        direct_url = json.loads(direct_url_text or "")
+    except (
+        importlib_metadata.PackageNotFoundError,
+        json.JSONDecodeError,
+        TypeError,
+    ):
+        return None
+    if not isinstance(direct_url, dict):
+        return None
+    directory_info = direct_url.get("dir_info")
+    if (
+        not isinstance(directory_info, dict)
+        or directory_info.get("editable") is not True
+    ):
+        return None
+    parsed = urlparse(str(direct_url.get("url") or ""))
+    if parsed.scheme != "file":
+        return None
+    repository = Path(unquote(parsed.path)).resolve()
+    spec = importlib_util.find_spec("quantlab")
+    origin = Path(spec.origin).resolve() if spec and spec.origin else None
+    if origin is None or repository not in origin.parents:
+        return None
+    return repository
+
+
+def _validated_commit(value: Any, *, source: str) -> str:
+    commit = str(value).strip()
+    if not _COMMIT_RE.fullmatch(commit):
+        raise RuntimeError(
+            f"{source} did not provide a full 40-character Git SHA"
+        )
+    return commit.lower()
+
+
+def _git_commit_from_repository(path: Path, *, source: str) -> str:
+    try:
+        repository_root = subprocess.check_output(
+            ["git", "-C", str(path), "rev-parse", "--show-toplevel"],
+            stderr=subprocess.DEVNULL,
+            text=True,
+        ).strip()
         commit = subprocess.check_output(
-            ["git", "-C", str(repository_root), "rev-parse", "HEAD"],
+            ["git", "-C", repository_root, "rev-parse", "HEAD"],
             stderr=subprocess.DEVNULL,
             text=True,
         ).strip()
     except (OSError, subprocess.CalledProcessError) as exc:
         raise RuntimeError(
-            "Cannot identify the source Git commit for a new quantitative "
-            "artifact"
+            f"{source} is not a readable Git checkout"
         ) from exc
-    if not _COMMIT_RE.fullmatch(commit):
-        raise RuntimeError(
-            "Resolved source Git commit is not a full 40-character SHA"
-        )
-    return commit
+    return _validated_commit(commit, source=source)
 
 
 @dataclass(frozen=True)
@@ -100,6 +223,12 @@ class AuthorityResolution:
         """Return a JSON-safe representation for indexes and reports."""
 
         return asdict(self)
+
+
+@dataclass(frozen=True)
+class _JsonSurface:
+    state: str
+    payload: dict[str, Any]
 
 
 def build_quantitative_contract(
@@ -228,6 +357,89 @@ def build_canonical_metric_payload(payload: Mapping[str, Any]) -> dict[str, Any]
     return _canonicalize(selected)
 
 
+def build_quantitative_input_manifest(
+    artifact_dir: str | Path,
+    filenames: Iterable[str],
+) -> dict[str, Any]:
+    """Canonically bind quantitative input files consumed after authority.
+
+    CSV files are represented as ordered columns and rows; JSON inputs must be
+    objects.  The resulting manifest is itself part of the canonical metric
+    payload, so every consumer verifies the same representation and digest.
+    """
+
+    root = Path(artifact_dir)
+    files: dict[str, Any] = {}
+    for filename in sorted(set(str(name) for name in filenames)):
+        if filename not in _BOUND_QUANTITATIVE_INPUTS:
+            raise ValueError(
+                f"Unsupported bound quantitative input: {filename}"
+            )
+        representation, input_format, record_count = (
+            _canonical_quantitative_input(root / filename)
+        )
+        serialized = json.dumps(
+            representation,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            allow_nan=False,
+        ).encode("utf-8")
+        files[filename] = {
+            "format": input_format,
+            "record_count": record_count,
+            "sha256": hashlib.sha256(serialized).hexdigest(),
+        }
+    return {
+        "schema_version": _BOUND_INPUT_SCHEMA_VERSION,
+        "files": files,
+    }
+
+
+def derive_annualization_provenance(
+    metric_payload: Mapping[str, Any],
+) -> dict[str, str | None]:
+    """Derive contract applicability from authoritative metric diagnostics."""
+
+    candidates: list[Mapping[str, Any]] = []
+    best_result = metric_payload.get("best_result")
+    summary = metric_payload.get("summary")
+    if isinstance(best_result, Mapping):
+        candidates.append(best_result)
+    if isinstance(summary, Mapping):
+        candidates.append(summary)
+    candidates.append(metric_payload)
+
+    status: Any = None
+    reason: Any = None
+    for candidate in candidates:
+        if "annualization_status" in candidate:
+            status = candidate.get("annualization_status")
+            reason = candidate.get("annualization_reason")
+            break
+
+    if status == "valid":
+        return {
+            "annualization_applicability": "applied",
+            "annualization_reason": None,
+        }
+    if status == "unavailable":
+        if not isinstance(reason, str) or not reason.strip():
+            raise ValueError(
+                "Unavailable annualization metrics require a reason"
+            )
+        return {
+            "annualization_applicability": "unavailable",
+            "annualization_reason": reason.strip(),
+        }
+    if status in (None, ""):
+        return {
+            "annualization_applicability": "unavailable",
+            "annualization_reason": "annualization_evidence_missing",
+        }
+    raise ValueError(f"Unknown metric annualization status: {status!r}")
+
+
 def compute_quantitative_evidence_digest(
     *,
     artifact_identity_without_digest: Mapping[str, Any],
@@ -287,12 +499,18 @@ def attach_quantitative_provenance(
     relative_run_path: str,
     source_git_commit: str,
     run_id: str | None = None,
-    annualization_applicability: str = "applied",
+    annualization_applicability: str | None = None,
     annualization_reason: str | None = None,
     forward_resume_applied: bool = False,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Attach one shared contract and identity to metadata and metrics."""
 
+    if annualization_applicability is None:
+        annualization = derive_annualization_provenance(metrics)
+        annualization_applicability = str(
+            annualization["annualization_applicability"]
+        )
+        annualization_reason = annualization["annualization_reason"]
     contract = build_quantitative_contract(
         artifact_type,
         annualization_applicability=annualization_applicability,
@@ -324,12 +542,18 @@ def attach_report_quantitative_provenance(
     source_git_commit: str,
     run_id: str | None,
     metric_payload: Mapping[str, Any],
-    annualization_applicability: str = "applied",
+    annualization_applicability: str | None = None,
     annualization_reason: str | None = None,
     forward_resume_applied: bool = False,
 ) -> dict[str, Any]:
     """Attach provenance directly to a report-only artifact producer."""
 
+    if annualization_applicability is None:
+        annualization = derive_annualization_provenance(metric_payload)
+        annualization_applicability = str(
+            annualization["annualization_applicability"]
+        )
+        annualization_reason = annualization["annualization_reason"]
     contract = build_quantitative_contract(
         artifact_type,
         annualization_applicability=annualization_applicability,
@@ -408,16 +632,30 @@ def resolve_quantitative_authority(
     artifact_dir: str | Path,
     *,
     overlay_path: str | Path | None = None,
+    required_inputs: Iterable[str] = (),
 ) -> AuthorityResolution:
     """Derive artifact authority without trusting an embedded status field."""
 
     root = Path(artifact_dir)
-    metadata = _load_first_json(
-        root / CANONICAL_METADATA_FILENAME,
-        root / PAPER_SESSION_METADATA_FILENAME,
+    surfaces = {
+        filename: _load_json_surface(root / filename)
+        for filename in (
+            CANONICAL_METADATA_FILENAME,
+            CANONICAL_METRICS_FILENAME,
+            CANONICAL_REPORT_FILENAME,
+            PAPER_SESSION_METADATA_FILENAME,
+        )
+    }
+    for filename, surface in surfaces.items():
+        if surface.state == "present_invalid":
+            return _unknown(f"canonical_surface_invalid:{filename}")
+
+    metadata = (
+        surfaces[CANONICAL_METADATA_FILENAME].payload
+        or surfaces[PAPER_SESSION_METADATA_FILENAME].payload
     )
-    metrics = _load_json(root / CANONICAL_METRICS_FILENAME)
-    report = _load_json(root / CANONICAL_REPORT_FILENAME)
+    metrics = surfaces[CANONICAL_METRICS_FILENAME].payload
+    report = surfaces[CANONICAL_REPORT_FILENAME].payload
 
     identities = _collect_embedded_blocks(
         "artifact_identity", metadata, metrics, report
@@ -490,6 +728,16 @@ def resolve_quantitative_authority(
     contract_errors = validate_quantitative_contract(contract)
     if contract_errors:
         return _unknown(contract_errors[0], contract=contract, identity=identity)
+    annualization_error = _validate_annualization_metric_consistency(
+        contract,
+        canonical_metrics,
+    )
+    if annualization_error:
+        return _unknown(
+            annualization_error,
+            contract=contract,
+            identity=identity,
+        )
 
     identity_error = _validate_artifact_identity(
         identity,
@@ -532,6 +780,17 @@ def resolve_quantitative_authority(
     if identity.get("quantitative_evidence_digest") != expected_digest:
         return _unknown(
             "quantitative_evidence_digest_mismatch",
+            contract=contract,
+            identity=identity,
+        )
+    input_error = _validate_quantitative_input_manifest(
+        root,
+        canonical_metrics,
+        required_inputs=required_inputs,
+    )
+    if input_error:
+        return _unknown(
+            input_error,
             contract=contract,
             identity=identity,
         )
@@ -596,22 +855,153 @@ def _canonicalize(value: Any) -> Any:
     return value
 
 
-def _load_json(path: Path) -> dict[str, Any]:
+def _canonical_quantitative_input(
+    path: Path,
+) -> tuple[Any, str, int]:
     if not path.is_file():
-        return {}
+        raise ValueError(f"Bound quantitative input is missing: {path.name}")
+    if path.suffix == ".json":
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise ValueError(
+                f"Bound JSON input is invalid: {path.name}"
+            ) from exc
+        if not isinstance(payload, dict):
+            raise ValueError(
+                f"Bound JSON input must contain an object: {path.name}"
+            )
+        return _canonicalize(payload), "canonical_json_object_v1", 1
+    if path.suffix == ".csv":
+        try:
+            with path.open("r", encoding="utf-8", newline="") as handle:
+                rows = list(csv.reader(handle))
+        except (OSError, UnicodeDecodeError, csv.Error) as exc:
+            raise ValueError(
+                f"Bound CSV input is invalid: {path.name}"
+            ) from exc
+        if not rows or not rows[0]:
+            raise ValueError(f"Bound CSV input has no header: {path.name}")
+        columns = rows[0]
+        if (
+            any(not column for column in columns)
+            or len(columns) != len(set(columns))
+            or any(len(row) != len(columns) for row in rows[1:])
+        ):
+            raise ValueError(
+                f"Bound CSV input has an invalid tabular shape: {path.name}"
+            )
+        representation = {
+            "columns": columns,
+            "rows": rows[1:],
+        }
+        return representation, "canonical_csv_rows_v1", len(rows) - 1
+    raise ValueError(f"Unsupported quantitative input format: {path.name}")
+
+
+def _load_json_surface(path: Path) -> _JsonSurface:
+    if not path.exists():
+        if path.is_symlink():
+            return _JsonSurface("present_invalid", {})
+        return _JsonSurface("absent", {})
+    if not path.is_file():
+        return _JsonSurface("present_invalid", {})
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return {}
-    return payload if isinstance(payload, dict) else {}
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return _JsonSurface("present_invalid", {})
+    if not isinstance(payload, dict):
+        return _JsonSurface("present_invalid", {})
+    return _JsonSurface("present_valid", payload)
 
 
-def _load_first_json(*paths: Path) -> dict[str, Any]:
-    for path in paths:
-        payload = _load_json(path)
-        if payload:
-            return payload
-    return {}
+def _validate_annualization_metric_consistency(
+    contract: Any,
+    canonical_metrics: Mapping[str, Any],
+) -> str | None:
+    if not isinstance(contract, Mapping):
+        return "quantitative_contract_missing"
+    try:
+        expected = derive_annualization_provenance(canonical_metrics)
+    except ValueError:
+        return "annualization_metric_evidence_invalid"
+    policies = contract.get("policies")
+    annualization = (
+        policies.get("annualization")
+        if isinstance(policies, Mapping)
+        else None
+    )
+    if not isinstance(annualization, Mapping):
+        return "policy_missing:annualization"
+    if (
+        annualization.get("applicability")
+        != expected["annualization_applicability"]
+        or annualization.get("reason") != expected["annualization_reason"]
+    ):
+        return "annualization_metric_contradiction"
+    return None
+
+
+def _validate_quantitative_input_manifest(
+    root: Path,
+    canonical_metrics: Mapping[str, Any],
+    *,
+    required_inputs: Iterable[str],
+) -> str | None:
+    required = sorted(set(str(name) for name in required_inputs))
+    if any(name not in _BOUND_QUANTITATIVE_INPUTS for name in required):
+        return "quantitative_input_requirement_unknown"
+
+    manifest = canonical_metrics.get("bound_quantitative_inputs")
+    if manifest is None:
+        return (
+            f"quantitative_input_unbound:{required[0]}"
+            if required
+            else None
+        )
+    if (
+        not isinstance(manifest, Mapping)
+        or set(manifest) != {"schema_version", "files"}
+        or manifest.get("schema_version") != _BOUND_INPUT_SCHEMA_VERSION
+        or not isinstance(manifest.get("files"), Mapping)
+    ):
+        return "quantitative_input_manifest_invalid"
+
+    files = manifest["files"]
+    if any(name not in files for name in required):
+        missing = next(name for name in required if name not in files)
+        return f"quantitative_input_unbound:{missing}"
+    if any(
+        not isinstance(name, str)
+        or name not in _BOUND_QUANTITATIVE_INPUTS
+        for name in files
+    ):
+        return "quantitative_input_manifest_invalid"
+
+    for filename, expected in sorted(files.items()):
+        if (
+            not isinstance(expected, Mapping)
+            or set(expected) != {"format", "record_count", "sha256"}
+            or expected.get("format")
+            not in {"canonical_json_object_v1", "canonical_csv_rows_v1"}
+            or not isinstance(expected.get("record_count"), int)
+            or not isinstance(expected.get("sha256"), str)
+            or not re.fullmatch(
+                r"[0-9a-f]{64}",
+                expected["sha256"],
+                re.IGNORECASE,
+            )
+        ):
+            return f"quantitative_input_manifest_invalid:{filename}"
+        try:
+            actual = build_quantitative_input_manifest(root, [filename])[
+                "files"
+            ][filename]
+        except ValueError:
+            return f"quantitative_input_invalid:{filename}"
+        if actual != expected:
+            return f"quantitative_input_digest_mismatch:{filename}"
+    return None
 
 
 def _collect_embedded_blocks(

@@ -23,6 +23,7 @@ from quantlab.execution.forward_eval import (
 )
 from quantlab.runs.quantitative_provenance import (
     attach_quantitative_provenance,
+    build_quantitative_input_manifest,
     propagate_quantitative_provenance_to_report,
 )
 
@@ -90,6 +91,19 @@ def _stamp_authoritative_run(
         "best_result": best_result,
         "leaderboard_size": int(best_result is not None),
     }
+    bound_inputs = tuple(
+        filename
+        for filename in (
+            "leaderboard.csv",
+            "experiments.csv",
+            "oos_leaderboard.csv",
+        )
+        if (run_dir / filename).is_file()
+    )
+    if bound_inputs:
+        metrics["bound_quantitative_inputs"] = (
+            build_quantitative_input_manifest(run_dir, bound_inputs)
+        )
     metadata, metrics = attach_quantitative_provenance(
         metadata,
         metrics,
