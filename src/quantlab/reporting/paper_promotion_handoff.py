@@ -42,6 +42,11 @@ def build_paper_promotion_handoff(session_dir: str | Path, *, generated_at: date
     status = (summary.get("status") or "unknown").lower()
     terminal = bool(summary.get("terminal", False))
     report_contract = summary.get("report_contract_type")
+    if summary.get("promotion_eligible") is not True:
+        blockers.append(
+            "quantitative_authority_"
+            + str(summary.get("authority_status") or "unknown_provenance")
+        )
 
     if not terminal:
         blockers.append("non_terminal_session")

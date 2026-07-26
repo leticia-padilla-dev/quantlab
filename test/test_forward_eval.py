@@ -21,6 +21,13 @@ from quantlab.execution.forward_eval import (
     update_portfolio_state,
     write_forward_eval_artifacts,
 )
+from quantlab.runs.quantitative_provenance import (
+    attach_quantitative_provenance,
+    propagate_quantitative_provenance_to_report,
+)
+
+
+SOURCE_COMMIT = "a" * 40
 
 
 # ---------------------------------------------------------------------------
@@ -57,6 +64,61 @@ def _make_candidate(params: dict | None = None) -> CandidateConfig:
     )
 
 
+def _stamp_authoritative_run(
+    run_dir: Path,
+    *,
+    artifact_type: str,
+    metadata: dict,
+    best_result: dict | None,
+) -> None:
+    metadata = {
+        **metadata,
+        "command": "sweep",
+        "git_commit": SOURCE_COMMIT,
+    }
+    metrics = {
+        "summary": {
+            key: best_result[key]
+            for key in (
+                "sharpe_simple",
+                "total_return",
+                "max_drawdown",
+                "trades",
+            )
+            if best_result and key in best_result
+        },
+        "best_result": best_result,
+        "leaderboard_size": int(best_result is not None),
+    }
+    metadata, metrics = attach_quantitative_provenance(
+        metadata,
+        metrics,
+        artifact_type=artifact_type,
+        relative_run_path=run_dir.name,
+        source_git_commit=SOURCE_COMMIT,
+        run_id=metadata.get("run_id"),
+    )
+    report = propagate_quantitative_provenance_to_report(
+        {
+            "header": {
+                "run_id": metadata.get("run_id"),
+                "mode": metadata.get("mode"),
+                "git_commit": SOURCE_COMMIT,
+            },
+            "results": [best_result] if best_result else [],
+            "summary": metrics["summary"],
+        },
+        metadata,
+        metrics,
+    )
+    for filename, payload in (
+        ("metadata.json", metadata),
+        ("metrics.json", metrics),
+        ("report.json", report),
+    ):
+        (run_dir / filename).write_text(json.dumps(payload))
+
+
 def _make_grid_run_dir(tmp_path: Path) -> Path:
     """Populate a minimal grid run directory with a leaderboard.csv."""
     run_dir = tmp_path / "grid_run"
@@ -70,9 +132,6 @@ def _make_grid_run_dir(tmp_path: Path) -> Path:
         "fee_rate": 0.002,
         "slippage_bps": 8.0,
     }
-    with open(run_dir / "metadata.json", "w") as f:
-        json.dump(meta, f)
-
     lb = pd.DataFrame([
         {"strategy_name": "rsi_ma_cross_v2", "rsi_buy_max": 55.0, "rsi_sell_min": 70.0,
          "cooldown_days": 0, "sharpe_simple": 1.5, "total_return": 0.20},
@@ -80,6 +139,12 @@ def _make_grid_run_dir(tmp_path: Path) -> Path:
          "cooldown_days": 1, "sharpe_simple": 0.8, "total_return": 0.10},
     ])
     lb.to_csv(run_dir / "leaderboard.csv", index=False)
+    _stamp_authoritative_run(
+        run_dir,
+        artifact_type="sweep",
+        metadata=meta,
+        best_result=lb.iloc[0].to_dict(),
+    )
     return run_dir
 
 
@@ -89,14 +154,17 @@ def _make_walkforward_run_dir(tmp_path: Path) -> Path:
     run_dir.mkdir()
 
     meta = {"run_id": "wf_run", "mode": "walkforward", "ticker": "BTC-USD"}
-    with open(run_dir / "metadata.json", "w") as f:
-        json.dump(meta, f)
-
     oos = pd.DataFrame([
         {"strategy_name": "rsi_ma_cross_v2", "rsi_buy_max": 65.0, "rsi_sell_min": 80.0,
          "cooldown_days": 0, "sharpe_simple": 2.1, "total_return": 0.35},
     ])
     oos.to_csv(run_dir / "oos_leaderboard.csv", index=False)
+    _stamp_authoritative_run(
+        run_dir,
+        artifact_type="walkforward",
+        metadata=meta,
+        best_result=oos.iloc[0].to_dict(),
+    )
     return run_dir
 
 
@@ -130,8 +198,12 @@ class TestLoadCandidate:
         run_dir = tmp_path / "empty_run"
         run_dir.mkdir()
         meta = {"run_id": "empty_run", "mode": "grid"}
-        with open(run_dir / "metadata.json", "w") as f:
-            json.dump(meta, f)
+        _stamp_authoritative_run(
+            run_dir,
+            artifact_type="sweep",
+            metadata=meta,
+            best_result=None,
+        )
         with pytest.raises(ValueError, match="Could not derive a candidate"):
             load_candidate_from_run(run_dir)
 
@@ -143,15 +215,19 @@ class TestLoadCandidate:
         """Falls back to run_report.json when no leaderboard CSV."""
         run_dir = tmp_path / "rr_run"
         run_dir.mkdir()
-        rr = {
-            "header": {"run_id": "rr_run", "mode": "grid"},
-            "results": [
-                {"strategy_name": "rsi_ma_cross_v2", "rsi_buy_max": 58.0,
-                 "rsi_sell_min": 72.0, "cooldown_days": 0, "sharpe_simple": 1.1},
-            ],
+        best_result = {
+            "strategy_name": "rsi_ma_cross_v2",
+            "rsi_buy_max": 58.0,
+            "rsi_sell_min": 72.0,
+            "cooldown_days": 0,
+            "sharpe_simple": 1.1,
         }
-        with open(run_dir / "run_report.json", "w") as f:
-            json.dump(rr, f)
+        _stamp_authoritative_run(
+            run_dir,
+            artifact_type="sweep",
+            metadata={"run_id": "rr_run", "mode": "grid"},
+            best_result=best_result,
+        )
         candidate = load_candidate_from_run(run_dir)
         assert candidate.strategy_name == "rsi_ma_cross_v2"
 

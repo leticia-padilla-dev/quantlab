@@ -20,6 +20,9 @@ from quantlab.runs.artifacts import (
     canonical_run_artifact_names,
     load_json_with_fallback,
 )
+from quantlab.runs.quantitative_provenance import (
+    propagate_quantitative_provenance_to_report,
+)
 
 
 def _build_machine_contract(
@@ -180,7 +183,9 @@ def build_report(run_dir: str) -> Dict[str, Any]:
     # top-level `summary` mirrors the canonical machine-facing KPI block.
     summary_source = metrics if command == "run" else report
     standard_summary = build_standard_summary(summary_source)
-    best_result = (report.get("results") or report.get("oos_leaderboard") or [None])[0]
+    best_result = metrics.get("best_result") or (
+        report.get("results") or report.get("oos_leaderboard") or [None]
+    )[0]
     machine_summary = metrics.get("summary") or standard_summary
     if command == "sweep":
         report["machine_contract"] = _build_machine_contract(
@@ -216,11 +221,16 @@ def build_report(run_dir: str) -> Dict[str, Any]:
 
     # Preserve legacy summary structures (e.g. walkforward summary tables)
     # and add the machine-readable KPI block additively.
-    if "summary" in report:
-        report["kpi_summary"] = standard_summary
+    if "summary" in report and not isinstance(report["summary"], dict):
+        report["kpi_summary"] = machine_summary
     else:
-        report["summary"] = standard_summary
+        report["summary"] = machine_summary
     
+    report = propagate_quantitative_provenance_to_report(
+        report,
+        meta,
+        metrics,
+    )
     return _sanitize_for_json(report)
 
 def render_report_md(report: Dict[str, Any]) -> str:
@@ -329,4 +339,3 @@ def write_report(run_dir: str) -> Tuple[str, str]:
         json.dump(report, f, indent=2, ensure_ascii=False, allow_nan=False)
 
     return str(md_path), str(json_path)
-

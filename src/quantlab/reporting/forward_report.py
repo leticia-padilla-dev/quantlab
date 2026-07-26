@@ -24,6 +24,10 @@ from quantlab.quant.annualization import resolve_annualization
 
 from quantlab.reporting.charts import plot_equity_curve, plot_drawdown
 from quantlab.reporting.report_summary import build_standard_summary
+from quantlab.runs.quantitative_provenance import (
+    attach_report_quantitative_provenance,
+    resolve_source_git_commit,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -206,7 +210,10 @@ def build_forward_report(out_dir: str | Path) -> Dict[str, Any]:
         if f.is_file():
             artifacts.append({"file": f.name, "size_bytes": f.stat().st_size})
 
+    session_id = str(state.get("session_id", "") or out_path.name)
     payload = {
+        "schema_version": "1.0",
+        "artifact_type": "quantlab_forward_report",
         "session_id": state.get("session_id", ""),
         "mode": state.get("mode", "forward_paper"),
         "eval_start": state.get("eval_start", ""),
@@ -244,7 +251,16 @@ def build_forward_report(out_dir: str | Path) -> Dict[str, Any]:
             "resume_attempt_count": state.get("resume_attempt_count", 0),
             "total_bars": state.get("total_bars_evaluated", 0),
             "last_ts": state.get("last_timestamp", ""),
-        }
+        },
+        "machine_contract": {
+            "schema_version": "1.0",
+            "contract_type": "quantlab.forward.result",
+            "command": "forward",
+            "status": "success",
+            "run_id": session_id,
+            "mode": state.get("mode", "forward_paper"),
+            "summary": summary,
+        },
     }
 
     # Add standard summary for external consumers.
@@ -259,7 +275,36 @@ def build_forward_report(out_dir: str | Path) -> Dict[str, Any]:
     for f in out_path.glob("forward_chart_*.png"):
         payload["charts"].append(f.name)
 
+    annualization_status = payload["summary"].get("annualization_status")
+    annualization_applicability = (
+        "applied" if annualization_status == "valid" else "unavailable"
+    )
+    annualization_reason = (
+        None
+        if annualization_applicability == "applied"
+        else str(
+            payload["summary"].get("annualization_reason")
+            or "forward_annualization_unavailable"
+        )
+    )
+    payload = attach_report_quantitative_provenance(
+        payload,
+        artifact_type="forward",
+        relative_run_path=out_path.name,
+        source_git_commit=_get_git_commit(),
+        run_id=session_id,
+        metric_payload=payload,
+        annualization_applicability=annualization_applicability,
+        annualization_reason=annualization_reason,
+        forward_resume_applied=bool(
+            payload["continuity"].get("resume_count", 0)
+        ),
+    )
     return _sanitize(payload)
+
+
+def _get_git_commit() -> str:
+    return resolve_source_git_commit()
 
 
 # ---------------------------------------------------------------------------

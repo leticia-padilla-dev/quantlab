@@ -219,6 +219,10 @@ def load_paper_session_summary(session_dir: str | Path) -> dict[str, Any]:
         "artifacts_dir": str(path / "artifacts"),
     }
 
+    from quantlab.runs.quantitative_provenance import (
+        resolve_quantitative_authority,
+    )
+
     return {
         "session_id": session_id,
         "status": resolved_status,
@@ -237,6 +241,7 @@ def load_paper_session_summary(session_dir: str | Path) -> dict[str, Any]:
         "report_contract_type": report_contract,
         "report_present": bool(report_path),
         "path": str(path),
+        **resolve_quantitative_authority(path).to_dict(),
         **artifacts,
     }
 
@@ -662,6 +667,14 @@ def _build_alert_entry(
 def _evaluate_paper_session_promotion(session: dict[str, Any]) -> tuple[bool, list[str], list[str]]:
     reasons: list[str] = []
     blockers: list[str] = []
+
+    if session.get("promotion_eligible") is True:
+        reasons.append("quantitative_authority_current")
+    else:
+        blockers.append(
+            "quantitative_authority_"
+            + str(session.get("authority_status") or "unknown_provenance")
+        )
 
     status = str(session.get("status") or "unknown").lower()
     if status == "success":

@@ -7,6 +7,10 @@ from pathlib import Path
 import pandas as pd
 
 from quantlab.cli.run import handle_run_command
+from quantlab.runs.quantitative_provenance import (
+    AUTHORITY_CURRENT,
+    resolve_quantitative_authority,
+)
 
 
 class _FakeStrategy:
@@ -109,6 +113,11 @@ def test_run_creates_canonical_run_directory_and_artifacts(monkeypatch, tmp_path
     assert metadata["mode"] == "run"
     assert metadata["command"] == "run"
     assert metadata["request_id"] == "req_run_contract_001"
+    policies = metadata["quantitative_contract"]["policies"]
+    assert policies["oos_equity_stitching"]["applicability"] == "not_applicable"
+    assert policies["forward_resume_accounting"]["applicability"] == "not_applicable"
+    assert policies["fee_and_slippage"]["applicability"] == "applied"
+    assert policies["annualization"]["applicability"] == "applied"
 
     metrics = json.loads((run_dir / "metrics.json").read_text(encoding="utf-8"))
     assert metrics["status"] == "success"
@@ -126,6 +135,14 @@ def test_run_creates_canonical_run_directory_and_artifacts(monkeypatch, tmp_path
     assert report["summary"]["total_return"] == 0.03
     assert report["summary"] == report["machine_contract"]["summary"]
     assert report["machine_contract"]["artifacts"]["report"] == "report.json"
+    assert (
+        report["machine_contract"]["quantitative_contract"]
+        == metadata["quantitative_contract"]
+    )
+    assert (
+        resolve_quantitative_authority(run_dir).authority_status
+        == AUTHORITY_CURRENT
+    )
     assert seen_intervals == ["1d"]
 
 

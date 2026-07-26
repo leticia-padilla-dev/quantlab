@@ -1,5 +1,18 @@
 # Session Log - QuantLab
 
+## 2026-07-26 — Quantitative Artifact Provenance (Issue #873)
+- **Session Focus**: Make mathematical provenance and integrity mandatory for artifact authority without rewriting historical evidence.
+- **Tasks Completed**:
+  - Added the shared quantitative contract, canonical metric digest, compound identity, validator, authority resolver, and external supersession registry contract.
+  - Propagated provenance to new run, sweep, walk-forward, paper, and forward reports.
+  - Kept legacy evidence visible while excluding non-current evidence from ranking, normal comparison, forward selection, portfolio selection, robustness, and paper promotion.
+- **Key Decisions**:
+  - `schema_version` remains structural; calculation-contract versioning is independent.
+  - Authority is derived and fail-closed; persisted authority claims are not trusted.
+  - Historical classification and regeneration remain later, non-destructive operational work.
+- **Validation Notes**:
+  - Tests use only temporary synthetic fixtures; no real `outputs/` content was scanned, classified, or modified.
+
 ## 2026-04-14 — Desktop Target Architecture and Shared Contract Guardrails (Issue #350)
 - **Session Focus**: Fix the target Desktop architecture and migration guardrails so later shell and renderer slices stop reopening stack, authority, and continuity debates.
 - **Tasks Completed**:

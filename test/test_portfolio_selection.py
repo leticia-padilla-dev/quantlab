@@ -3,6 +3,9 @@ import pytest
 import pandas as pd
 from pathlib import Path
 from quantlab.reporting.portfolio_report import aggregate_portfolio, render_portfolio_md
+from support_quantitative_provenance import (
+    stamp_authoritative_forward_fixture,
+)
 
 def create_mock_session(tmp_path, name, returns, ticker="BTC", strategy="strat", source_run="run1", updated_at="2023-01-01T00:00:00Z"):
     d = tmp_path / name
@@ -22,6 +25,7 @@ def create_mock_session(tmp_path, name, returns, ticker="BTC", strategy="strat",
         
     df = pd.DataFrame(returns, columns=["timestamp", "equity"])
     df.to_csv(d / "forward_equity_curve.csv", index=False)
+    stamp_authoritative_forward_fixture(d)
     return d
 
 def test_selection_ticker_strategy(tmp_path):

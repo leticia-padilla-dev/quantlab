@@ -213,6 +213,16 @@ def load_candidate_from_run(
     run_path = Path(run_dir)
     if not run_path.exists():
         raise FileNotFoundError(f"Run directory not found: {run_path}")
+    from quantlab.runs.quantitative_provenance import (
+        resolve_quantitative_authority,
+    )
+
+    authority = resolve_quantitative_authority(run_path)
+    if not authority.forward_eligible:
+        raise ValueError(
+            f"Run artifact is not authoritative for forward evaluation: "
+            f"{authority.authority_status} ({authority.authority_reason})"
+        )
 
     meta: Dict[str, Any] = {}
     try:

@@ -15,6 +15,10 @@ from quantlab.reporting.forward_report import (
     render_forward_report_md,
     write_forward_report,
 )
+from quantlab.runs.quantitative_provenance import (
+    AUTHORITY_CURRENT,
+    resolve_quantitative_authority,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -288,6 +292,15 @@ class TestWriteForwardReport:
         content = Path(json_p).read_text(encoding="utf-8")
         data = json.loads(content)  # raises if NaN/Inf present
         assert "session_id" in data
+        policies = data["quantitative_contract"]["policies"]
+        assert policies["oos_equity_stitching"]["applicability"] == "not_applicable"
+        assert policies["fee_and_slippage"]["applicability"] == "applied"
+        assert policies["forward_resume_accounting"]["applicability"] == "not_applicable"
+        assert data["machine_contract"]["quantitative_contract"] == data["quantitative_contract"]
+        assert (
+            resolve_quantitative_authority(out).authority_status
+            == AUTHORITY_CURRENT
+        )
 
     def test_md_has_headings(self, tmp_path):
         out = _make_forward_artifacts(tmp_path)

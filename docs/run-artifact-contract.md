@@ -126,6 +126,51 @@ Typical top-level sections:
 - `artifacts`
 - `summary`
 
+## Quantitative Provenance and Authority
+
+`schema_version` continues to describe JSON structure. New run, sweep,
+walk-forward, paper, and forward artifacts additionally publish a distinct
+`quantitative_contract`, `artifact_identity`, and
+`canonical_metric_payload` on their canonical metadata/metrics/report
+surfaces (and inside `report.json.machine_contract` when present).
+
+The quantitative contract version is `1.0` and identifies these policies:
+
+- `oos_equity_stitching: continuous_compounding_v1`
+- `forward_resume_accounting: exactly_once_v1`
+- `fee_and_slippage: notional_adverse_price_v1`
+- `annualization: interval_timestamp_validated_v1`
+
+Each policy records `applied`, `not_applicable`, or, for annualization,
+`unavailable` with a reason according to the artifact-type matrix.
+
+`artifact_identity` combines the informational `run_id`, a normalized
+relative artifact path, the full source Git commit, and a SHA-256 digest.
+The digest is computed from canonical JSON containing the identity without
+the digest, the quantitative contract, and the shared canonical metric
+payload. Administrative timestamps, absolute filesystem paths, JSON
+formatting, and key order do not affect it.
+
+Authority is always derived by the shared resolver; an embedded
+`authority_status` is not trusted. The states are:
+
+- `current`: visible and eligible for ranking, normal comparison, forward
+  selection, and promotion;
+- `superseded`: visible but ineligible for all authority-bearing uses;
+- `unknown_provenance`: visible but ineligible for all authority-bearing
+  uses.
+
+Legacy artifacts without recognized provenance remain readable and visible
+as `unknown_provenance`.
+
+An optional non-destructive registry named
+`quantitative_authority_registry.json` may live beside artifact directories.
+It contains exact compound identities explicitly marked `superseded`.
+Malformed, duplicate, conflicting, or ambiguous registry content fails
+closed. The resolver precedence is invalid registry, exact supersession,
+embedded contract/integrity validation, then legacy/missing provenance.
+Classification never rewrites the artifact directory.
+
 ## `report.json.machine_contract`
 
 The machine-facing contract is published inside `report.json` at:
@@ -194,6 +239,11 @@ These files are refreshed automatically after successful:
 Paper sessions are excluded from this shared run index.
 
 They are intended as the read-only shared registry for browsing and integration.
+
+The index exposes `quantitative_contract_version`, `authority_status`,
+`authority_reason`, and the four eligibility flags. All parseable artifacts
+remain visible, while normal comparison and `--runs-best` consider only
+`current` evidence.
 
 ## Learned-Model Experiment Artifacts
 

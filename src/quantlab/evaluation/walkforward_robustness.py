@@ -12,6 +12,9 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+from quantlab.runs.quantitative_provenance import (
+    resolve_quantitative_authority,
+)
 
 
 ARTIFACT_TYPE = "quantlab.walkforward_robustness_verdict"
@@ -35,6 +38,13 @@ def evaluate_walkforward_robustness(run_dir: str | Path) -> dict[str, Any]:
     """Evaluate a walk-forward run directory and return a verdict payload."""
 
     run_path = Path(run_dir)
+    authority = resolve_quantitative_authority(run_path)
+    if not authority.promotion_eligible:
+        raise WalkforwardRobustnessError(
+            "Walk-forward artifact is not authoritative for robustness "
+            f"evaluation: {authority.authority_status} "
+            f"({authority.authority_reason})"
+        )
     summary_path = run_path / SUMMARY_CSV
     if not summary_path.exists():
         raise WalkforwardRobustnessError(

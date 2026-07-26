@@ -5,6 +5,9 @@ import pytest
 
 from quantlab.cli.evaluation import handle_evaluation_commands
 from quantlab.errors import ConfigError
+from support_quantitative_provenance import (
+    stamp_authoritative_walkforward_fixture,
+)
 
 
 def _args(path=None):
@@ -13,6 +16,7 @@ def _args(path=None):
 
 def _write_summary(run_dir, rows):
     pd.DataFrame(rows).to_csv(run_dir / "walkforward_summary.csv", index=False)
+    stamp_authoritative_walkforward_fixture(run_dir, rows)
 
 
 def test_evaluate_walkforward_run_writes_verdict_artifacts(tmp_path, capsys):
@@ -48,11 +52,12 @@ def test_evaluate_walkforward_run_writes_verdict_artifacts(tmp_path, capsys):
     assert "Worst OOS split return: -30.00%" in captured.out
     assert (tmp_path / "robustness_verdict.json").exists()
     assert (tmp_path / "robustness_verdict.md").exists()
-    assert not (tmp_path / "report.json").exists()
-    assert not (tmp_path / "metrics.json").exists()
+    assert (tmp_path / "report.json").exists()
+    assert (tmp_path / "metrics.json").exists()
 
 
 def test_evaluate_walkforward_run_missing_summary_fails_clearly(tmp_path):
+    stamp_authoritative_walkforward_fixture(tmp_path, [])
     with pytest.raises(ConfigError, match="Required artifact missing"):
         handle_evaluation_commands(_args(tmp_path))
 
@@ -66,4 +71,3 @@ def test_evaluate_walkforward_run_missing_directory_fails_clearly(tmp_path):
 
 def test_evaluation_handler_ignores_unrelated_commands():
     assert handle_evaluation_commands(_args()) is False
-

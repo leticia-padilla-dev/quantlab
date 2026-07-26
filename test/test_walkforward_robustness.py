@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import json
 import pandas as pd
 import pytest
 
@@ -8,10 +9,71 @@ from quantlab.evaluation.walkforward_robustness import (
     evaluate_walkforward_robustness,
     write_walkforward_robustness_verdict,
 )
+from quantlab.runs.quantitative_provenance import (
+    attach_quantitative_provenance,
+    propagate_quantitative_provenance_to_report,
+)
+
+
+SOURCE_COMMIT = "a" * 40
+
+
+def _stamp_authoritative_walkforward(
+    run_dir: Path, rows: list[dict]
+) -> None:
+    best_result = rows[0] if rows else None
+    metadata, metrics = attach_quantitative_provenance(
+        {
+            "run_id": run_dir.name,
+            "mode": "walkforward",
+            "command": "sweep",
+            "git_commit": SOURCE_COMMIT,
+        },
+        {
+            "summary": {
+                "total_return": (
+                    best_result.get("avg_test_return_topk")
+                    if best_result
+                    else None
+                ),
+                "sharpe_simple": (
+                    best_result.get("avg_test_sharpe_topk")
+                    if best_result
+                    else None
+                ),
+            },
+            "best_result": best_result,
+            "leaderboard_size": len(rows),
+        },
+        artifact_type="walkforward",
+        relative_run_path=run_dir.name,
+        source_git_commit=SOURCE_COMMIT,
+        run_id=run_dir.name,
+    )
+    report = propagate_quantitative_provenance_to_report(
+        {
+            "header": {
+                "run_id": run_dir.name,
+                "mode": "walkforward",
+                "git_commit": SOURCE_COMMIT,
+            },
+            "oos_leaderboard": [best_result] if best_result else [],
+            "kpi_summary": metrics["summary"],
+        },
+        metadata,
+        metrics,
+    )
+    for filename, payload in (
+        ("metadata.json", metadata),
+        ("metrics.json", metrics),
+        ("report.json", report),
+    ):
+        (run_dir / filename).write_text(json.dumps(payload))
 
 
 def _write_summary(run_dir: Path, rows: list[dict]) -> None:
     pd.DataFrame(rows).to_csv(run_dir / "walkforward_summary.csv", index=False)
+    _stamp_authoritative_walkforward(run_dir, rows)
 
 
 def _write_oos(run_dir: Path, rows: list[dict]) -> None:
@@ -144,6 +206,7 @@ def test_walkforward_robustness_reviews_when_trade_count_unavailable(tmp_path):
 
 
 def test_walkforward_robustness_requires_summary_artifact(tmp_path):
+    _stamp_authoritative_walkforward(tmp_path, [])
     with pytest.raises(WalkforwardRobustnessError, match="Required artifact missing"):
         evaluate_walkforward_robustness(tmp_path)
 
@@ -177,4 +240,3 @@ def test_walkforward_robustness_writes_json_and_markdown(tmp_path):
     markdown = (tmp_path / "robustness_verdict.md").read_text(encoding="utf-8")
     assert "Walk-forward Robustness Verdict" in markdown
     assert "does not authorize paper trading" in markdown
-

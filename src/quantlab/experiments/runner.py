@@ -26,6 +26,10 @@ from quantlab.runs.artifacts import (
     canonical_run_artifact_paths,
 )
 from quantlab.runs.run_store import RunStore
+from quantlab.runs.quantitative_provenance import (
+    attach_quantitative_provenance,
+    resolve_source_git_commit,
+)
 
 
 def _sanitize_for_json(obj):
@@ -51,12 +55,7 @@ def load_experiment_config(path: str) -> Dict[str, Any]:
 
 
 def _get_git_commit() -> str:
-    try:
-        import subprocess
-
-        return subprocess.check_output(["git", "rev-parse", "HEAD"]).decode("utf-8").strip()
-    except Exception:
-        return "unknown"
+    return resolve_source_git_commit()
 
 
 def make_run_dir(base: str = "outputs/runs", mode: str = "grid", config_path: str = "config.yaml") -> Path:
@@ -325,12 +324,14 @@ def _save_reproducibility_pack(
     best_result = metrics_summary[0] if metrics_summary else {}
     summary = build_standard_summary(best_result)
 
+    source_git_commit = _get_git_commit()
     metadata = {
+        "run_id": out_dir.name,
         "mode": mode,
         "command": "sweep",
         "status": "success",
         "created_at": datetime.datetime.now().isoformat(),
-        "git_commit": _get_git_commit(),
+        "git_commit": source_git_commit,
         "python_executable": sys.executable,
         "python_version": sys.version,
         "config_path": config_path,
@@ -356,6 +357,16 @@ def _save_reproducibility_pack(
                 if key not in {"request_id"}
             }
         )
+
+    artifact_type = "walkforward" if mode == "walkforward" else "sweep"
+    metadata, metrics_payload = attach_quantitative_provenance(
+        metadata,
+        metrics_payload,
+        artifact_type=artifact_type,
+        relative_run_path=out_dir.name,
+        source_git_commit=source_git_commit,
+        run_id=out_dir.name,
+    )
 
     store = RunStore(out_dir.name, base_dir=str(out_dir.parent))
     store.initialize()
@@ -725,8 +736,6 @@ def run_walkforward(
         oos_lb.to_csv(oos_lb_csv, index=False)
         print(f"OOS Leaderboard saved to: {oos_lb_csv}")
 
-    write_walkforward_robustness_verdict(out_dir_path)
-
     # Repro pack
     lb_summary = oos_lb.head(10).to_dict(orient="records") if not oos_lb.empty else []
 
@@ -747,6 +756,7 @@ def run_walkforward(
             **(extra_meta or {}),
         },
     )
+    write_walkforward_robustness_verdict(out_dir_path)
     try:
         write_run_report(str(out_dir_path))
     except Exception as e:
