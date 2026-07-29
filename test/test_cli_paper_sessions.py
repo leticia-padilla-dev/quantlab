@@ -16,6 +16,9 @@ from quantlab.cli.paper_sessions import (
 )
 from quantlab.errors import ConfigError
 from quantlab.reporting.paper_session_index import build_paper_sessions_index
+from support_quantitative_provenance import (
+    stamp_authoritative_paper_fixture,
+)
 
 
 @pytest.fixture()
@@ -95,6 +98,7 @@ def paper_sessions_root(tmp_path: Path) -> Path:
             ),
             encoding="utf-8",
         )
+        stamp_authoritative_paper_fixture(session_dir)
 
     return root
 

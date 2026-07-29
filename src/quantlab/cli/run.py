@@ -3,7 +3,6 @@ import hashlib
 import json
 import os
 import shutil
-import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -24,6 +23,10 @@ from quantlab.reporting.trade_analytics import (
 )
 from quantlab.runs.run_id import generate_run_id
 from quantlab.runs.run_store import PaperSessionStore, RunStore
+from quantlab.runs.quantitative_provenance import (
+    attach_quantitative_provenance,
+    resolve_source_git_commit,
+)
 from quantlab.errors import DataError
 
 
@@ -51,14 +54,7 @@ def _config_hash(config: dict[str, Any]) -> str:
 
 
 def _get_git_commit() -> str:
-    try:
-        return subprocess.check_output(
-            ["git", "rev-parse", "HEAD"],
-            stderr=subprocess.DEVNULL,
-            text=True,
-        ).strip()
-    except Exception:
-        return "unknown"
+    return resolve_source_git_commit()
 
 
 def _load_external_trades_csv(args, run_dir: Path) -> pd.DataFrame | None:
@@ -87,6 +83,8 @@ def _build_metrics_payload(
         "sharpe_simple": bt_metrics.get("sharpe_simple", 0.0),
         "trades": bt_metrics.get("trades", 0),
         "days": bt_metrics.get("days", 0),
+        "annualization_status": bt_metrics.get("annualization_status"),
+        "annualization_reason": bt_metrics.get("annualization_reason"),
     }
     if trade_metrics:
         best_result.update(
@@ -327,13 +325,14 @@ def handle_run_command(args) -> bool:
             trade_metrics=trade_metrics,
         )
 
+        source_git_commit = _get_git_commit()
         metadata = {
             "run_id": run_id,
             "mode": "run",
             "command": "run",
             "status": "success",
             "created_at": created_at,
-            "git_commit": _get_git_commit(),
+            "git_commit": source_git_commit,
             "python_executable": sys.executable,
             "python_version": sys.version,
             "config_path": "inline_cli",
@@ -355,7 +354,7 @@ def handle_run_command(args) -> bool:
                 "command": "paper",
                 "status": "success",
                 "created_at": created_at,
-                "git_commit": _get_git_commit(),
+                "git_commit": source_git_commit,
                 "python_executable": sys.executable,
                 "python_version": sys.version,
                 "config_path": "inline_cli",
@@ -363,10 +362,26 @@ def handle_run_command(args) -> bool:
                 "request_id": request_id,
                 "summary": summary,
             }
+            paper_metadata, paper_metrics = attach_quantitative_provenance(
+                paper_metadata,
+                paper_metrics,
+                artifact_type="paper",
+                relative_run_path=paper_session_id,
+                source_git_commit=source_git_commit,
+                run_id=paper_session_id,
+            )
             paper_store.write_metadata(paper_metadata)
             paper_store.write_config(config)
             paper_store.write_metrics(paper_metrics)
         else:
+            metadata, metrics_payload = attach_quantitative_provenance(
+                metadata,
+                metrics_payload,
+                artifact_type="run",
+                relative_run_path=run_id,
+                source_git_commit=source_git_commit,
+                run_id=run_id,
+            )
             store.write_metadata(metadata)
             store.write_config(config)
             store.write_metrics(metrics_payload)

@@ -3,6 +3,9 @@ import pytest
 import pandas as pd
 from pathlib import Path
 from quantlab.reporting.portfolio_report import _resolve_ticker, _get_dedup_key, aggregate_portfolio
+from support_quantitative_provenance import (
+    stamp_authoritative_forward_fixture,
+)
 
 def test_resolve_ticker_fallback():
     # Case 1: Ticker at top level
@@ -60,6 +63,7 @@ def test_aggregate_portfolio_with_dedup(tmp_path):
             {"timestamp": "2023-01-10", "equity": 1.0 + (pnl/10000.0)}
         ])
         df.to_csv(d / "forward_equity_curve.csv", index=False)
+        stamp_authoritative_forward_fixture(d)
         return d
 
     # DUPES: sess_a and sess_b have same dedup key (R1, BTC, S1, 2023-01-01, 2023-01-10, 10000, 10500)
@@ -94,6 +98,7 @@ def test_aggregate_portfolio_filtering(tmp_path):
     with open(d_valid / "portfolio_state.json", "w") as f:
         json.dump({"session_id": "v", "starting_cash": 1000}, f)
     pd.DataFrame([{"timestamp": "2023-01-01", "equity": 1.0}]).to_csv(d_valid / "forward_equity_curve.csv", index=False)
+    stamp_authoritative_forward_fixture(d_valid)
     
     d_no_state = tmp_path / "no_state"
     d_no_state.mkdir()

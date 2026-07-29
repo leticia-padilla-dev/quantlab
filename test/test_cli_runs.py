@@ -14,6 +14,13 @@ from pathlib import Path
 import pytest
 
 from quantlab.cli.runs import handle_runs_commands
+from quantlab.runs.quantitative_provenance import (
+    attach_quantitative_provenance,
+    propagate_quantitative_provenance_to_report,
+)
+
+
+SOURCE_COMMIT = "a" * 40
 
 
 # ---------------------------------------------------------------------------
@@ -32,30 +39,54 @@ def runs_dir(tmp_path: Path) -> Path:
     ]:
         run_dir = runs_root / run_id
         run_dir.mkdir()
-        report = {
+        summary = {
+            "sharpe_simple": sharpe,
+            "total_return": total_return,
+            "max_drawdown": -0.10,
+            "trades": 20,
+        }
+        metadata = {
+            "run_id": run_id,
+            "mode": "run",
+            "command": "run",
+            "git_commit": SOURCE_COMMIT,
+        }
+        metrics = {
+            "summary": summary,
+            "best_result": summary,
+            "leaderboard_size": 1,
+        }
+        metadata, metrics = attach_quantitative_provenance(
+            metadata,
+            metrics,
+            artifact_type="run",
+            relative_run_path=run_id,
+            source_git_commit=SOURCE_COMMIT,
+            run_id=run_id,
+        )
+        report = propagate_quantitative_provenance_to_report({
             "header": {
                 "run_id": run_id,
                 "mode": "backtest",
                 "created_at": "2026-01-01T00:00:00",
-                "git_commit": None,
+                "git_commit": SOURCE_COMMIT,
             },
             "config_resolved": {
                 "ticker": "ETH-USD",
                 "start": "2023-01-01",
                 "end": "2024-01-01",
             },
-            "results": [
-                {
-                    "sharpe_simple": sharpe,
-                    "total_return": total_return,
-                    "max_drawdown": -0.10,
-                    "trades": 20,
-                }
-            ],
-        }
-        (run_dir / "report.json").write_text(
-            json.dumps(report), encoding="utf-8"
-        )
+            "results": [summary],
+            "summary": summary,
+        }, metadata, metrics)
+        for filename, payload in (
+            ("metadata.json", metadata),
+            ("metrics.json", metrics),
+            ("report.json", report),
+        ):
+            (run_dir / filename).write_text(
+                json.dumps(payload), encoding="utf-8"
+            )
 
     return runs_root
 
@@ -153,15 +184,46 @@ class TestRunsBest:
         runs_root.mkdir()
         run_dir = runs_root / "run_C"
         run_dir.mkdir()
-        (run_dir / "report.json").write_text(
-            json.dumps({"header": {"run_id": "run_C"}, "results": []}),
-            encoding="utf-8",
+        metadata, metrics = attach_quantitative_provenance(
+            {
+                "run_id": "run_C",
+                "mode": "run",
+                "command": "run",
+                "git_commit": SOURCE_COMMIT,
+            },
+            {
+                "summary": {},
+                "best_result": None,
+                "leaderboard_size": 0,
+            },
+            artifact_type="run",
+            relative_run_path="run_C",
+            source_git_commit=SOURCE_COMMIT,
+            run_id="run_C",
         )
+        report = propagate_quantitative_provenance_to_report(
+            {
+                "header": {
+                    "run_id": "run_C",
+                    "git_commit": SOURCE_COMMIT,
+                },
+                "results": [],
+                "summary": {},
+            },
+            metadata,
+            metrics,
+        )
+        for filename, payload in (
+            ("metadata.json", metadata),
+            ("metrics.json", metrics),
+            ("report.json", report),
+        ):
+            (run_dir / filename).write_text(json.dumps(payload))
         args = _make_args(runs_best=str(runs_root), metric="sharpe_simple")
         result = handle_runs_commands(args)
         assert result is True
         out = capsys.readouterr().out
-        assert "No runs" in out
+        assert "No authoritative runs" in out
 
     def test_best_by_total_return(self, runs_dir: Path, capsys):
         args = _make_args(runs_best=str(runs_dir), metric="total_return")

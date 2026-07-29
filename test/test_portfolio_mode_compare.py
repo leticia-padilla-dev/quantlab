@@ -3,6 +3,9 @@ import pandas as pd
 import json
 from pathlib import Path
 from quantlab.reporting.portfolio_mode_compare import compare_portfolio_modes, render_comparison_md
+from support_quantitative_provenance import (
+    stamp_authoritative_forward_fixture,
+)
 
 @pytest.fixture
 def mock_session_dirs(tmp_path):
@@ -22,6 +25,7 @@ def mock_session_dirs(tmp_path):
         json.dump(state1, f)
     df1 = pd.DataFrame({"timestamp": ["2024-01-01", "2024-01-02"], "equity": [1.0, 1.1]})
     df1.to_csv(s1 / "forward_equity_curve.csv", index=False)
+    stamp_authoritative_forward_fixture(s1)
     
     # Session 2: BTC (-10%)
     s2 = tmp_path / "session_btc"
@@ -39,6 +43,7 @@ def mock_session_dirs(tmp_path):
         json.dump(state2, f)
     df2 = pd.DataFrame({"timestamp": ["2024-01-01", "2024-01-02"], "equity": [1.0, 0.9]})
     df2.to_csv(s2 / "forward_equity_curve.csv", index=False)
+    stamp_authoritative_forward_fixture(s2)
     
     return [s1, s2]
 

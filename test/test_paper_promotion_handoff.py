@@ -16,6 +16,9 @@ from quantlab.runs.artifacts import (
     PAPER_SESSION_METADATA_FILENAME,
     PAPER_SESSION_STATUS_FILENAME,
 )
+from support_quantitative_provenance import (
+    stamp_authoritative_paper_fixture,
+)
 
 
 def _write_json(path: Path, payload: dict) -> None:
@@ -52,6 +55,7 @@ def test_paper_promotion_handoff_command_writes_artifacts(tmp_path: Path) -> Non
         },
     )
     _write_trades_csv(session_dir / "trades.csv")
+    stamp_authoritative_paper_fixture(session_dir)
 
     args = SimpleNamespace(
         paper_promotion_handoff=str(session_dir),

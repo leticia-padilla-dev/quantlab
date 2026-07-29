@@ -9,6 +9,10 @@ import pytest
 
 from quantlab.cli.run import handle_run_command
 from quantlab.errors import DataError
+from quantlab.runs.quantitative_provenance import (
+    AUTHORITY_CURRENT,
+    resolve_quantitative_authority,
+)
 
 
 class _FakeStrategy:
@@ -80,8 +84,10 @@ def test_paper_run_creates_dedicated_session_artifacts(monkeypatch, tmp_path):
         lambda bt: {
             "total_return": 0.01,
             "max_drawdown": -0.01,
-            "sharpe_simple": 0.8,
-            "winrate_active_days": 0.5,
+                "sharpe_simple": 0.8,
+                "annualization_status": "valid",
+                "annualization_reason": None,
+                "winrate_active_days": 0.5,
             "days": 3,
             "trades": 2,
         },
@@ -107,6 +113,11 @@ def test_paper_run_creates_dedicated_session_artifacts(monkeypatch, tmp_path):
     assert metadata["mode"] == "paper"
     assert metadata["command"] == "paper"
     assert metadata["request_id"] == "req_paper_session_001"
+    policies = metadata["quantitative_contract"]["policies"]
+    assert policies["oos_equity_stitching"]["applicability"] == "not_applicable"
+    assert policies["forward_resume_accounting"]["applicability"] == "not_applicable"
+    assert policies["fee_and_slippage"]["applicability"] == "applied"
+    assert policies["annualization"]["applicability"] == "applied"
 
     status = json.loads((session_dir / "session_status.json").read_text(encoding="utf-8"))
     assert status["session_id"] == session_id
@@ -132,6 +143,10 @@ def test_paper_run_creates_dedicated_session_artifacts(monkeypatch, tmp_path):
     assert report["machine_contract"]["mode"] == "paper"
     assert report["machine_contract"]["artifacts"]["metadata"] == "session_metadata.json"
     assert report["machine_contract"]["artifacts"]["status"] == "session_status.json"
+    assert (
+        resolve_quantitative_authority(session_dir).authority_status
+        == AUTHORITY_CURRENT
+    )
 
 
 def test_paper_run_persists_failed_session_status(monkeypatch, tmp_path):

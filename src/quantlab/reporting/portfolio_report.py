@@ -19,6 +19,9 @@ import pandas as pd
 
 from quantlab.reporting.forward_report import _sanitize, _fmt
 from quantlab.reporting.report_summary import build_standard_summary
+from quantlab.runs.quantitative_provenance import (
+    resolve_quantitative_authority,
+)
 
 
 def _resolve_ticker(state: Dict[str, Any]) -> str:
@@ -71,6 +74,7 @@ def get_eligible_sessions(
     """
     scanned_count = 0
     excluded_incomplete = 0
+    excluded_non_authoritative = 0
 
     raw_sessions: List[Dict[str, Any]] = []
 
@@ -85,13 +89,28 @@ def get_eligible_sessions(
             continue
 
         try:
-            with open(state_path, encoding="utf-8") as f:
-                state = json.load(f)
-
             df_eq = pd.read_csv(eq_path)
-            if df_eq.empty or "timestamp" not in df_eq.columns or "equity" not in df_eq.columns:
+            if (
+                df_eq.empty
+                or "timestamp" not in df_eq.columns
+                or "equity" not in df_eq.columns
+            ):
                 excluded_incomplete += 1
                 continue
+
+            authority = resolve_quantitative_authority(
+                p,
+                required_inputs=(
+                    "portfolio_state.json",
+                    "forward_equity_curve.csv",
+                ),
+            )
+            if not authority.promotion_eligible:
+                excluded_non_authoritative += 1
+                continue
+
+            with open(state_path, encoding="utf-8") as f:
+                state = json.load(f)
 
             df_eq["timestamp"] = pd.to_datetime(df_eq["timestamp"])
             df_eq = df_eq.set_index("timestamp")
@@ -188,6 +207,7 @@ def get_eligible_sessions(
         "sessions_scanned": scanned_count,
         "sessions_included": len(final_selected),
         "sessions_excluded_incomplete": excluded_incomplete,
+        "sessions_excluded_non_authoritative": excluded_non_authoritative,
         "sessions_collapsed_duplicates": dropped_as_dupes,
         "sessions_after_hygiene": len(raw_sessions),
         "sessions_after_dedup": len(candidates_after_dedup),

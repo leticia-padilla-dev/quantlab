@@ -4,6 +4,9 @@ import numpy as np
 import json
 from pathlib import Path
 from quantlab.reporting.portfolio_report import aggregate_portfolio, render_portfolio_md
+from support_quantitative_provenance import (
+    stamp_authoritative_forward_fixture,
+)
 
 @pytest.fixture
 def mock_session_dirs(tmp_path):
@@ -24,6 +27,7 @@ def mock_session_dirs(tmp_path):
         "equity": [1.0, 1.01, 1.02, 1.01, 1.05]
     })
     df1.to_csv(s1 / "forward_equity_curve.csv", index=False)
+    stamp_authoritative_forward_fixture(s1)
     
     # Session 2: BTC
     s2 = tmp_path / "session_btc"
@@ -42,6 +46,7 @@ def mock_session_dirs(tmp_path):
         "equity": [1.0, 0.99, 0.98, 1.00, 1.02]
     })
     df2.to_csv(s2 / "forward_equity_curve.csv", index=False)
+    stamp_authoritative_forward_fixture(s2)
     
     return [s1, s2]
 
@@ -80,6 +85,7 @@ def test_aggregate_portfolio_staggered(tmp_path):
     with open(s1 / "portfolio_state.json", "w") as f: json.dump(state1, f)
     df1 = pd.DataFrame({"timestamp": pd.to_datetime(["2024-01-01", "2024-01-02"]), "equity": [1.0, 1.0]})
     df1.to_csv(s1 / "forward_equity_curve.csv", index=False)
+    stamp_authoritative_forward_fixture(s1)
 
     # Cand B: starts at t1 (staggered), starts at 1.0
     s2 = tmp_path / "session_b"
@@ -89,6 +95,7 @@ def test_aggregate_portfolio_staggered(tmp_path):
     # Only one bar at t=2
     df2 = pd.DataFrame({"timestamp": pd.to_datetime(["2024-01-02"]), "equity": [1.0]})
     df2.to_csv(s2 / "forward_equity_curve.csv", index=False)
+    stamp_authoritative_forward_fixture(s2)
 
     payload = aggregate_portfolio([s1, s2])
     summary = payload["portfolio_summary"]
