@@ -31,6 +31,7 @@ from quantlab.runs.quantitative_provenance import (
     build_quantitative_input_manifest,
     build_quantitative_contract,
     compute_quantitative_evidence_digest,
+    _editable_install_repository,
     propagate_quantitative_provenance_to_report,
     resolve_source_git_commit,
     resolve_quantitative_authority,
@@ -636,6 +637,37 @@ def test_source_commit_accepts_an_explicit_verified_repository(
         cwd=Path(__file__).resolve().parents[1],
         text=True,
     ).strip()
+
+
+def test_editable_install_repository_resolves_platform_file_uri(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repository_root = Path(__file__).resolve().parents[1]
+
+    class EditableDistribution:
+        @staticmethod
+        def read_text(filename: str) -> str:
+            assert filename == "direct_url.json"
+            return json.dumps(
+                {
+                    "dir_info": {"editable": True},
+                    "url": repository_root.as_uri(),
+                }
+            )
+
+    monkeypatch.setattr(
+        "quantlab.runs.quantitative_provenance."
+        "importlib_metadata.distribution",
+        lambda name: EditableDistribution(),
+    )
+    monkeypatch.setattr(
+        "quantlab.runs.quantitative_provenance.importlib_util.find_spec",
+        lambda name: SimpleNamespace(
+            origin=str(repository_root / "src" / "quantlab" / "__init__.py")
+        ),
+    )
+
+    assert _editable_install_repository() == repository_root
 
 
 def test_source_commit_accepts_the_github_actions_evaluated_sha(

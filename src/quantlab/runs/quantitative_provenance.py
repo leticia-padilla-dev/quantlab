@@ -21,6 +21,7 @@ import re
 import subprocess
 from typing import Any, Iterable, Mapping
 from urllib.parse import unquote, urlparse
+from urllib.request import url2pathname
 
 from quantlab.runs.artifacts import (
     CANONICAL_METADATA_FILENAME,
@@ -169,7 +170,8 @@ def _editable_install_repository() -> Path | None:
     parsed = urlparse(str(direct_url.get("url") or ""))
     if parsed.scheme != "file":
         return None
-    repository = Path(unquote(parsed.path)).resolve()
+    uri_path = f"//{parsed.netloc}{parsed.path}" if parsed.netloc else parsed.path
+    repository = Path(url2pathname(unquote(uri_path))).resolve()
     spec = importlib_util.find_spec("quantlab")
     origin = Path(spec.origin).resolve() if spec and spec.origin else None
     if origin is None or repository not in origin.parents:
