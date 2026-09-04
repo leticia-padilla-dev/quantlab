@@ -113,6 +113,11 @@ class TestBuildForwardReport:
         out = _make_forward_artifacts(tmp_path, with_trades=False)
         payload = build_forward_report(out)
         assert payload["summary"]["n_trades"] == 0
+        assert (
+            payload["bound_quantitative_inputs"]["files"]
+            ["forward_trades.csv"]["record_count"]
+            == 0
+        )
         json.dumps(payload, allow_nan=False)
 
     def test_empty_dir_returns_minimal_payload(self, tmp_path):
@@ -297,8 +302,20 @@ class TestWriteForwardReport:
         assert policies["fee_and_slippage"]["applicability"] == "applied"
         assert policies["forward_resume_accounting"]["applicability"] == "not_applicable"
         assert data["machine_contract"]["quantitative_contract"] == data["quantitative_contract"]
+        assert set(data["bound_quantitative_inputs"]["files"]) == {
+            "portfolio_state.json",
+            "forward_equity_curve.csv",
+            "forward_trades.csv",
+        }
         assert (
-            resolve_quantitative_authority(out).authority_status
+            resolve_quantitative_authority(
+                out,
+                required_inputs=(
+                    "portfolio_state.json",
+                    "forward_equity_curve.csv",
+                    "forward_trades.csv",
+                ),
+            ).authority_status
             == AUTHORITY_CURRENT
         )
 
@@ -320,3 +337,14 @@ class TestWriteForwardReport:
         json_p, md_p = write_forward_report(out)
         data = json.loads(Path(json_p).read_text())
         assert data["summary"]["n_trades"] == 0
+        assert (
+            resolve_quantitative_authority(
+                out,
+                required_inputs=(
+                    "portfolio_state.json",
+                    "forward_equity_curve.csv",
+                    "forward_trades.csv",
+                ),
+            ).authority_status
+            == AUTHORITY_CURRENT
+        )

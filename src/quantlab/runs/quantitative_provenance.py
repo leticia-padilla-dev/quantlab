@@ -73,6 +73,16 @@ _BOUND_QUANTITATIVE_INPUTS = {
     "walkforward_summary.csv",
     "portfolio_state.json",
     "forward_equity_curve.csv",
+    "forward_trades.csv",
+    "trades.csv",
+}
+_REQUIRED_BOUND_INPUTS_BY_ARTIFACT_TYPE = {
+    "forward": {
+        "portfolio_state.json",
+        "forward_equity_curve.csv",
+        "forward_trades.csv",
+    },
+    "paper": {"trades.csv"},
 }
 
 
@@ -785,10 +795,19 @@ def resolve_quantitative_authority(
             contract=contract,
             identity=identity,
         )
+    artifact_type = (
+        str(contract.get("artifact_type"))
+        if isinstance(contract, Mapping)
+        else ""
+    )
+    effective_required_inputs = set(str(name) for name in required_inputs)
+    effective_required_inputs.update(
+        _REQUIRED_BOUND_INPUTS_BY_ARTIFACT_TYPE.get(artifact_type, set())
+    )
     input_error = _validate_quantitative_input_manifest(
         root,
         canonical_metrics,
-        required_inputs=required_inputs,
+        required_inputs=effective_required_inputs,
     )
     if input_error:
         return _unknown(
@@ -1003,6 +1022,21 @@ def _validate_quantitative_input_manifest(
             return f"quantitative_input_invalid:{filename}"
         if actual != expected:
             return f"quantitative_input_digest_mismatch:{filename}"
+
+    if {
+        "portfolio_state.json",
+        "forward_trades.csv",
+    }.issubset(files):
+        state_surface = _load_json_surface(root / "portfolio_state.json")
+        state_trade_count = state_surface.payload.get("n_trades")
+        ledger_trade_count = files["forward_trades.csv"]["record_count"]
+        if state_trade_count is not None and (
+            isinstance(state_trade_count, bool)
+            or not isinstance(state_trade_count, int)
+            or state_trade_count < 0
+            or state_trade_count != ledger_trade_count
+        ):
+            return "quantitative_input_semantic_mismatch:forward_trade_count"
     return None
 
 

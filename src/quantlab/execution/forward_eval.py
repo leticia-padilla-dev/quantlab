@@ -699,6 +699,24 @@ def load_forward_session(session_dir: str | Path) -> Dict[str, Any]:
     if not state_path.exists():
         raise ValueError(f"Invalid session directory: portfolio_state.json not found in {session_dir}")
 
+    from quantlab.runs.quantitative_provenance import (
+        resolve_quantitative_authority,
+    )
+
+    authority = resolve_quantitative_authority(
+        p,
+        required_inputs=(
+            "portfolio_state.json",
+            "forward_equity_curve.csv",
+            "forward_trades.csv",
+        ),
+    )
+    if not authority.forward_eligible:
+        raise ValueError(
+            "Forward session is not authoritative for resume: "
+            f"{authority.authority_status} ({authority.authority_reason})"
+        )
+
     state = load_portfolio_state(state_path)
 
     trades_path = p / "forward_trades.csv"

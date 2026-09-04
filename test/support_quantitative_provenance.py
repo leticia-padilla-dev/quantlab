@@ -19,6 +19,21 @@ SOURCE_COMMIT = "a" * 40
 def stamp_authoritative_forward_fixture(session_dir: Path) -> None:
     """Stamp a synthetic forward fixture through the production builder."""
 
+    trades_path = session_dir / "forward_trades.csv"
+    if not trades_path.exists():
+        pd.DataFrame(
+            columns=[
+                "timestamp",
+                "side",
+                "close",
+                "exec_price",
+                "qty",
+                "fee",
+                "equity_after",
+                "slippage",
+            ]
+        ).to_csv(trades_path, index=False)
+
     state = json.loads(
         (session_dir / "portfolio_state.json").read_text(encoding="utf-8")
     )
@@ -43,7 +58,11 @@ def stamp_authoritative_forward_fixture(session_dir: Path) -> None:
         },
         "bound_quantitative_inputs": build_quantitative_input_manifest(
             session_dir,
-            ("portfolio_state.json", "forward_equity_curve.csv"),
+            (
+                "portfolio_state.json",
+                "forward_equity_curve.csv",
+                "forward_trades.csv",
+            ),
         ),
     }
     report = attach_report_quantitative_provenance(
@@ -60,8 +79,28 @@ def stamp_authoritative_forward_fixture(session_dir: Path) -> None:
     )
 
 
-def stamp_authoritative_paper_fixture(session_dir: Path) -> None:
+def stamp_authoritative_paper_fixture(
+    session_dir: Path,
+    *,
+    bind_trades: bool = True,
+) -> None:
     """Stamp an existing synthetic paper fixture as recognized evidence."""
+
+    trades_path = session_dir / "trades.csv"
+    if not trades_path.exists():
+        pd.DataFrame(
+            columns=[
+                "timestamp",
+                "side",
+                "close",
+                "exec_price",
+                "qty",
+                "fee",
+                "equity_after",
+                "slippage",
+                "reason",
+            ]
+        ).to_csv(trades_path, index=False)
 
     metadata_path = session_dir / "session_metadata.json"
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
@@ -72,6 +111,13 @@ def stamp_authoritative_paper_fixture(session_dir: Path) -> None:
         "best_result": None,
         "leaderboard_size": 0,
     }
+    if bind_trades:
+        metrics["bound_quantitative_inputs"] = (
+            build_quantitative_input_manifest(
+                session_dir,
+                ("trades.csv",),
+            )
+        )
     metadata, metrics = attach_quantitative_provenance(
         metadata,
         metrics,

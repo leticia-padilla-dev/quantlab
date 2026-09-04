@@ -276,6 +276,7 @@ def build_forward_report(out_dir: str | Path) -> Dict[str, Any]:
         for filename in (
             "portfolio_state.json",
             "forward_equity_curve.csv",
+            "forward_trades.csv",
         )
         if (out_path / filename).is_file()
     )

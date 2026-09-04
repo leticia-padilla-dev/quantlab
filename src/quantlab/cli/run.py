@@ -25,6 +25,7 @@ from quantlab.runs.run_id import generate_run_id
 from quantlab.runs.run_store import PaperSessionStore, RunStore
 from quantlab.runs.quantitative_provenance import (
     attach_quantitative_provenance,
+    build_quantitative_input_manifest,
     resolve_source_git_commit,
 )
 from quantlab.errors import DataError
@@ -346,6 +347,12 @@ def handle_run_command(args) -> bool:
 
             paper_metrics = dict(metrics_payload)
             paper_metrics.update({"mode": "paper", "command": "paper"})
+            paper_metrics["bound_quantitative_inputs"] = (
+                build_quantitative_input_manifest(
+                    paper_session_dir,
+                    ("trades.csv",),
+                )
+            )
 
             paper_metadata = {
                 "session_id": paper_session_id,

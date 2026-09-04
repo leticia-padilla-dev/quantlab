@@ -16,8 +16,12 @@ from quantlab.evaluation.walkforward_robustness import (
     WalkforwardRobustnessError,
     evaluate_walkforward_robustness,
 )
-from quantlab.execution.forward_eval import load_candidate_from_run
+from quantlab.execution.forward_eval import (
+    load_candidate_from_run,
+    load_forward_session,
+)
 from quantlab.reporting.compare_runs import compare_runs
+from quantlab.reporting.forward_report import build_forward_report
 from quantlab.reporting.portfolio_report import get_eligible_sessions
 from quantlab.reporting.run_index import build_runs_index, load_run_summary
 from quantlab.runs.quantitative_provenance import (
@@ -205,7 +209,9 @@ def _write_forward_inputs(session_dir: Path) -> None:
                 "candidate": {
                     "ticker": "BTC-USD",
                     "strategy_name": "rsi_ma_cross_v2",
+                    "params": {},
                 },
+                "n_trades": 1,
             }
         ),
         encoding="utf-8",
@@ -216,6 +222,30 @@ def _write_forward_inputs(session_dir: Path) -> None:
             "equity": [1.0, 1.1],
         }
     ).to_csv(session_dir / "forward_equity_curve.csv", index=False)
+    pd.DataFrame(
+        [
+            {
+                "timestamp": "2026-01-01",
+                "side": "BUY",
+                "close": 100.0,
+                "exec_price": 100.1,
+                "qty": 1.0,
+                "fee": 0.1,
+                "equity_after": 999.9,
+                "slippage": 0.1,
+            }
+        ]
+    ).to_csv(session_dir / "forward_trades.csv", index=False)
+
+
+def _write_authoritative_forward_session(session_dir: Path) -> None:
+    session_dir.mkdir(parents=True, exist_ok=True)
+    _write_forward_inputs(session_dir)
+    report = build_forward_report(session_dir)
+    (session_dir / "report.json").write_text(
+        json.dumps(report),
+        encoding="utf-8",
+    )
 
 
 def _write_registry(root: Path, entries: object) -> Path:
@@ -813,6 +843,7 @@ def test_portfolio_selection_rejects_tampered_bound_input(
         bound_input_filenames=(
             "portfolio_state.json",
             "forward_equity_curve.csv",
+            "forward_trades.csv",
         ),
     )
 
@@ -840,6 +871,211 @@ def test_portfolio_selection_rejects_tampered_bound_input(
 
     assert sessions == []
     assert stats["sessions_excluded_non_authoritative"] == 1
+
+
+def test_forward_trade_ledger_is_bound_and_authoritative(
+    tmp_path: Path,
+) -> None:
+    session_dir = tmp_path / "forward-current"
+    _write_authoritative_forward_session(session_dir)
+
+    report = json.loads(
+        (session_dir / "report.json").read_text(encoding="utf-8")
+    )
+    resolution = resolve_quantitative_authority(
+        session_dir,
+        required_inputs=(
+            "portfolio_state.json",
+            "forward_equity_curve.csv",
+            "forward_trades.csv",
+        ),
+    )
+
+    assert "forward_trades.csv" in report["bound_quantitative_inputs"]["files"]
+    assert resolution.authority_status == AUTHORITY_CURRENT
+
+
+@pytest.mark.parametrize("mutation", ["tampered", "missing", "malformed"])
+def test_forward_trade_ledger_failure_is_unknown_provenance(
+    tmp_path: Path,
+    mutation: str,
+) -> None:
+    session_dir = tmp_path / f"forward-{mutation}"
+    _write_authoritative_forward_session(session_dir)
+    trades_path = session_dir / "forward_trades.csv"
+    if mutation == "tampered":
+        trades_path.write_text(
+            trades_path.read_text(encoding="utf-8")
+            + "2026-01-02,SELL,101,100.9,0,0.1,1000.8,0.1\n",
+            encoding="utf-8",
+        )
+    elif mutation == "missing":
+        trades_path.unlink()
+    else:
+        trades_path.write_text(
+            "timestamp,side\n2026-01-01\n",
+            encoding="utf-8",
+        )
+
+    resolution = resolve_quantitative_authority(
+        session_dir,
+    )
+
+    assert resolution.authority_status == AUTHORITY_UNKNOWN
+    assert resolution.forward_eligible is False
+    assert resolution.promotion_eligible is False
+
+
+def test_forward_required_trade_ledger_must_be_in_manifest(
+    tmp_path: Path,
+) -> None:
+    session_dir = tmp_path / "forward-unbound"
+    session_dir.mkdir()
+    _write_forward_inputs(session_dir)
+    _write_current_run(
+        session_dir,
+        artifact_type="forward",
+        bound_input_filenames=(
+            "portfolio_state.json",
+            "forward_equity_curve.csv",
+        ),
+    )
+
+    resolution = resolve_quantitative_authority(
+        session_dir,
+    )
+
+    assert resolution.authority_status == AUTHORITY_UNKNOWN
+    assert (
+        resolution.authority_reason
+        == "quantitative_input_unbound:forward_trades.csv"
+    )
+
+
+def test_load_forward_session_rejects_tampered_ledger_before_read(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session_dir = tmp_path / "forward-resume-tampered"
+    _write_authoritative_forward_session(session_dir)
+    report_before = (session_dir / "report.json").read_bytes()
+    trades_path = session_dir / "forward_trades.csv"
+    trades_path.write_text(
+        trades_path.read_text(encoding="utf-8")
+        + "2026-01-02,SELL,101,100.9,0,0.1,1000.8,0.1\n",
+        encoding="utf-8",
+    )
+
+    def unexpected_pandas_read(*args, **kwargs):
+        raise AssertionError("resume consumed CSV before authority validation")
+
+    monkeypatch.setattr(
+        "quantlab.execution.forward_eval.pd.read_csv",
+        unexpected_pandas_read,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=r"unknown_provenance .*forward_trades.csv",
+    ):
+        load_forward_session(session_dir)
+
+    assert (session_dir / "report.json").read_bytes() == report_before
+
+
+def test_forward_state_with_trades_and_missing_ledger_fails_closed(
+    tmp_path: Path,
+) -> None:
+    session_dir = tmp_path / "forward-contradiction"
+    _write_authoritative_forward_session(session_dir)
+    (session_dir / "forward_trades.csv").unlink()
+
+    resolution = resolve_quantitative_authority(session_dir)
+
+    assert resolution.authority_status == AUTHORITY_UNKNOWN
+    assert resolution.forward_eligible is False
+    assert resolution.promotion_eligible is False
+
+
+def test_forward_state_trade_count_contradiction_fails_closed(
+    tmp_path: Path,
+) -> None:
+    session_dir = tmp_path / "forward-count-contradiction"
+    session_dir.mkdir()
+    _write_forward_inputs(session_dir)
+    pd.DataFrame(
+        columns=[
+            "timestamp",
+            "side",
+            "close",
+            "exec_price",
+            "qty",
+            "fee",
+            "equity_after",
+            "slippage",
+        ]
+    ).to_csv(session_dir / "forward_trades.csv", index=False)
+    report = build_forward_report(session_dir)
+    (session_dir / "report.json").write_text(
+        json.dumps(report),
+        encoding="utf-8",
+    )
+
+    resolution = resolve_quantitative_authority(session_dir)
+
+    assert resolution.authority_status == AUTHORITY_UNKNOWN
+    assert (
+        resolution.authority_reason
+        == "quantitative_input_semantic_mismatch:forward_trade_count"
+    )
+    assert resolution.forward_eligible is False
+    assert resolution.promotion_eligible is False
+
+
+@pytest.mark.parametrize("filename", ["forward_trades.csv", "trades.csv"])
+def test_trade_ledgers_use_shared_canonical_manifest(
+    tmp_path: Path,
+    filename: str,
+) -> None:
+    path = tmp_path / filename
+    path.write_text(
+        "timestamp,side,qty\n2026-01-01,BUY,1\n",
+        encoding="utf-8",
+    )
+    original = build_quantitative_input_manifest(tmp_path, (filename,))
+    path.write_text(
+        "timestamp,side,qty\n2026-01-01,BUY,2\n",
+        encoding="utf-8",
+    )
+    changed = build_quantitative_input_manifest(tmp_path, (filename,))
+
+    assert set(original["files"]) == {filename}
+    assert str(tmp_path) not in json.dumps(original)
+    assert original["files"][filename]["format"] == "canonical_csv_rows_v1"
+    assert original["files"][filename]["sha256"] != changed["files"][filename]["sha256"]
+
+
+@pytest.mark.parametrize("filename", ["forward_trades.csv", "trades.csv"])
+@pytest.mark.parametrize(
+    ("payload", "message"),
+    [
+        ("", "no header"),
+        ("timestamp,side\n2026-01-01\n", "invalid tabular shape"),
+    ],
+)
+def test_trade_ledgers_reject_invalid_tabular_shape(
+    tmp_path: Path,
+    filename: str,
+    payload: str,
+    message: str,
+) -> None:
+    (tmp_path / filename).write_text(
+        payload,
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match=message):
+        build_quantitative_input_manifest(tmp_path, (filename,))
 
 
 @pytest.mark.parametrize(

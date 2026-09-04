@@ -223,6 +223,12 @@ def load_paper_session_summary(session_dir: str | Path) -> dict[str, Any]:
         resolve_quantitative_authority,
     )
 
+    required_quantitative_inputs = (
+        ("trades.csv",)
+        if report_contract == "quantlab.paper.result"
+        else ()
+    )
+
     return {
         "session_id": session_id,
         "status": resolved_status,
@@ -241,7 +247,10 @@ def load_paper_session_summary(session_dir: str | Path) -> dict[str, Any]:
         "report_contract_type": report_contract,
         "report_present": bool(report_path),
         "path": str(path),
-        **resolve_quantitative_authority(path).to_dict(),
+        **resolve_quantitative_authority(
+            path,
+            required_inputs=required_quantitative_inputs,
+        ).to_dict(),
         **artifacts,
     }
 
