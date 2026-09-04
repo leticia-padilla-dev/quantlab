@@ -4,6 +4,9 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 from quantlab.reporting.portfolio_report import aggregate_portfolio
+from support_quantitative_provenance import (
+    stamp_authoritative_forward_fixture,
+)
 
 def create_mock_session(tmp_path, name, returns, ticker="BTC"):
     """
@@ -24,6 +27,7 @@ def create_mock_session(tmp_path, name, returns, ticker="BTC"):
         
     df = pd.DataFrame(returns, columns=["timestamp", "equity"])
     df.to_csv(d / "forward_equity_curve.csv", index=False)
+    stamp_authoritative_forward_fixture(d)
     return d
 
 def test_equal_weight_aggregation(tmp_path):

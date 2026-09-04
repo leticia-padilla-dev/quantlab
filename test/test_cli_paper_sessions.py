@@ -13,9 +13,13 @@ from quantlab.cli.paper_sessions import (
     build_paper_sessions_health,
     build_paper_sessions_promotion_report,
     handle_paper_session_commands,
+    load_paper_session_summary,
 )
 from quantlab.errors import ConfigError
 from quantlab.reporting.paper_session_index import build_paper_sessions_index
+from support_quantitative_provenance import (
+    stamp_authoritative_paper_fixture,
+)
 
 
 @pytest.fixture()
@@ -95,6 +99,7 @@ def paper_sessions_root(tmp_path: Path) -> Path:
             ),
             encoding="utf-8",
         )
+        stamp_authoritative_paper_fixture(session_dir)
 
     return root
 
@@ -237,6 +242,14 @@ class TestPaperSessionsAlerts:
 class TestPaperSessionsPromotion:
     def test_builds_promotion_report_with_candidates_and_blockers(self, paper_sessions_root: Path):
         report = build_paper_sessions_promotion_report(paper_sessions_root)
+        zero_trade_session = load_paper_session_summary(
+            paper_sessions_root / "paper_001"
+        )
+        zero_trade_metrics = json.loads(
+            (paper_sessions_root / "paper_001" / "metrics.json").read_text(
+                encoding="utf-8"
+            )
+        )
 
         assert report["total_sessions"] == 4
         assert report["promotion_ready_count"] == 1
@@ -248,6 +261,13 @@ class TestPaperSessionsPromotion:
         assert "status_success" in report["ready_candidates"][0]["broker_promotion_reasons"]
         assert report["blocked_sessions"][0]["broker_promotion_ready"] is False
         assert "non_terminal" in report["blocked_sessions"][0]["broker_promotion_blockers"] or "status_running" in report["blocked_sessions"][0]["broker_promotion_blockers"]
+        assert zero_trade_session["authority_status"] == "current"
+        assert zero_trade_session["promotion_eligible"] is True
+        assert (
+            zero_trade_metrics["bound_quantitative_inputs"]["files"]
+            ["trades.csv"]["record_count"]
+            == 0
+        )
 
     def test_prints_promotion_report(self, paper_sessions_root: Path, capsys):
         args = _make_args(paper_sessions_promotion=str(paper_sessions_root))
@@ -257,6 +277,85 @@ class TestPaperSessionsPromotion:
         out = capsys.readouterr().out
         assert '"promotion_ready_count"' in out
         assert '"paper_001"' in out
+
+    @pytest.mark.parametrize("mutation", ["tampered", "missing", "malformed"])
+    def test_trade_ledger_failure_blocks_authority_and_promotion(
+        self,
+        paper_sessions_root: Path,
+        mutation: str,
+    ) -> None:
+        session_dir = paper_sessions_root / "paper_001"
+        trades_path = session_dir / "trades.csv"
+        if mutation == "tampered":
+            trades_path.write_text(
+                trades_path.read_text(encoding="utf-8")
+                + "2026-01-01,BUY,1,1,1,0,1,0,tampered\n",
+                encoding="utf-8",
+            )
+        elif mutation == "missing":
+            trades_path.unlink()
+        else:
+            trades_path.write_text(
+                "timestamp,side\n2026-01-01\n",
+                encoding="utf-8",
+            )
+
+        summary = load_paper_session_summary(session_dir)
+        report = build_paper_sessions_promotion_report(paper_sessions_root)
+        blocked = {
+            item["session_id"]: item
+            for item in report["blocked_sessions"]
+        }
+
+        assert summary["authority_status"] == "unknown_provenance"
+        assert summary["promotion_eligible"] is False
+        assert blocked["paper_001"]["broker_promotion_ready"] is False
+
+    def test_unbound_trade_ledger_blocks_promotion(self, tmp_path: Path) -> None:
+        root = tmp_path / "paper_sessions"
+        session_dir = root / "paper_unbound"
+        session_dir.mkdir(parents=True)
+        (session_dir / "artifacts").mkdir()
+        (session_dir / "session_metadata.json").write_text(
+            json.dumps(
+                {
+                    "session_id": "paper_unbound",
+                    "mode": "paper",
+                    "command": "paper",
+                    "status": "success",
+                }
+            ),
+            encoding="utf-8",
+        )
+        (session_dir / "session_status.json").write_text(
+            json.dumps(
+                {
+                    "session_id": "paper_unbound",
+                    "status": "success",
+                    "terminal": True,
+                }
+            ),
+            encoding="utf-8",
+        )
+        (session_dir / "report.json").write_text(
+            json.dumps(
+                {
+                    "status": "success",
+                    "header": {"run_id": "paper_unbound", "mode": "paper"},
+                    "machine_contract": {
+                        "contract_type": "quantlab.paper.result",
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        stamp_authoritative_paper_fixture(session_dir, bind_trades=False)
+
+        summary = load_paper_session_summary(session_dir)
+
+        assert summary["authority_status"] == "unknown_provenance"
+        assert summary["authority_reason"] == "quantitative_input_unbound:trades.csv"
+        assert summary["promotion_eligible"] is False
 
 
 class TestPaperSessionsIndex:

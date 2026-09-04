@@ -9,31 +9,75 @@ from quantlab.reporting.compare_runs import (
     render_comparison_md,
     write_comparison,
 )
+from quantlab.runs.quantitative_provenance import (
+    attach_quantitative_provenance,
+    propagate_quantitative_provenance_to_report,
+)
+
+
+SOURCE_COMMIT = "a" * 40
 
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
 
-def _make_run_dir(base: Path, name: str, sharpe: float | None, mode: str = "grid") -> Path:
+def _make_run_dir(
+    base: Path,
+    name: str,
+    sharpe: float | None,
+    mode: str = "grid",
+    total_return: float = 0.1,
+) -> Path:
     """Create a minimal valid run directory for comparison tests."""
     d = base / name
     d.mkdir(parents=True, exist_ok=True)
     results = []
     if sharpe is not None:
-        results = [{"sharpe_simple": sharpe, "total_return": 0.1, "max_drawdown": -0.05, "trades": 5}]
-    report = {
+        results = [{"sharpe_simple": sharpe, "total_return": total_return, "max_drawdown": -0.05, "trades": 5}]
+    summary = {
+        "sharpe_simple": sharpe,
+        "total_return": total_return,
+        "max_drawdown": -0.05,
+        "trades": 5,
+    }
+    metadata = {
+        "run_id": name,
+        "mode": mode,
+        "command": "sweep",
+        "git_commit": SOURCE_COMMIT,
+    }
+    metrics = {
+        "summary": summary,
+        "best_result": results[0] if results else None,
+        "leaderboard_size": len(results),
+    }
+    metadata, metrics = attach_quantitative_provenance(
+        metadata,
+        metrics,
+        artifact_type="sweep",
+        relative_run_path=name,
+        source_git_commit=SOURCE_COMMIT,
+        run_id=name,
+    )
+    report = propagate_quantitative_provenance_to_report({
         "header": {
             "run_id": name,
             "mode": mode,
             "created_at": "2023-03-06T00:00:00",
-            "git_commit": "testsha",
+            "git_commit": SOURCE_COMMIT,
         },
         "results": results,
+        "summary": summary,
         "config_resolved": {"ticker": "ETH-USD"},
-    }
-    with open(d / "run_report.json", "w") as f:
-        json.dump(report, f)
+    }, metadata, metrics)
+    for filename, payload in (
+        ("metadata.json", metadata),
+        ("metrics.json", metrics),
+        ("report.json", report),
+    ):
+        with open(d / filename, "w") as f:
+            json.dump(payload, f)
     return d
 
 
@@ -112,15 +156,12 @@ def test_write_comparison_creates_artifacts(tmp_path):
 
 def test_compare_strict_json_no_nan(tmp_path):
     """NaN/Inf in run metrics must become null in compare_report.json."""
-    d = tmp_path / "nan_run"
-    d.mkdir()
-    bad_report = {
-        "header": {"run_id": "nan_run", "mode": "grid", "created_at": "", "git_commit": ""},
-        "results": [{"sharpe_simple": float("nan"), "total_return": float("inf")}],
-        "config_resolved": {},
-    }
-    with open(d / "run_report.json", "w") as f:
-        json.dump(bad_report, f)
+    d = _make_run_dir(
+        tmp_path,
+        "nan_run",
+        sharpe=float("nan"),
+        total_return=float("inf"),
+    )
 
     out = tmp_path / "out"
     json_p, _ = write_comparison([str(d)], out_path=str(out))

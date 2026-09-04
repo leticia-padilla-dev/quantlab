@@ -349,6 +349,43 @@ Legacy read compatibility currently includes:
 
 ---
 
+# Quantitative Artifact Authority
+
+Structural `schema_version` and mathematical contract identity are separate.
+New quantitative run, sweep, walk-forward, paper, and forward artifacts must
+publish the shared `quantitative_contract`, `artifact_identity`, and
+`canonical_metric_payload` blocks on applicable canonical surfaces.
+
+The shared contract currently recognizes:
+
+- OOS stitching `continuous_compounding_v1`
+- forward-resume accounting `exactly_once_v1`
+- fees/slippage `notional_adverse_price_v1`
+- annualization `interval_timestamp_validated_v1`
+
+Applicability is explicit by artifact type. A required missing or unknown
+policy, an invalid applicability, a metric/digest mismatch, or incomplete
+identity produces `unknown_provenance`.
+
+Authority is derived, never accepted from an artifact-authored status:
+
+- `current` remains visible and is eligible for ranking, comparison, forward
+  selection, and promotion;
+- `superseded` remains visible and is ineligible;
+- `unknown_provenance` remains visible and is ineligible.
+
+The external `quantitative_authority_registry.json` is non-destructive and
+matches the complete compound identity exactly. Invalid, duplicate,
+conflicting, or ambiguous registry content fails closed. Resolver precedence
+is invalid registry, exact supersession, embedded contract/integrity
+validation, then legacy/missing provenance.
+
+Legacy artifacts remain readable and visible but are not authoritative.
+Operational classification or regeneration of historical `outputs/` belongs
+to a later evidence-management wave.
+
+---
+
 # Artifact Stability Rule
 
 Artifact schemas must not change silently.
