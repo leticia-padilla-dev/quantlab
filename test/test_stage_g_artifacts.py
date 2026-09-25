@@ -7,6 +7,10 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from quantlab.experiments.runner import make_run_dir, run_sweep, fetch_ohlc_cached
+from quantlab.runs.quantitative_provenance import (
+    AUTHORITY_CURRENT,
+    resolve_quantitative_authority,
+)
 
 def newest_run_dir(base: Path) -> Path:
     dirs = [p for p in base.iterdir() if p.is_dir()]
@@ -85,6 +89,13 @@ def test_grid_artifacts(tmp_path):
         meta = json.load(f)
         assert meta["mode"] == "grid"
         assert "run_id" in meta
+        policies = meta["quantitative_contract"]["policies"]
+        assert policies["oos_equity_stitching"]["applicability"] == "not_applicable"
+        assert policies["fee_and_slippage"]["applicability"] == "applied"
+    assert (
+        resolve_quantitative_authority(run_dir).authority_status
+        == AUTHORITY_CURRENT
+    )
 
 def test_ohlc_caching(tmp_path):
     cache_dir = tmp_path / "cache"
@@ -183,6 +194,13 @@ def test_walkforward_artifacts(tmp_path):
         assert "n_train_runs" in meta
         assert "n_selected" in meta
         assert "n_test_runs" in meta
+        policies = meta["quantitative_contract"]["policies"]
+        assert policies["oos_equity_stitching"]["applicability"] == "applied"
+        assert policies["forward_resume_accounting"]["applicability"] == "not_applicable"
+    assert (
+        resolve_quantitative_authority(run_dir).authority_status
+        == AUTHORITY_CURRENT
+    )
 
 
 def test_walkforward_fails_if_robustness_verdict_generation_fails(tmp_path, monkeypatch):

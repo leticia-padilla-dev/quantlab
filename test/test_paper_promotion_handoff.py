@@ -6,15 +6,22 @@ from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from quantlab.cli.paper_sessions import handle_paper_session_commands
 from quantlab.reporting.paper_promotion_handoff import (
     PAPER_PROMOTION_HANDOFF_FILENAME,
     PAPER_PROMOTION_HANDOFF_VALIDATION_FILENAME,
+    build_paper_promotion_handoff,
+    build_paper_promotion_handoff_validation,
 )
 from quantlab.runs.artifacts import (
     CANONICAL_REPORT_FILENAME,
     PAPER_SESSION_METADATA_FILENAME,
     PAPER_SESSION_STATUS_FILENAME,
+)
+from support_quantitative_provenance import (
+    stamp_authoritative_paper_fixture,
 )
 
 
@@ -52,6 +59,7 @@ def test_paper_promotion_handoff_command_writes_artifacts(tmp_path: Path) -> Non
         },
     )
     _write_trades_csv(session_dir / "trades.csv")
+    stamp_authoritative_paper_fixture(session_dir)
 
     args = SimpleNamespace(
         paper_promotion_handoff=str(session_dir),
@@ -71,3 +79,104 @@ def test_paper_promotion_handoff_command_writes_artifacts(tmp_path: Path) -> Non
     validation = json.loads(validation_path.read_text(encoding="utf-8"))
     assert validation["artifact_type"] == "quantlab.paper.promotion_handoff_validation"
     assert validation["accepted"] is True
+
+
+@pytest.mark.parametrize(
+    "ledger_state", ["tampered", "malformed", "unbound", "missing"],
+)
+def test_paper_promotion_handoff_fails_closed_for_invalid_trades(
+    tmp_path: Path,
+    ledger_state: str,
+) -> None:
+    session_dir = tmp_path / "paper_sessions" / "sess_tampered"
+    session_dir.mkdir(parents=True)
+    now = datetime(2026, 1, 1, 12, 0, 0).isoformat()
+    _write_json(
+        session_dir / PAPER_SESSION_METADATA_FILENAME,
+        {
+            "session_id": "sess_tampered",
+            "created_at": now,
+            "command": "paper",
+            "mode": "paper",
+        },
+    )
+    _write_json(
+        session_dir / PAPER_SESSION_STATUS_FILENAME,
+        {
+            "session_id": "sess_tampered",
+            "status": "success",
+            "terminal": True,
+            "updated_at": now,
+        },
+    )
+    _write_json(
+        session_dir / CANONICAL_REPORT_FILENAME,
+        {
+            "status": "success",
+            "header": {"run_id": "sess_tampered", "mode": "paper"},
+            "machine_contract": {"contract_type": "quantlab.paper.result"},
+        },
+    )
+    _write_trades_csv(session_dir / "trades.csv")
+    stamp_authoritative_paper_fixture(
+        session_dir, bind_trades=ledger_state != "unbound",
+    )
+    if ledger_state == "tampered":
+        (session_dir / "trades.csv").write_text(
+            "timestamp,side,price,qty\n2026-01-01,BUY,1,1\n", encoding="utf-8",
+        )
+    elif ledger_state == "malformed":
+        (session_dir / "trades.csv").write_text(
+            "timestamp,side,price,qty\n2026-01-01\n", encoding="utf-8",
+        )
+    elif ledger_state == "missing":
+        (session_dir / "trades.csv").unlink()
+
+    handoff = build_paper_promotion_handoff(session_dir)
+
+    assert handoff["handoff_readiness"]["handoff_allowed"] is False
+    assert any(
+        blocker.startswith("quantitative_authority_unknown_provenance")
+        for blocker in handoff["handoff_readiness"]["blockers"]
+    )
+    args = SimpleNamespace(
+        paper_promotion_handoff=str(session_dir),
+        paper_promotion_handoff_outdir=str(session_dir),
+    )
+    assert handle_paper_session_commands(args) is True
+    validation = json.loads(
+        (session_dir / PAPER_PROMOTION_HANDOFF_VALIDATION_FILENAME).read_text(encoding="utf-8")
+    )
+    assert validation["accepted"] is False
+    assert "handoff_not_allowed" in validation["reasons"]
+    assert validation["handoff_readiness"] == handoff["handoff_readiness"]
+    assert any(
+        "quantitative_authority_unknown_provenance" in reason
+        for reason in validation["reasons"]
+    )
+
+
+@pytest.mark.parametrize("readiness", [
+    None,
+    {"handoff_allowed": False, "blockers": []},
+    {"handoff_allowed": "true", "blockers": []},
+    {"handoff_allowed": True, "blockers": ["quantitative_authority_unknown_provenance"]},
+    {"handoff_allowed": True, "blockers": None},
+])
+def test_handoff_validation_rejects_invalid_or_contradictory_readiness(
+    tmp_path: Path, readiness: object,
+) -> None:
+    payload = {
+        "artifact_type": "quantlab.paper.promotion_handoff",
+        "artifact_version": "1.0",
+        "source": {"session_dir": str(tmp_path)},
+        "artifact_presence": dict.fromkeys(
+            ("session_metadata_json", "session_status_json", "report_json", "trades_csv"), True,
+        ),
+        "handoff_readiness": readiness,
+    }
+    validation = build_paper_promotion_handoff_validation(
+        payload, source_artifact_path=tmp_path / PAPER_PROMOTION_HANDOFF_FILENAME,
+    )
+    assert validation["accepted"] is False
+    assert validation["reasons"]

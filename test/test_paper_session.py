@@ -9,6 +9,10 @@ import pytest
 
 from quantlab.cli.run import handle_run_command
 from quantlab.errors import DataError
+from quantlab.runs.quantitative_provenance import (
+    AUTHORITY_CURRENT,
+    resolve_quantitative_authority,
+)
 
 
 class _FakeStrategy:
@@ -19,6 +23,11 @@ class _FakeStrategy:
 
     def generate_signals(self, df):
         return pd.Series([1, 0, -1], index=df.index)
+
+
+class _NoTradeStrategy(_FakeStrategy):
+    def generate_signals(self, df):
+        return pd.Series(0, index=df.index)
 
 
 def _make_args() -> types.SimpleNamespace:
@@ -80,8 +89,10 @@ def test_paper_run_creates_dedicated_session_artifacts(monkeypatch, tmp_path):
         lambda bt: {
             "total_return": 0.01,
             "max_drawdown": -0.01,
-            "sharpe_simple": 0.8,
-            "winrate_active_days": 0.5,
+                "sharpe_simple": 0.8,
+                "annualization_status": "valid",
+                "annualization_reason": None,
+                "winrate_active_days": 0.5,
             "days": 3,
             "trades": 2,
         },
@@ -107,6 +118,11 @@ def test_paper_run_creates_dedicated_session_artifacts(monkeypatch, tmp_path):
     assert metadata["mode"] == "paper"
     assert metadata["command"] == "paper"
     assert metadata["request_id"] == "req_paper_session_001"
+    policies = metadata["quantitative_contract"]["policies"]
+    assert policies["oos_equity_stitching"]["applicability"] == "not_applicable"
+    assert policies["forward_resume_accounting"]["applicability"] == "not_applicable"
+    assert policies["fee_and_slippage"]["applicability"] == "applied"
+    assert policies["annualization"]["applicability"] == "applied"
 
     status = json.loads((session_dir / "session_status.json").read_text(encoding="utf-8"))
     assert status["session_id"] == session_id
@@ -132,6 +148,88 @@ def test_paper_run_creates_dedicated_session_artifacts(monkeypatch, tmp_path):
     assert report["machine_contract"]["mode"] == "paper"
     assert report["machine_contract"]["artifacts"]["metadata"] == "session_metadata.json"
     assert report["machine_contract"]["artifacts"]["status"] == "session_status.json"
+    metrics = json.loads((session_dir / "metrics.json").read_text(encoding="utf-8"))
+    assert set(metrics["bound_quantitative_inputs"]["files"]) == {"trades.csv"}
+    assert (
+        resolve_quantitative_authority(
+            session_dir,
+            required_inputs=("trades.csv",),
+        ).authority_status
+        == AUTHORITY_CURRENT
+    )
+
+
+def test_zero_trade_paper_run_writes_bound_canonical_ledger(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    idx = pd.date_range("2023-01-01", periods=3, freq="D")
+    price_df = pd.DataFrame(
+        {
+            "close": [100.0, 101.0, 102.0],
+            "ma20": [99.0, 100.0, 101.0],
+            "rsi": [50.0, 51.0, 52.0],
+        },
+        index=idx,
+    )
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        "quantlab.cli.run.fetch_ohlc",
+        lambda *args, **kwargs: price_df,
+    )
+    monkeypatch.setattr("quantlab.cli.run.add_indicators", lambda df: df)
+    monkeypatch.setattr(
+        "quantlab.cli.run.RsiMaAtrStrategy",
+        _NoTradeStrategy,
+    )
+    monkeypatch.setattr(
+        "quantlab.cli.run.run_backtest",
+        lambda **kwargs: _fake_backtest_frame(idx),
+    )
+    monkeypatch.setattr(
+        "quantlab.cli.run.compute_metrics",
+        lambda bt: {
+            "total_return": 0.0,
+            "max_drawdown": 0.0,
+            "sharpe_simple": 0.0,
+            "annualization_status": "valid",
+            "annualization_reason": None,
+            "trades": 0,
+        },
+    )
+    monkeypatch.setattr(
+        "quantlab.cli.run.plot_basic_equity",
+        lambda *args, **kwargs: None,
+    )
+
+    result = handle_run_command(_make_args())
+    session_dir = Path(result["artifacts_path"])
+    ledger = pd.read_csv(session_dir / "trades.csv")
+    metrics = json.loads(
+        (session_dir / "metrics.json").read_text(encoding="utf-8")
+    )
+
+    assert ledger.empty
+    assert list(ledger.columns) == [
+        "timestamp",
+        "side",
+        "close",
+        "exec_price",
+        "qty",
+        "fee",
+        "equity_after",
+        "slippage",
+        "reason",
+    ]
+    assert (
+        metrics["bound_quantitative_inputs"]["files"]
+        ["trades.csv"]["record_count"]
+        == 0
+    )
+    assert (
+        resolve_quantitative_authority(session_dir).authority_status
+        == AUTHORITY_CURRENT
+    )
 
 
 def test_paper_run_persists_failed_session_status(monkeypatch, tmp_path):

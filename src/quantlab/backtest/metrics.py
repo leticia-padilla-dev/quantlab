@@ -31,6 +31,7 @@ def compute_metrics(bt: pd.DataFrame, interval: str | None = None) -> dict:
         "interval": interval,
         "periods_per_year": factor,
         "annualization_status": context.annualization_status,
+        "annualization_reason": context.reason,
         "days": int(len(bt)),
         "trades": int((bt["trade"].abs() > 0).sum())
     }

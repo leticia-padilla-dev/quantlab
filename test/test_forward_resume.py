@@ -14,6 +14,22 @@ from quantlab.execution.forward_eval import (
     write_forward_eval_artifacts,
     load_forward_session
 )
+from quantlab.reporting.forward_report import write_forward_report
+
+
+def _write_authoritative_forward_artifacts(
+    result: dict,
+    out_dir: str | Path,
+    *,
+    initial_historical: dict | None = None,
+) -> list[str]:
+    written = write_forward_eval_artifacts(
+        result,
+        out_dir,
+        initial_historical=initial_historical,
+    )
+    write_forward_report(out_dir)
+    return written
 
 
 class _ResumeStrategy:
@@ -59,7 +75,7 @@ def test_forward_resume_workflow(sample_df, candidate, tmp_path):
         eval_end="2024-07-18"
     )
     
-    write_forward_eval_artifacts(result1, out_dir)
+    _write_authoritative_forward_artifacts(result1, out_dir)
     
     ps1 = result1["portfolio_state"]
     assert ps1.resume_count == 0
@@ -81,7 +97,11 @@ def test_forward_resume_workflow(sample_df, candidate, tmp_path):
         initial_state=session_data["portfolio_state"]
     )
     
-    write_forward_eval_artifacts(result2, out_dir, initial_historical=initial_historical)
+    _write_authoritative_forward_artifacts(
+        result2,
+        out_dir,
+        initial_historical=initial_historical,
+    )
     
     # Reload and verify
     session_data_final = load_forward_session(out_dir)
@@ -133,6 +153,7 @@ def test_legacy_open_position_checkpoint_recovers_entry_basis(monkeypatch, sampl
     state = json.loads(state_path.read_text())
     state.pop("open_position_entry_value", None)
     state_path.write_text(json.dumps(state))
+    write_forward_report(out_dir)
 
     loaded = load_forward_session(out_dir)
     assert loaded["portfolio_state"].open_position_entry_value > 0
@@ -153,6 +174,10 @@ def test_legacy_open_position_without_recoverable_basis_fails_closed(sample_df, 
     out_dir.mkdir()
     (out_dir / "portfolio_state.json").write_text(json.dumps(state.to_dict()))
     (out_dir / "forward_trades.csv").write_text("timestamp,side,equity_after\n")
+    pd.DataFrame(
+        {"timestamp": [str(sample_df.index[10])], "equity": [1.0]}
+    ).to_csv(out_dir / "forward_equity_curve.csv", index=False)
+    write_forward_report(out_dir)
     with pytest.raises(ValueError, match="recover"):
         load_forward_session(out_dir)
 
@@ -245,7 +270,7 @@ def test_resume_short_segment_after_short_fresh(sample_df, candidate, tmp_path):
         initial_cash=1000.0
     )
     
-    write_forward_eval_artifacts(result1, out_dir)
+    _write_authoritative_forward_artifacts(result1, out_dir)
     assert len(result1["equity_curve"]) == 11 # 200 to 210 inclusive
     
     # 2. Resume short session (indices 211-215)
@@ -265,7 +290,11 @@ def test_resume_short_segment_after_short_fresh(sample_df, candidate, tmp_path):
         initial_state=session_data["portfolio_state"]
     )
     
-    write_forward_eval_artifacts(result2, out_dir, initial_historical=initial_historical)
+    _write_authoritative_forward_artifacts(
+        result2,
+        out_dir,
+        initial_historical=initial_historical,
+    )
     
     # Verify final session
     final_data = load_forward_session(out_dir)
@@ -302,7 +331,7 @@ def test_resume_segment_metrics(sample_df, candidate, tmp_path):
         eval_end=eval_end_1,
         initial_cash=1000.0
     )
-    write_forward_eval_artifacts(result1, out_dir)
+    _write_authoritative_forward_artifacts(result1, out_dir)
     
     payload1 = build_forward_report(out_dir)
     w1 = payload1["warmup"]
@@ -329,7 +358,11 @@ def test_resume_segment_metrics(sample_df, candidate, tmp_path):
         eval_end=eval_end_2,
         initial_state=session_data["portfolio_state"]
     )
-    write_forward_eval_artifacts(result2, out_dir, initial_historical=initial_historical)
+    _write_authoritative_forward_artifacts(
+        result2,
+        out_dir,
+        initial_historical=initial_historical,
+    )
     
     payload2 = build_forward_report(out_dir)
     w2 = payload2["warmup"]
@@ -359,14 +392,14 @@ def test_resume_noop_does_not_increment_resume_count(sample_df, candidate, tmp_p
     df_fresh = sample_df.iloc[:150]
     eval_end_1 = str(df_fresh.index[-1].isoformat())
     result1 = run_forward_evaluation(candidate, df_fresh, eval_end=eval_end_1)
-    write_forward_eval_artifacts(result1, out_dir)
+    _write_authoritative_forward_artifacts(result1, out_dir)
     assert result1["portfolio_state"].resume_count == 0
     
     # 2. No-op 1
     session_data = load_forward_session(out_dir)
     result2 = run_forward_evaluation(candidate, df_fresh, eval_end=eval_end_1, initial_state=session_data["portfolio_state"])
     assert result2["portfolio_state"].resume_count == 0
-    write_forward_eval_artifacts(result2, out_dir)
+    _write_authoritative_forward_artifacts(result2, out_dir)
     
     # 3. No-op 2
     session_data_2 = load_forward_session(out_dir)
@@ -385,7 +418,7 @@ def test_resume_noop_keeps_state_stable(sample_df, candidate, tmp_path):
     df_fresh = sample_df.iloc[:200]
     eval_end_1 = str(df_fresh.index[-1].isoformat())
     result1 = run_forward_evaluation(candidate, df_fresh, eval_end=eval_end_1)
-    write_forward_eval_artifacts(result1, out_dir)
+    _write_authoritative_forward_artifacts(result1, out_dir)
     state_orig = result1["portfolio_state"]
     
     # No-op resume
@@ -402,7 +435,7 @@ def test_resume_noop_keeps_state_stable(sample_df, candidate, tmp_path):
     # Report check
     payload = build_forward_report(out_dir)
     # Note: the payload is built from DISK. We need to write the no-op result to disk first to verify report logic.
-    write_forward_eval_artifacts(result2, out_dir)
+    _write_authoritative_forward_artifacts(result2, out_dir)
     payload_disk = build_forward_report(out_dir)
     assert payload_disk["is_noop"] is True
     

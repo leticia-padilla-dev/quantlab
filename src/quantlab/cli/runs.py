@@ -60,10 +60,18 @@ def handle_runs_commands(args) -> bool:
         metric = getattr(args, "metric", "sharpe_simple")
         payload = build_runs_index(args.runs_best)
         runs = payload.get("runs", [])
-        valid = [r for r in runs if r.get(metric) is not None]
+        valid = [
+            r
+            for r in runs
+            if r.get("ranking_eligible") is True
+            and r.get(metric) is not None
+        ]
 
         if not valid:
-            print(f"No runs with metric '{metric}' found in {args.runs_best}")
+            print(
+                f"No authoritative runs with metric '{metric}' found in "
+                f"{args.runs_best}"
+            )
             return True
 
         best = max(

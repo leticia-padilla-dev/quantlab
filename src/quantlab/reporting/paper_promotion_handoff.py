@@ -42,6 +42,11 @@ def build_paper_promotion_handoff(session_dir: str | Path, *, generated_at: date
     status = (summary.get("status") or "unknown").lower()
     terminal = bool(summary.get("terminal", False))
     report_contract = summary.get("report_contract_type")
+    if summary.get("promotion_eligible") is not True:
+        blockers.append(
+            "quantitative_authority_"
+            + str(summary.get("authority_status") or "unknown_provenance")
+        )
 
     if not terminal:
         blockers.append("non_terminal_session")
@@ -147,6 +152,18 @@ def build_paper_promotion_handoff_validation(
             reasons.append(f"missing_presence_key:{key}")
         elif not bool(presence.get(key)):
             reasons.append(f"required_artifact_missing:{key}")
+
+    readiness = payload.get("handoff_readiness")
+    if not isinstance(readiness, dict):
+        reasons.append("handoff_readiness_missing")
+    else:
+        if readiness.get("handoff_allowed") is not True:
+            reasons.append("handoff_not_allowed")
+        blockers = readiness.get("blockers")
+        if not isinstance(blockers, list):
+            reasons.append("handoff_blockers_invalid")
+        else:
+            reasons.extend(f"handoff_blocker:{blocker}" for blocker in blockers)
 
     accepted = not reasons
     return {

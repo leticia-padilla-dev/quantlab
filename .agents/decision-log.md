@@ -134,3 +134,30 @@ QuantLab Desktop will move toward a native operator workspace with:
 - desktop slices can now stay focused on implementation rather than reopening stack debates
 - renderer and shell work must consume shared contracts instead of inventing local payload shapes
 - the engine remains authoritative for artifacts, execution semantics, and promotion truth
+
+---
+
+# 2026-07-26 — Quantitative artifact authority is derived and fail-closed
+
+## Context
+
+Structural JSON versions did not identify the mathematical policies used to
+produce metrics. Parseable historical artifacts could therefore enter
+ranking, forward selection, or promotion without recognized quantitative
+provenance.
+
+## Decision
+
+New quantitative artifacts publish one shared calculation contract, compound
+identity, canonical metric payload, and SHA-256 evidence digest. A shared
+resolver derives `current`, `superseded`, or `unknown_provenance` using fixed
+precedence and an optional non-destructive exact-match supersession registry.
+
+## Consequences
+
+- legacy and superseded evidence remains visible and immutable
+- only `current` evidence enters normal ranking, comparison, forward
+  selection, or promotion
+- malformed or ambiguous authority data fails closed
+- historical classification and regeneration remain separate operational
+  work and do not modify existing artifacts in this slice

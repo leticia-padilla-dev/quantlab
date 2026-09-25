@@ -60,7 +60,8 @@ def compare_runs(
     for d in run_dirs:
         try:
             s = load_run_summary(d)
-            summaries.append(s)
+            if s.get("comparison_eligible") is True:
+                summaries.append(s)
         except Exception as exc:  # noqa: BLE001
             import warnings
             warnings.warn(f"[compare_runs] Skipping {d}: {exc}")
@@ -89,6 +90,7 @@ def compare_runs(
         "generated_at": datetime.datetime.now().isoformat(),
         "sort_by": sort_by,
         "n_runs": len(summaries),
+        "excluded_non_authoritative": len(run_dirs) - len(summaries),
         "best_run_id": best_run_id,
         "best_run_path": best_run_path,
         "runs": summaries,
@@ -119,6 +121,10 @@ def render_comparison_md(payload: Dict[str, Any]) -> str:
         "",
         f"- **Generated at:** {payload.get('generated_at')}",
         f"- **Runs compared:** {payload.get('n_runs', len(runs))}",
+        (
+            "- **Excluded non-authoritative:** "
+            f"{payload.get('excluded_non_authoritative', 0)}"
+        ),
         f"- **Ranked by:** `{sort_by}`",
         "",
         "## Best Run",

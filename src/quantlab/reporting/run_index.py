@@ -34,6 +34,9 @@ from quantlab.runs.artifacts import (
     LEGACY_REPORT_FILENAMES,
     load_json_with_fallback,
 )
+from quantlab.runs.quantitative_provenance import (
+    resolve_quantitative_authority,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -60,6 +63,10 @@ _SUMMARY_FIELDS = [
     "ticker", "start", "end",
     "sharpe_simple", "total_return", "max_drawdown", "trades",
     "path",
+    "authority_status", "authority_reason",
+    "quantitative_contract_version", "quantitative_evidence_digest",
+    "visible", "ranking_eligible", "comparison_eligible",
+    "forward_eligible", "promotion_eligible",
 ]
 
 
@@ -200,6 +207,8 @@ def load_run_summary(run_dir: str | Path) -> Dict[str, Any]:
     if summary["run_id"] is None:
         summary["run_id"] = path.name
 
+    summary.update(resolve_quantitative_authority(path).to_dict())
+
     return summary
 
 
@@ -266,8 +275,10 @@ def render_runs_index_md(payload: Dict[str, Any]) -> str:
         return "\n".join(lines)
 
     display_cols = [
-        "run_id", "mode", "created_at", "sharpe_simple",
-        "total_return", "max_drawdown", "trades", "path",
+        "run_id", "mode", "authority_status", "ranking_eligible",
+        "comparison_eligible", "forward_eligible", "promotion_eligible",
+        "created_at", "sharpe_simple", "total_return", "max_drawdown",
+        "trades", "path",
     ]
     df = pd.DataFrame(runs)
     # Keep only columns that exist

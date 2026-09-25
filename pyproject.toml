@@ -24,6 +24,7 @@ quantlab = "quantlab.app:main"
 dev = [
   "pytest>=8.0",
   "pyarrow>=23.0.0",
+  "setuptools",
 ]
 perf = [
   "numba>=0.61,<0.62",

@@ -2,7 +2,7 @@
 
 ## Active Stage
 - **Stage**: Stage D.3 — Micro-Live Promotion Gate (hardening)
-- **Last Updated**: 2026-07-12
+- **Last Updated**: 2026-07-26
 - **Focus**: D.3 initial micro-live gate passed bounded validation (#413 closed). Legacy renderer retired (#539). Hardening criteria and Stage E promotion gate documented in `docs/d3-hardening-and-promotion-criteria.md` (#542/#543). Stage E remains explicitly blocked by design until the operator declares hardening complete. Current work is `post-D.3 initial validation hardening` — no new live execution, no Stage E issue open.
 
 ### Desktop Operator Workspace
@@ -69,6 +69,7 @@
   - prefer operator-visible hardening and regression coverage over new execution breadth
 - **Implemented Direction**:
   - canonical run artifacts now center on `metadata.json`, `config.json`, `metrics.json`, and `report.json`
+  - new quantitative artifacts carry a calculation-contract version, compound identity, canonical metric digest, and derived authority; legacy artifacts remain visible but fail closed for ranking, normal comparison, forward selection, and promotion
   - successful plain `run` executions now write that canonical artifact pack under `outputs/runs/<run_id>/`
   - legacy `meta.json` / `run_report.json` remain read-compatible only
   - machine-facing `run` and `sweep` outputs are exposed through canonical `report.json.machine_contract`
