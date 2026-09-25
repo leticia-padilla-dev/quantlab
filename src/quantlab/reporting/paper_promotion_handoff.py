@@ -153,6 +153,18 @@ def build_paper_promotion_handoff_validation(
         elif not bool(presence.get(key)):
             reasons.append(f"required_artifact_missing:{key}")
 
+    readiness = payload.get("handoff_readiness")
+    if not isinstance(readiness, dict):
+        reasons.append("handoff_readiness_missing")
+    else:
+        if readiness.get("handoff_allowed") is not True:
+            reasons.append("handoff_not_allowed")
+        blockers = readiness.get("blockers")
+        if not isinstance(blockers, list):
+            reasons.append("handoff_blockers_invalid")
+        else:
+            reasons.extend(f"handoff_blocker:{blocker}" for blocker in blockers)
+
     accepted = not reasons
     return {
         "artifact_type": "quantlab.paper.promotion_handoff_validation",

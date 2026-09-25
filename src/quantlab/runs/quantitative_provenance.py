@@ -92,8 +92,9 @@ def resolve_source_git_commit() -> str:
     Non-editable builds embed the commit in ``quantlab._build_info``.  An
     operator may alternatively supply a full commit or an explicit repository
     path.  Checkout execution finally accepts the current working tree when it
-    is inside a Git repository.  Package installation paths are never treated
-    as repository roots.
+    is inside a Git repository. Git-derived identities require both tracked
+    worktree and index contents to match HEAD; untracked files are ignored.
+    Package installation paths are never treated as repository roots.
     """
 
     explicit_commit = os.environ.get("QUANTLAB_SOURCE_GIT_COMMIT")
@@ -214,6 +215,26 @@ def _git_commit_from_repository(path: Path, *, source: str) -> str:
         raise RuntimeError(
             f"{source} is not a readable Git checkout"
         ) from exc
+    for diff_args in (("diff", "--quiet"), ("diff", "--cached", "--quiet")):
+        try:
+            result = subprocess.run(
+                ["git", "-C", repository_root, *diff_args],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False,
+            )
+        except OSError as exc:
+            raise RuntimeError(
+                f"{source} is not a readable Git checkout"
+            ) from exc
+        if result.returncode == 1:
+            raise RuntimeError(
+                f"{source} has tracked changes and cannot provide source authority"
+            )
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"{source} is not a readable Git checkout"
+            )
     return _validated_commit(commit, source=source)
 
 

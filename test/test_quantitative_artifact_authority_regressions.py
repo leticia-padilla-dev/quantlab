@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 from types import SimpleNamespace
@@ -45,6 +46,46 @@ from quantlab.experiments.runner import _save_reproducibility_pack
 
 
 SOURCE_COMMIT = "a" * 40
+
+
+def _git(repository: Path, *args: str) -> str:
+    return subprocess.check_output(
+        ["git", "-C", str(repository), *args],
+        stderr=subprocess.STDOUT,
+        text=True,
+    ).strip()
+
+
+def _initialize_source_repository(repository: Path) -> str:
+    _git(repository, "init")
+    _git(repository, "config", "core.autocrlf", "false")
+    _git(repository, "config", "user.email", "quantlab-tests@example.invalid")
+    _git(repository, "config", "user.name", "QuantLab Tests")
+    _git(repository, "add", "-A")
+    _git(repository, "commit", "-m", "source fixture")
+    return _git(repository, "rev-parse", "HEAD")
+
+
+def _create_source_repository(tmp_path: Path, name: str) -> tuple[Path, str]:
+    repository = tmp_path / name
+    repository.mkdir()
+    (repository / "tracked.py").write_text("VALUE = 1\n", encoding="utf-8")
+    return repository, _initialize_source_repository(repository)
+
+
+def _copy_workspace_to_clean_repository(destination: Path) -> tuple[Path, str]:
+    workspace = Path(__file__).resolve().parents[1]
+    destination.mkdir()
+    tracked = subprocess.check_output(
+        ["git", "ls-files", "-z", "--", "src", "setup.py", "pyproject.toml"],
+        cwd=workspace,
+    ).decode().split("\0")
+    for relative_path in filter(None, tracked):
+        source = workspace / relative_path
+        target = destination / relative_path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+    return destination, _initialize_source_repository(destination)
 
 
 def _write_legacy_run(run_dir: Path, *, sharpe: float = 1.5) -> None:
@@ -570,7 +611,9 @@ def test_source_commit_resolves_from_a_non_editable_install(
     wheel_dir = tmp_path / "wheel"
     site_packages = tmp_path / "site-packages"
     outside_checkout = tmp_path / "outside-checkout"
-    repository_root = Path(__file__).resolve().parents[1]
+    repository_root, expected_commit = _copy_workspace_to_clean_repository(
+        tmp_path / "source-repository"
+    )
     wheel_dir.mkdir()
     outside_checkout.mkdir()
 
@@ -628,7 +671,7 @@ def test_source_commit_resolves_from_a_non_editable_install(
         text=True,
     ).stdout.strip()
 
-    assert resolved == resolve_source_git_commit()
+    assert resolved == expected_commit
     assert len(resolved) == 40
 
     (site_packages / "quantlab" / "_build_info.py").unlink()
@@ -655,24 +698,181 @@ def test_source_commit_accepts_an_explicit_verified_repository(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    repository, commit = _create_source_repository(tmp_path, "explicit-clean")
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("QUANTLAB_SOURCE_GIT_COMMIT", raising=False)
     monkeypatch.setenv(
         "QUANTLAB_SOURCE_REPOSITORY",
-        str(Path(__file__).resolve().parents[1]),
+        str(repository),
     )
 
-    assert resolve_source_git_commit() == subprocess.check_output(
-        ["git", "rev-parse", "HEAD"],
-        cwd=Path(__file__).resolve().parents[1],
+    assert resolve_source_git_commit() == commit
+
+
+def test_source_commit_accepts_a_clean_editable_checkout(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repository, commit = _create_source_repository(tmp_path, "editable-clean")
+    (repository / "untracked.txt").write_text("allowed", encoding="utf-8")
+    monkeypatch.setitem(sys.modules, "quantlab._build_info", None)
+    outside_checkout = tmp_path / "outside-checkout"
+    outside_checkout.mkdir()
+    monkeypatch.chdir(outside_checkout)
+    monkeypatch.delenv("QUANTLAB_SOURCE_GIT_COMMIT", raising=False)
+    monkeypatch.delenv("QUANTLAB_SOURCE_REPOSITORY", raising=False)
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+    monkeypatch.delenv("GITHUB_SHA", raising=False)
+    monkeypatch.setattr(
+        "quantlab.runs.quantitative_provenance._editable_install_repository",
+        lambda: repository,
+    )
+
+    assert resolve_source_git_commit() == commit
+
+
+@pytest.mark.parametrize("staged", [False, True])
+def test_source_commit_rejects_tracked_editable_checkout_changes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    staged: bool,
+) -> None:
+    monkeypatch.setitem(sys.modules, "quantlab._build_info", None)
+    repository, _ = _create_source_repository(
+        tmp_path,
+        "editable-staged" if staged else "editable-unstaged",
+    )
+    (repository / "tracked.py").write_text("VALUE = 2\n", encoding="utf-8")
+    if staged:
+        _git(repository, "add", "tracked.py")
+    outside_checkout = tmp_path / "outside-checkout"
+    outside_checkout.mkdir()
+    monkeypatch.chdir(outside_checkout)
+    monkeypatch.delenv("QUANTLAB_SOURCE_GIT_COMMIT", raising=False)
+    monkeypatch.delenv("QUANTLAB_SOURCE_REPOSITORY", raising=False)
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+    monkeypatch.delenv("GITHUB_SHA", raising=False)
+    monkeypatch.setattr(
+        "quantlab.runs.quantitative_provenance._editable_install_repository",
+        lambda: repository,
+    )
+
+    with pytest.raises(RuntimeError, match="tracked changes"):
+        resolve_source_git_commit()
+
+
+@pytest.mark.parametrize("staged", [False, True])
+def test_source_commit_rejects_dirty_explicit_repository(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    staged: bool,
+) -> None:
+    repository, _ = _create_source_repository(tmp_path, "explicit-dirty")
+    (repository / "tracked.py").write_text("VALUE = 2\n", encoding="utf-8")
+    if staged:
+        _git(repository, "add", "tracked.py")
+    monkeypatch.setenv("QUANTLAB_SOURCE_REPOSITORY", str(repository))
+    monkeypatch.delenv("QUANTLAB_SOURCE_GIT_COMMIT", raising=False)
+
+    with pytest.raises(RuntimeError, match="tracked changes"):
+        resolve_source_git_commit()
+
+
+def test_explicit_source_commit_precedes_dirty_checkout(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repository, _ = _create_source_repository(tmp_path, "explicit-commit")
+    (repository / "tracked.py").write_text("VALUE = 2\n", encoding="utf-8")
+    explicit_commit = "c" * 40
+    monkeypatch.setenv("QUANTLAB_SOURCE_GIT_COMMIT", explicit_commit)
+    monkeypatch.setenv("QUANTLAB_SOURCE_REPOSITORY", str(repository))
+
+    assert resolve_source_git_commit() == explicit_commit
+
+
+def test_package_build_embeds_commit_from_clean_checkout(tmp_path: Path) -> None:
+    repository, commit = _copy_workspace_to_clean_repository(
+        tmp_path / "clean-build"
+    )
+    build_lib = tmp_path / "clean-build-lib"
+    (repository / "untracked.txt").write_text("allowed", encoding="utf-8")
+
+    subprocess.run(
+        [sys.executable, "setup.py", "build_py", "--build-lib", str(build_lib)],
+        cwd=repository,
+        check=True,
+        capture_output=True,
         text=True,
-    ).strip()
+    )
+
+    build_info = (build_lib / "quantlab" / "_build_info.py").read_text(
+        encoding="utf-8"
+    )
+    assert f'SOURCE_GIT_COMMIT = "{commit}"' in build_info
+
+
+@pytest.mark.parametrize("staged", [False, True])
+def test_package_build_rejects_dirty_tracked_checkout(
+    tmp_path: Path, staged: bool,
+) -> None:
+    repository, _ = _copy_workspace_to_clean_repository(tmp_path / "dirty-build")
+    (repository / "src" / "quantlab" / "__init__.py").write_text(
+        '"""Dirty source fixture."""\n',
+        encoding="utf-8",
+    )
+
+    if staged:
+        _git(repository, "add", "src/quantlab/__init__.py")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "setup.py",
+            "build_py",
+            "--build-lib",
+            str(tmp_path / "dirty-build-lib"),
+        ],
+        cwd=repository,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert "checkout with tracked changes" in result.stderr
+    assert not (tmp_path / "dirty-build-lib" / "quantlab" / "_build_info.py").exists()
+
+
+@pytest.mark.parametrize("change", ["clean", "unstaged", "staged"])
+def test_source_commit_checks_current_working_checkout(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, change: str,
+) -> None:
+    repository, commit = _create_source_repository(tmp_path, "current-checkout")
+    monkeypatch.chdir(repository)
+    for name in ("QUANTLAB_SOURCE_GIT_COMMIT", "QUANTLAB_SOURCE_REPOSITORY", "GITHUB_ACTIONS", "GITHUB_SHA"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setitem(sys.modules, "quantlab._build_info", None)
+    monkeypatch.setattr(
+        "quantlab.runs.quantitative_provenance._editable_install_repository", lambda: None,
+    )
+    if change == "clean":
+        assert resolve_source_git_commit() == commit
+    else:
+        (repository / "tracked.py").write_text("VALUE = 2\n", encoding="utf-8")
+        if change == "staged":
+            _git(repository, "add", "tracked.py")
+        with pytest.raises(RuntimeError, match="tracked changes"):
+            resolve_source_git_commit()
 
 
 def test_editable_install_repository_resolves_platform_file_uri(
+    tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    repository_root = Path(__file__).resolve().parents[1]
+    repository_root, commit = _create_source_repository(tmp_path, "editable space")
+    for name in ("QUANTLAB_SOURCE_GIT_COMMIT", "QUANTLAB_SOURCE_REPOSITORY", "GITHUB_ACTIONS", "GITHUB_SHA"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setitem(sys.modules, "quantlab._build_info", None)
 
     class EditableDistribution:
         @staticmethod
@@ -698,6 +898,7 @@ def test_editable_install_repository_resolves_platform_file_uri(
     )
 
     assert _editable_install_repository() == repository_root
+    assert resolve_source_git_commit() == commit
 
 
 def test_source_commit_accepts_the_github_actions_evaluated_sha(
