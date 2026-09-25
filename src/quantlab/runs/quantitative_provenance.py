@@ -91,10 +91,11 @@ def resolve_source_git_commit() -> str:
 
     Non-editable builds embed the commit in ``quantlab._build_info``.  An
     operator may alternatively supply a full commit or an explicit repository
-    path.  Checkout execution finally accepts the current working tree when it
-    is inside a Git repository. Git-derived identities require both tracked
-    worktree and index contents to match HEAD; untracked files are ignored.
-    Package installation paths are never treated as repository roots.
+    path. Checkout execution finally accepts the repository containing the
+    imported QuantLab source module, never an unrelated current directory.
+    Git-derived identities require both tracked worktree and index contents
+    to match HEAD; untracked files are ignored. Package installation paths
+    are never treated as repository roots.
     """
 
     explicit_commit = os.environ.get("QUANTLAB_SOURCE_GIT_COMMIT")
@@ -138,24 +139,52 @@ def resolve_source_git_commit() -> str:
             source="editable installation metadata",
         )
 
-    try:
-        repository_root = subprocess.check_output(
-            ["git", "-C", str(Path.cwd()), "rev-parse", "--show-toplevel"],
-            stderr=subprocess.DEVNULL,
-            text=True,
-        ).strip()
-    except (OSError, subprocess.CalledProcessError):
-        repository_root = ""
-    if repository_root:
+    repository_root = _imported_checkout_repository()
+    if repository_root is not None:
         return _git_commit_from_repository(
-            Path(repository_root),
-            source="current working checkout",
+            repository_root,
+            source="imported QuantLab checkout",
         )
 
     raise RuntimeError(
         "Cannot identify the source Git commit for a new quantitative "
         "artifact"
     )
+
+
+def _imported_checkout_repository() -> Path | None:
+    module_path = Path(__file__).resolve()
+    try:
+        repository_root = Path(
+            subprocess.check_output(
+                [
+                    "git", "-C", str(module_path.parent),
+                    "rev-parse", "--show-toplevel",
+                ],
+                stderr=subprocess.DEVNULL,
+                text=True,
+            ).strip()
+        ).resolve()
+        relative_module = module_path.relative_to(repository_root)
+    except (OSError, subprocess.CalledProcessError, ValueError):
+        return None
+    if relative_module.as_posix() != (
+        "src/quantlab/runs/quantitative_provenance.py"
+    ):
+        return None
+    try:
+        tracked = subprocess.run(
+            [
+                "git", "-C", str(repository_root), "ls-files",
+                "--error-unmatch", "--", relative_module.as_posix(),
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+    except OSError:
+        return None
+    return repository_root if tracked.returncode == 0 else None
 
 
 def _editable_install_repository() -> Path | None:

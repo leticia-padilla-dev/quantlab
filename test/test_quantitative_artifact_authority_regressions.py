@@ -844,25 +844,120 @@ def test_package_build_rejects_dirty_tracked_checkout(
 
 
 @pytest.mark.parametrize("change", ["clean", "unstaged", "staged"])
-def test_source_commit_checks_current_working_checkout(
+def test_source_commit_checks_imported_checkout(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, change: str,
 ) -> None:
-    repository, commit = _create_source_repository(tmp_path, "current-checkout")
-    monkeypatch.chdir(repository)
+    repository, commit = _copy_workspace_to_clean_repository(
+        tmp_path / "imported-checkout"
+    )
+    monkeypatch.chdir(tmp_path)
     for name in ("QUANTLAB_SOURCE_GIT_COMMIT", "QUANTLAB_SOURCE_REPOSITORY", "GITHUB_ACTIONS", "GITHUB_SHA"):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setitem(sys.modules, "quantlab._build_info", None)
     monkeypatch.setattr(
         "quantlab.runs.quantitative_provenance._editable_install_repository", lambda: None,
     )
+    monkeypatch.setattr(
+        "quantlab.runs.quantitative_provenance.__file__",
+        str(repository / "src" / "quantlab" / "runs" / "quantitative_provenance.py"),
+    )
     if change == "clean":
         assert resolve_source_git_commit() == commit
     else:
-        (repository / "tracked.py").write_text("VALUE = 2\n", encoding="utf-8")
+        module_path = (
+            repository / "src" / "quantlab" / "runs"
+            / "quantitative_provenance.py"
+        )
+        module_path.write_text(
+            module_path.read_text(encoding="utf-8") + "\n",
+            encoding="utf-8",
+        )
         if change == "staged":
-            _git(repository, "add", "tracked.py")
+            _git(repository, "add", str(module_path.relative_to(repository)))
         with pytest.raises(RuntimeError, match="tracked changes"):
             resolve_source_git_commit()
+
+
+def test_source_commit_uses_imported_checkout_not_unrelated_clean_cwd_repository(
+    tmp_path: Path,
+) -> None:
+    source_repository, source_commit = _copy_workspace_to_clean_repository(
+        tmp_path / "source-checkout"
+    )
+    other_repository, other_commit = _create_source_repository(
+        tmp_path, "other-checkout"
+    )
+    assert source_commit != other_commit
+    environment = os.environ.copy()
+    environment["PYTHONPATH"] = str(source_repository / "src")
+    for name in (
+        "QUANTLAB_SOURCE_GIT_COMMIT",
+        "QUANTLAB_SOURCE_REPOSITORY",
+        "GITHUB_ACTIONS",
+        "GITHUB_SHA",
+    ):
+        environment.pop(name, None)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "from quantlab.runs.quantitative_provenance "
+                "import resolve_source_git_commit; "
+                "print(resolve_source_git_commit())"
+            ),
+        ],
+        cwd=other_repository,
+        env=environment,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.stdout.strip() == source_commit
+
+
+def test_source_commit_fails_closed_when_imported_source_is_not_a_checkout(
+    tmp_path: Path,
+) -> None:
+    source_repository, _ = _copy_workspace_to_clean_repository(
+        tmp_path / "source-checkout"
+    )
+    unversioned_source = tmp_path / "unversioned-source"
+    shutil.copytree(source_repository / "src", unversioned_source / "src")
+    other_repository, other_commit = _create_source_repository(
+        tmp_path, "other-checkout"
+    )
+    environment = os.environ.copy()
+    environment["PYTHONPATH"] = str(unversioned_source / "src")
+    for name in (
+        "QUANTLAB_SOURCE_GIT_COMMIT",
+        "QUANTLAB_SOURCE_REPOSITORY",
+        "GITHUB_ACTIONS",
+        "GITHUB_SHA",
+    ):
+        environment.pop(name, None)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "from quantlab.runs.quantitative_provenance "
+                "import resolve_source_git_commit; "
+                "print(resolve_source_git_commit())"
+            ),
+        ],
+        cwd=other_repository,
+        env=environment,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert "Cannot identify the source Git commit" in result.stderr
+    assert other_commit not in result.stdout
 
 
 def test_editable_install_repository_resolves_platform_file_uri(
