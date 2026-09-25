@@ -27,10 +27,10 @@ Each scenario is evaluated as `capability → invariant → setup/scenario → f
 - **Capability:** create a paper session.
 - **Invariant:** one stable `session_id` binds mode `paper`, strategy ID/version, frozen config, source provenance, market, execution account scope and engine version; no implicit promotion or live authority.
 - **Setup/scenario:** empty session root, fixed strategy and one-position limit.
-- **Fault/action:** issue START once, then repeat the same start request.
-- **Expected behavior:** exactly one logical session; duplicate request returns the same session or a deterministic rejection, never a second active executor.
-- **Evidence:** metadata, config digest, status transition and start-request identity.
-- **PASS/FAIL:** PASS only if identity and active-executor count are exact and canonical evidence is complete; otherwise FAIL.
+- **Fault/action:** issue START with an opaque caller/harness-supplied `start_request_id`; repeat it with the same canonical session identity, then reuse it with a different identity.
+- **Expected behavior:** the first valid START persists the `start_request_id` association with `session_id` before acceptance. Repeating that ID with the same mode `paper`, strategy ID/version, config digest, source provenance, market, execution account scope and engine version returns the same `session_id` or an equivalent `already_exists` result, never another executor. Reusing the ID with any different canonical identity produces a deterministic conflict and creates no session.
+- **Evidence:** persisted `start_request_id`–`session_id` association before acceptance, canonical identity, attempt outcomes, status transitions and active-executor count.
+- **PASS/FAIL:** PASS only if same-identity replay is idempotent, different-identity reuse conflicts, no extra session/executor is created and canonical evidence is complete; otherwise FAIL.
 
 ### M02 — Unattended paper cycle
 
