@@ -1,9 +1,9 @@
 # Current State - QuantLab
 
 ## Active Stage
-- **Stage**: Stage D.3 — Micro-Live Promotion Gate (hardening)
-- **Last Updated**: 2026-07-26
-- **Focus**: D.3 initial micro-live gate passed bounded validation (#413 closed). Legacy renderer retired (#539). Hardening criteria and Stage E promotion gate documented in `docs/d3-hardening-and-promotion-criteria.md` (#542/#543). Stage E remains explicitly blocked by design until the operator declares hardening complete. Current work is `post-D.3 initial validation hardening` — no new live execution, no Stage E issue open.
+- **Stage**: Post-Wave 1 — Paper Trading MVP acceptance definition
+- **Last Updated**: 2026-09-25
+- **Focus**: Wave 1 — Quantitative Correctness is complete and certified on `main` at `5dcaf2e48773b73d0f7945d39d1a590b99b1ed73`. PR #874 is merged, issue #873 is closed, post-merge recapture passed, and all five hardening gates passed on that SHA. The next checkpoint is validation of `docs/paper-trading-mvp-acceptance-contract-v0.md`. Live execution and capital authority remain closed; Wave 2 has not started.
 
 ### Desktop Operator Workspace
 - **status**: react_only_renderer
@@ -55,18 +55,13 @@
 | External Consumer | Contract Stability (formerly Stepbit-facing) | ✅ Retired as active architecture; reusable contract semantics remain |
 
 ## Active Work
-- **Stage Open**: Stage D.3 initial micro-live gate passed bounded validation (2026-05-05). #413 closed as completed. Legacy renderer retired (#539). D.3 hardening criteria and Stage E promotion gate documented (#542/#543).
-- **Current Priority**: `post-D.3 initial validation hardening` — working through `docs/d3-hardening-and-promotion-criteria.md` criteria. Stage E remains explicitly blocked by operator design until hardening criteria are satisfied and a declaration is made. No new live execution until then.
+- **Current Priority**: Validate `Paper Trading MVP Acceptance Contract v0` as a product/acceptance definition, without implementing a runtime or starting Wave 2.
+- **Next Decision**: After the contract is validated, run one Adopt/Build spike against its unchanged criteria: Freqtrade first; NautilusTrader only if Freqtrade fails critical invariants. Record the engine decision, then ENGINE FREEZE. Neither engine is selected or implemented yet.
+- **Historical Boundary**: D.2/D.3 contracts and bounded validation remain part of the record, but are not the immediate product priority. Live execution stays frozen and no paper result grants capital authority.
 - **Parallel Track Note**: Desktop is React-only as of 2026-05-05 (#539 merged). No active desktop migration work — that track is complete. Future desktop work is normal polish and surface docs.
 - **Active Focus Areas**:
-  - satisfy the 5 hardening dimensions in `docs/d3-hardening-and-promotion-criteria.md` before any Stage E consideration
-  - keep broker execution auditable; no automation or retry widening
-  - preserve paper-session discipline as the promotion floor
-  - keep Hyperliquid as the active execution boundary; Kraken remains legacy compatibility
-  - treat Bitget as a later optional venue after Hyperliquid, not a current priority
-  - Quant Pulse intake is valid only when it improves research, validation, or product priorities
-  - keep Stepbit retired from active roadmap, runtime authority, and future delivery planning
-  - prefer operator-visible hardening and regression coverage over new execution breadth
+  - define verifiable paper identity, recovery, idempotency, accounting, stop and authority boundaries before choosing an engine
+  - preserve the live freeze and separate paper usability from strategy promotion and capital authorization
 - **Implemented Direction**:
   - canonical run artifacts now center on `metadata.json`, `config.json`, `metrics.json`, and `report.json`
   - new quantitative artifacts carry a calculation-contract version, compound identity, canonical metric digest, and derived authority; legacy artifacts remain visible but fail closed for ranking, normal comparison, forward selection, and promotion
